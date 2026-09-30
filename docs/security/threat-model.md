@@ -87,15 +87,16 @@ Déduites des règles métier (conception 6.2) et de la matrice des droits (conc
 
 | Menace | STRIDE | Contre-mesure prévue par la conception | Test |
 |---|---|---|---|
-| Un gérant confirme l'encaissement d'un terrain qui n'est pas le sien | S, E | « Seul le gérant du terrain confirme » ; rôle vérifié sur le terrain concerné | S2 (à étendre) |
+| Un joueur, ou le gérant d'un autre terrain, confirme un encaissement sur place | S, E | « Seul le gérant du terrain confirme » ; rôle vérifié sur le terrain concerné | S14 |
 | Un joueur rejoint un match complet en appelant l'endpoint directement | T | Règles d'état vérifiées côté serveur (409) | S9 |
 | Deux réservations simultanées du même créneau | T | Contrainte d'exclusion en base : une seule réservation gagne | Test d'intégration |
 | Rejeu d'un paiement ou d'un événement Kafka | T | Clés d'idempotence, unicité en base, événements traités enregistrés | S6 |
-| Un participant vote deux fois, pour soi, ou sans avoir joué | T | `UNIQUE (match_id, voter_id)`, `CHECK (voter_id <> candidate_id)`, vote réservé aux participants avec compte | Test automatisé |
+| Un participant vote deux fois, pour soi, ou sans avoir joué | T | `UNIQUE (match_id, voter_id)`, `CHECK (voter_id <> candidate_id)`, vote réservé aux participants avec compte | S13 |
+| Un membre simple invite, retire un membre ou se déclare capitaine | E | Rôles d'équipe vérifiés côté serveur : seul le capitaine ou le vice-capitaine agit | S12 |
 | Un joueur modifie son propre rôle via `PATCH /users/me` | E | DTO dédiés : les champs sensibles ne sont jamais liés à la requête | Test automatisé |
 | Un invité sans compte vote ou se connecte | S | Un invité n'est qu'un surnom : aucune authentification, aucun vote | Test automatisé |
 
-## 5. Plan de tests de sécurité (extrait utilisé par ce modèle)
+## 5. Plan de tests de sécurité (S1 à S14)
 
 | ID | Scénario | Résultat attendu |
 |---|---|---|
@@ -103,15 +104,18 @@ Déduites des règles métier (conception 6.2) et de la matrice des droits (conc
 | S2 | Un joueur appelle un endpoint d'administration | 403 |
 | S3 | JWT expiré, signature modifiée ou algorithme « none » | 401 |
 | S4 | Force brute sur le login (centaines de tentatives) | Verrouillage ou 429 ; alerte visible dans Grafana |
-| S5 | Le client envoie un prix ou un montant modifiés | Le serveur ignore la valeur et recalcule |
-| S6 | Rejeu de la même requête de paiement ou du même événement | Un seul débit enregistré |
+| S5 | Le client envoie un prix de créneau ou d'équipement modifié | Le serveur ignore la valeur et recalcule |
+| S6 | Rejeu de la même requête de paiement ou du même événement | Un seul paiement enregistré par match |
 | S7 | Upload d'un faux fichier (logo d'équipe) ou d'un fichier trop gros | Refus avec une erreur claire |
 | S8 | Injection SQL dans les paramètres de recherche de terrains | Aucune erreur SQL, aucun résultat détourné |
 | S9 | Rejoindre un match déjà complet en appelant l'endpoint directement | 409, place refusée |
 | S10 | Accès public à `/actuator/env` ou `/actuator/heapdump` | Non exposé (404 ou 401) |
 | S11 | Position GPS falsifiée pour un check-in (recommandé) | Check-in refusé si l'écart est trop grand |
+| S12 | Un membre simple invite un joueur, retire un membre ou se déclare capitaine | 403 ; seul le capitaine ou le vice-capitaine peut le faire |
+| S13 | Vote du MVP : voter deux fois, voter pour soi, voter sans avoir joué le match | Les trois votes sont refusés |
+| S14 | Un joueur (non gérant) marque un paiement sur place comme encaissé | 403 ; seul le gérant du terrain concerné le peut |
 
-> **À compléter avant fusion :** les identifiants **S12** et **S14**, cités dans le tableau du § 4 (élévation de privilège et usurpation), renvoient au plan de tests de sécurité du dossier de projet, dont la version relue ici s'arrête à S11. Reporter leur intitulé exact ici avant de fusionner.
+Ces tests sont définis dans le plan de tests de sécurité du dossier de projet (section 11.6). Chacun devient un test automatisé dans la CI, sauf S4 (script sur staging) et S11 (test manuel, recommandé).
 
 ## 6. Risques acceptés et points en backlog
 
