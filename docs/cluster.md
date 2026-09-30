@@ -43,6 +43,23 @@ k3d cluster start teamslot   # pour reprendre
 | `kubectl get nodes` ne répond pas | Vérifier que le cluster est démarré : `k3d cluster list` |
 | PC lent ou Docker qui plante | Arrêter les conteneurs inutiles ; la mémoire est limitée à 6 Go |
 
-## Accès pour l'équipe
+## Accès pour l'équipe (Tailscale)
 
-À compléter dans SCRUM-37 (adresse Tailscale, port-forward, créneaux où le cluster est allumé).
+Le cluster tourne sur le PC d'Amira. L'accès se fait via Tailscale (réseau privé, rien n'est exposé sur Internet).
+
+- Adresse Tailscale du PC : `100.x.y.z` (remplacer par la vraie adresse)
+- Prérequis : Tailscale installé et connecté, invitation de partage acceptée
+
+Commandes lancées par Amira (terminaux à laisser ouverts) :
+
+```bash
+kubectl port-forward --address 0.0.0.0 svc/monitoring-grafana -n monitoring 3001:80
+kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 8443:443
+```
+
+Côté équipe :
+- Grafana : http://100.x.y.z:3001
+- Argo CD : https://100.x.y.z:8443
+
+Le cluster n'est accessible que lorsque le PC d'Amira est allumé et le cluster démarré.
+Créneaux où le cluster est allumé : à compléter.
