@@ -1,0 +1,421 @@
+openapi: 3.0.3
+info:
+  title: match-service
+  version: 1.0.0
+  description: |
+    Matchs de groupe et défis, organisateurs, participants avec ou sans compte,
+    répartition des équipes, score et vote du MVP.
+    Contrat issu de la conception (sections 5, 6 et 7.2).
+
+    Conventions : préfixe /api/v1, erreurs au format Problem Details (RFC 9457),
+    dates en ISO 8601 UTC, montants en centimes avec la devise.
+    L'identifiant de l'utilisateur est toujours lu dans le JWT, jamais dans le corps.
+servers:
+  - url: http://localhost:8082
+    description: Développement local (gateway 8080, match-service 8082)
+tags:
+  - name: matches
+    description: Création et cycle de vie d'un match
+  - name: participants
+    description: Joueurs avec compte ou invités sans compte
+  - name: recruiting
+    description: Compléter le groupe
+  - name: challenges
+    description: Défis entre équipes
+  - name: results
+    description: Répartition, score et MVP
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/matches:
+    post:
+      tags: [matches]
+      summary: Réserver un créneau et créer le match de groupe
+      description: |
+        Appelle venue-service (POST /api/v1/slot-reservations) en synchrone.
+        L'appelant devient organisateur principal et responsable du paiement.
+        Le match est créé en statut PENDING_PAYMENT. Publie match.created.
+      operationId: createMatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateMatchRequest' }
+      responses:
+        '201':
+          description: Match créé
+          headers:
+            Location: { schema: { type: string }, description: URL du match créé }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Match' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Créneau déjà réservé
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /api/v1/matches/{id}/participants:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [participants]
+      summary: Ajouter un participant (organisateur)
+      description: |
+        Un participant est soit un compte, soit un invité identifié par un surnom, jamais les deux.
+        Aucun numéro ni e-mail n'est conservé pour un invité sans compte.
+        Publie match.participant_added.
+      operationId: addParticipant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddParticipantRequest' }
+      responses:
+        '201':
+          description: Participant ajouté
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Participant' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/open-spots:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [recruiting]
+      summary: Ouvrir des places à des joueurs extérieurs (organisateur)
+      description: Le match devient visible sur la carte. Publie match.spots_opened.
+      operationId: openSpots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OpenSpotsRequest' }
+      responses:
+        '200':
+          description: Places ouvertes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Match' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/join:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [recruiting]
+      summary: Demander à rejoindre un match aux places ouvertes
+      description: Publie match.join_requested ; l'organisateur accepte ensuite (match.join_accepted).
+      operationId: joinMatch
+      responses:
+        '202':
+          description: Demande enregistrée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Participant' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/challenge:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [challenges]
+      summary: Publier ou envoyer un défi (capitaine)
+      description: Défi direct à une équipe connue, ou défi public visible sur la carte. Publie match.challenge_posted.
+      operationId: postChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChallengeRequest' }
+      responses:
+        '200':
+          description: Défi publié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Match' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/challenge/accept:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [challenges]
+      summary: Accepter un défi (capitaine de l'équipe adverse)
+      description: Publie match.challenge_accepted ; le match devient TEAM_VS_TEAM.
+      operationId: acceptChallenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptChallengeRequest' }
+      responses:
+        '200':
+          description: Défi accepté
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Match' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/split:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [results]
+      summary: Répartir les joueurs en deux équipes (organisateur)
+      description: |
+        Un joueur n'est jamais des deux côtés. Publie match.teams_split.
+        La stratégie est un point d'extension (TeamSplitStrategy) : « random » aujourd'hui,
+        « balanced » plus tard, sans modifier ce contrat.
+      operationId: splitTeams
+      parameters:
+        - name: strategy
+          in: query
+          required: true
+          schema: { type: string, enum: [random], example: random }
+      responses:
+        '200':
+          description: Répartition effectuée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamSplit' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/result:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [results]
+      summary: Saisir le score (facultatif)
+      description: |
+        Pour un match TEAM_VS_TEAM, le score doit être confirmé par les deux capitaines,
+        sinon le match passe en DISPUTED. Publie match.result_submitted.
+      operationId: submitResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResultRequest' }
+      responses:
+        '200':
+          description: Score enregistré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/mvp-votes:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [results]
+      summary: Voter pour le joueur du match
+      description: |
+        Participants avec compte uniquement ; une seule voix, pas pour soi-même.
+        Vote ouvert 24 h après le match. Un invité sans compte peut être élu mais ne vote pas.
+      operationId: voteMvp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MvpVoteRequest' }
+      responses:
+        '201':
+          description: Vote enregistré
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    MatchId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant du match
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Droits insuffisants pour cette action
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Conflit avec l'état actuel du match
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: 'https://teamslot.app/problems/slot-already-reserved' }
+        title: { type: string, example: Créneau déjà réservé }
+        status: { type: integer, example: 409 }
+        detail: { type: string }
+        instance: { type: string }
+    Money:
+      type: object
+      description: Montant en centimes avec sa devise
+      required: [amount, currency]
+      properties:
+        amount: { type: integer, minimum: 0, example: 15000 }
+        currency: { type: string, minLength: 3, maxLength: 3, example: MAD }
+    MatchKind:
+      type: string
+      description: Groupe d'amis à côtés libres, ou affrontement entre deux équipes enregistrées
+      enum: [FRIENDLY, TEAM_VS_TEAM]
+    MatchVisibility:
+      type: string
+      description: Visible seulement par les participants, ou sur la carte
+      enum: [PRIVATE, PUBLIC]
+    MatchStatus:
+      type: string
+      enum: [PENDING_PAYMENT, CONFIRMED, IN_PROGRESS, PLAYED, CLOSED, CANCELLED, NO_SHOW, DISPUTED]
+    Match:
+      type: object
+      required: [id, kind, visibility, openSpots, status, ownerId, payerId, slotId]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/MatchKind' }
+        visibility: { $ref: '#/components/schemas/MatchVisibility' }
+        openSpots: { type: integer, minimum: 0, description: Places ouvertes à des joueurs extérieurs }
+        status: { $ref: '#/components/schemas/MatchStatus' }
+        ownerId: { type: string, format: uuid, description: Organisateur principal }
+        payerId: { type: string, format: uuid, description: Responsable du paiement }
+        slotId: { type: string, format: uuid }
+        venueId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        totalPrice: { $ref: '#/components/schemas/Money' }
+        version: { type: integer, format: int64, description: Verrouillage optimiste }
+    CreateMatchRequest:
+      type: object
+      required: [slotId]
+      properties:
+        slotId: { type: string, format: uuid }
+        equipmentIds:
+          type: array
+          items: { type: string, format: uuid }
+    ParticipantStatus:
+      type: string
+      enum: [INVITED, CONFIRMED, REQUESTED, DECLINED]
+    Participant:
+      type: object
+      required: [id, matchId, status]
+      description: Soit userId, soit guestName, jamais les deux
+      properties:
+        id: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        userId: { type: string, format: uuid, nullable: true }
+        guestName: { type: string, nullable: true, example: Yassir }
+        side: { type: string, enum: [A, B], nullable: true }
+        teamId: { type: string, format: uuid, nullable: true }
+        status: { $ref: '#/components/schemas/ParticipantStatus' }
+    AddParticipantRequest:
+      type: object
+      description: Fournir exactement un des deux champs
+      oneOf:
+        - required: [userId]
+        - required: [guestName]
+      properties:
+        userId: { type: string, format: uuid }
+        guestName: { type: string, minLength: 1, maxLength: 40 }
+    OpenSpotsRequest:
+      type: object
+      required: [count]
+      properties:
+        count: { type: integer, minimum: 1 }
+    ChallengeRequest:
+      type: object
+      required: [teamId, visibility]
+      properties:
+        teamId: { type: string, format: uuid, description: Équipe du capitaine qui lance le défi }
+        visibility: { $ref: '#/components/schemas/MatchVisibility' }
+        opponentTeamId:
+          type: string
+          format: uuid
+          description: Obligatoire pour un défi direct (PRIVATE), absent pour un défi public
+    AcceptChallengeRequest:
+      type: object
+      required: [teamId]
+      properties:
+        teamId: { type: string, format: uuid }
+    TeamSplit:
+      type: object
+      required: [matchId, strategy, sideA, sideB]
+      properties:
+        matchId: { type: string, format: uuid }
+        strategy: { type: string, example: random }
+        sideA:
+          type: array
+          items: { $ref: '#/components/schemas/Participant' }
+        sideB:
+          type: array
+          items: { $ref: '#/components/schemas/Participant' }
+    ResultRequest:
+      type: object
+      required: [scoreA, scoreB]
+      properties:
+        scoreA: { type: integer, minimum: 0 }
+        scoreB: { type: integer, minimum: 0 }
+    Result:
+      type: object
+      required: [matchId, scoreA, scoreB, status]
+      properties:
+        matchId: { type: string, format: uuid }
+        scoreA: { type: integer }
+        scoreB: { type: integer }
+        status: { type: string, enum: [SUBMITTED, CONFIRMED, DISPUTED] }
+    MvpVoteRequest:
+      type: object
+      required: [candidateParticipantId]
+      properties:
+        candidateParticipantId:
+          type: string
+          format: uuid
+          description: Participant élu (compte ou invité), différent du votant
