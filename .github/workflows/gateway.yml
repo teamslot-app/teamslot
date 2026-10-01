@@ -1,14 +1,14 @@
-name: service-template
+name: gateway
 on:
   pull_request:
     paths:
-      - 'services/service-template/**'
+      - 'gateway/**'
       - '.github/workflows/java-service.yml'
-      - '.github/workflows/service-template.yml'
+      - '.github/workflows/gateway.yml'
   push:
     branches: [main]
     paths:
-      - 'services/service-template/**'
+      - 'gateway/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +17,6 @@ jobs:
   ci:
     uses: ./.github/workflows/java-service.yml
     with:
-      service: services/service-template
-      name: service-template
-      sonar_project_key: teamslot-app_teamslot
+      service: gateway
+      name: gateway
     secrets: inherit
