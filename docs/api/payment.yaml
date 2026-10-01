@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: payment-service
+  version: 1.0.0
+  description: |
+    Paiement de la réservation par le responsable, en ligne (simulé) ou sur place.
+    Contrat issu de la conception (sections 4, 5.1, 6.3 et 7.2).
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC,
+    montants en centimes avec la devise. Le montant est toujours recalculé par le serveur.
+servers:
+  - url: http://localhost:8085
+    description: Développement local (port à confirmer avec le service modèle)
+security:
+  - bearerAuth: []
+tags:
+  - name: payments
+    description: Paiement d'un match
+paths:
+  /api/v1/payments/{matchId}/online:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    post:
+      tags: [payments]
+      summary: Payer en ligne (simulé)
+      description: Réservé au responsable du paiement. Publie payment.completed, ou payment.failed en cas d'échec.
+      operationId: payOnline
+      responses:
+        "200":
+          description: Paiement effectué, le match passe en CONFIRMED
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/payments/{matchId}/on-site:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    post:
+      tags: [payments]
+      summary: Choisir le paiement sur place
+      description: Possible seulement si le terrain l'accepte, sinon 409. Publie payment.on_site_accepted.
+      operationId: payOnSite
+      responses:
+        "200":
+          description: Paiement sur place accepté, reste à encaisser
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/payments/{matchId}/collected:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    post:
+      tags: [payments]
+      summary: Confirmer l'encaissement sur place (gérant du terrain)
+      description: Seul le gérant du terrain concerné confirme. Publie payment.collected_on_site.
+      operationId: confirmCollected
+      responses:
+        "200":
+          description: Encaissement confirmé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/payments/{matchId}:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    get:
+      tags: [payments]
+      summary: État du paiement d'un match
+      operationId: getPayment
+      responses:
+        "200":
+          description: Paiement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: Droits insuffisants pour cette action
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: Conflit avec l'état actuel
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/conflict" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    Money:
+      type: object
+      description: Montant en centimes avec sa devise
+      required: [amount, currency]
+      properties:
+        amount: { type: integer, minimum: 0, example: 15000 }
+        currency: { type: string, minLength: 3, maxLength: 3, example: MAD }
+    PaymentMode:
+      type: string
+      enum: [ONLINE, ON_SITE]
+    PaymentStatus:
+      type: string
+      description: PENDING à la création, puis l'un des statuts ci-dessous
+      enum: [PENDING, COMPLETED, ON_SITE_ACCEPTED, COLLECTED, FAILED, REFUNDED]
+    Payment:
+      type: object
+      required: [id, matchId, payerId, mode, totalAmount, status]
+      properties:
+        id: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        payerId: { type: string, format: uuid }
+        mode: { $ref: "#/components/schemas/PaymentMode" }
+        totalAmount: { $ref: "#/components/schemas/Money" }
+        status: { $ref: "#/components/schemas/PaymentStatus" }
+        collectedBy: { type: string, format: uuid, nullable: true }
+        collectedAt: { type: string, format: date-time, nullable: true }

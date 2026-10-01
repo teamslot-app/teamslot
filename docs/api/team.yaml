@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: team-service
+  version: 1.0.0
+  description: |
+    Équipes créées par les joueurs, rôles (capitaine, vice-capitaine), invitations et adhésions.
+    Contrat issu de la conception (sections 4, 5.3, 6.3 et 7.2).
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
+    L'identifiant de l'utilisateur est toujours lu dans le JWT, jamais dans le corps.
+servers:
+  - url: http://localhost:8084
+    description: Développement local (port à confirmer avec le service modèle)
+security:
+  - bearerAuth: []
+tags:
+  - name: teams
+    description: Création et consultation
+  - name: membership
+    description: Invitations, demandes et départs
+paths:
+  /api/v1/teams:
+    post:
+      tags: [teams]
+      summary: Créer une équipe
+      description: Le créateur devient capitaine. Publie team.created.
+      operationId: createTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTeamRequest" }
+      responses:
+        "201":
+          description: Équipe créée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/teams/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/TeamId" }
+    get:
+      tags: [teams]
+      summary: Consulter une équipe
+      operationId: getTeam
+      responses:
+        "200":
+          description: Équipe et membres actifs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/teams/{id}/invitations:
+    parameters:
+      - { $ref: "#/components/parameters/TeamId" }
+    post:
+      tags: [membership]
+      summary: Inviter un joueur (capitaine ou vice-capitaine)
+      description: Publie team.invitation_sent.
+      operationId: inviteMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InviteRequest" }
+      responses:
+        "201":
+          description: Invitation envoyée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/invitations/{id}/accept:
+    parameters:
+      - { $ref: "#/components/parameters/InvitationId" }
+    post:
+      tags: [membership]
+      summary: Accepter une invitation ou une demande
+      description: Le joueur invité accepte son invitation ; le capitaine accepte une demande d'adhésion. Publie team.member_joined.
+      operationId: acceptInvitation
+      responses:
+        "200":
+          description: Adhésion créée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/invitations/{id}/decline:
+    parameters:
+      - { $ref: "#/components/parameters/InvitationId" }
+    post:
+      tags: [membership]
+      summary: Refuser une invitation ou une demande
+      operationId: declineInvitation
+      responses:
+        "204":
+          description: Refusée
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/teams/{id}/join-requests:
+    parameters:
+      - { $ref: "#/components/parameters/TeamId" }
+    post:
+      tags: [membership]
+      summary: Demander à rejoindre une équipe
+      description: Le capitaine valide ensuite la demande.
+      operationId: requestToJoin
+      responses:
+        "201":
+          description: Demande enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/teams/{id}/leave:
+    parameters:
+      - { $ref: "#/components/parameters/TeamId" }
+    post:
+      tags: [membership]
+      summary: Quitter l'équipe
+      description: Si le capitaine part, le rôle passe au vice-capitaine, puis au membre le plus ancien. Publie team.member_left.
+      operationId: leaveTeam
+      responses:
+        "204":
+          description: Départ enregistré, l'historique est conservé
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/teams/{id}/captain:
+    parameters:
+      - { $ref: "#/components/parameters/TeamId" }
+    post:
+      tags: [membership]
+      summary: Transférer le rôle de capitaine
+      description: Une équipe a toujours exactement un capitaine actif. Publie team.captain_changed.
+      operationId: changeCaptain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangeCaptainRequest" }
+      responses:
+        "200":
+          description: Capitaine modifié
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TeamId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InvitationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: Droits insuffisants pour cette action
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: Conflit avec l'état actuel
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/conflict" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    TeamRole:
+      type: string
+      enum: [CAPTAIN, VICE_CAPTAIN, MEMBER]
+    Member:
+      type: object
+      required: [userId, role, joinedAt]
+      properties:
+        userId: { type: string, format: uuid }
+        role: { $ref: "#/components/schemas/TeamRole" }
+        joinedAt: { type: string, format: date-time }
+    Team:
+      type: object
+      required: [id, name, createdBy, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        logoUrl: { type: string, format: uri, nullable: true }
+        bio: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        createdBy: { type: string, format: uuid }
+        status: { type: string, enum: [ACTIVE, ARCHIVED] }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
+    CreateTeamRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+        bio: { type: string, maxLength: 280 }
+        city: { type: string, maxLength: 60 }
+    InviteRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string, format: uuid }
+    Invitation:
+      type: object
+      required: [id, teamId, userId, type, status]
+      properties:
+        id: { type: string, format: uuid }
+        teamId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        type:
+          type: string
+          description: INVITATION envoyée par le capitaine, ou JOIN_REQUEST demandée par le joueur
+          enum: [INVITATION, JOIN_REQUEST]
+        status: { type: string, enum: [PENDING, ACCEPTED, DECLINED, EXPIRED] }
+        expiresAt: { type: string, format: date-time }
+    ChangeCaptainRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string, format: uuid, description: Membre actif qui devient capitaine }

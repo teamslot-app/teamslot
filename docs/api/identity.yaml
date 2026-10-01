@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: identity-service
+  version: 1.0.0
+  description: |
+    Comptes, authentification (JWT court + refresh révocable) et profil.
+    Contrat issu de la conception (sections 4, 6.3 et 7.2).
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
+servers:
+  - url: http://localhost:8083
+    description: Développement local (port à confirmer avec le service modèle)
+tags:
+  - name: auth
+    description: Inscription, connexion, renouvellement du jeton
+  - name: users
+    description: Profil de l'utilisateur connecté
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Créer un compte
+      description: Publie l'événement user.registered.
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Compte créé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409":
+          description: Numéro de téléphone déjà utilisé
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Se connecter
+      description: Un échec renvoie toujours 401, sans préciser si le téléphone ou le mot de passe est faux.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Jeton d'accès et jeton de renouvellement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Renouveler le jeton d'accès
+      description: Le jeton de renouvellement est à usage unique et révocable ; un jeton révoqué ou expiré renvoie 401.
+      operationId: refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: Nouvelle paire de jetons
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/users/me:
+    get:
+      tags: [users]
+      summary: Mon profil
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profil
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [users]
+      summary: Modifier mon profil
+      operationId: updateMe
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateUserRequest" }
+      responses:
+        "200":
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: Droits insuffisants pour cette action
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: Conflit avec l'état actuel
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/conflict" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    PlatformRole:
+      type: string
+      enum: [PLAYER, VENUE_MANAGER, ADMIN]
+    User:
+      type: object
+      required: [id, phone, displayName, platformRole]
+      description: Le mot de passe n'est jamais renvoyé.
+      properties:
+        id: { type: string, format: uuid }
+        phone: { type: string, example: "+212600000000" }
+        phoneVerified: { type: boolean }
+        displayName: { type: string, example: Yassir }
+        platformRole: { $ref: "#/components/schemas/PlatformRole" }
+    RegisterRequest:
+      type: object
+      required: [phone, password, displayName]
+      properties:
+        phone: { type: string, pattern: "^\\+[1-9][0-9]{7,14}$", description: Numéro au format international }
+        password: { type: string, format: password, minLength: 10, maxLength: 128 }
+        displayName: { type: string, minLength: 1, maxLength: 40 }
+    LoginRequest:
+      type: object
+      required: [phone, password]
+      properties:
+        phone: { type: string }
+        password: { type: string, format: password }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { type: string, description: JWT signé à courte durée }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: Durée de validité du jeton d'accès en secondes, example: 900 }
+    UpdateUserRequest:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 40 }
