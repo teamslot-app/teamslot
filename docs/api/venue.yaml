@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: venue-service
+  version: 1.0.0
+  description: |
+    Terrains, créneaux d'1 h, prix, équipement et réservation de créneaux.
+    Contrat issu de la conception (sections 4, 6.3 et 7.2).
+
+    Conventions : préfixe /api/v1, erreurs au format Problem Details (RFC 9457),
+    dates en ISO 8601 UTC, montants en centimes avec la devise.
+servers:
+  - url: http://localhost:8081
+    description: Développement local (gateway 8080, venue-service 8081)
+tags:
+  - name: venues
+    description: Consultation et gestion des terrains
+  - name: slots
+    description: Créneaux d'un terrain
+  - name: internal
+    description: Appels entre services, non exposés par la passerelle
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/venues:
+    get:
+      tags: [venues]
+      summary: Terrains à proximité
+      operationId: listVenues
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, format: double, minimum: -90, maximum: 90 } }
+        - { name: lon, in: query, required: true, schema: { type: number, format: double, minimum: -180, maximum: 180 } }
+        - { name: radius, in: query, required: false, description: Rayon de recherche en mètres, schema: { type: integer, minimum: 1, default: 5000 } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Page de terrains
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VenuePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [venues]
+      summary: Publier un terrain (gérant)
+      operationId: createVenue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateVenueRequest' }
+      responses:
+        '201':
+          description: Terrain créé
+          headers:
+            Location: { schema: { type: string }, description: URL du terrain créé }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Venue' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/venues/{id}/slots:
+    parameters:
+      - { $ref: '#/components/parameters/VenueId' }
+    get:
+      tags: [slots]
+      summary: Créneaux d'un terrain pour une date
+      operationId: listSlots
+      parameters:
+        - { name: date, in: query, required: true, description: Jour demandé (ISO 8601), schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Créneaux d'1 h de la journée, libres ou pris
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [slots]
+      summary: Publier des créneaux (gérant du terrain)
+      operationId: createSlots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSlotsRequest' }
+      responses:
+        '201':
+          description: Créneaux créés
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Slot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/venues/{id}/price:
+    parameters:
+      - { $ref: '#/components/parameters/VenueId' }
+    get:
+      tags: [venues]
+      summary: Prix d'un créneau avec équipement
+      description: Le prix est toujours calculé par le serveur, jamais repris du client.
+      operationId: getPrice
+      parameters:
+        - { name: slot, in: query, required: true, description: Identifiant du créneau, schema: { type: string, format: uuid } }
+        - name: equipment
+          in: query
+          required: false
+          description: Identifiants des équipements choisis (chasubles, ballon…)
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Prix total
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Price' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/slot-reservations:
+    post:
+      tags: [internal]
+      summary: Réserver un créneau (interne, appelé par match-service)
+      description: |
+        Appel synchrone : venue répond tout de suite « réservé » ou « déjà pris ».
+        Un créneau ne peut être réservé qu'une fois (contrainte d'exclusion en base).
+        Publie l'événement slot.reserved.
+      operationId: reserveSlot
+      x-internal: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReserveSlotRequest' }
+      responses:
+        '201':
+          description: Créneau réservé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlotReservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Créneau déjà réservé
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    VenueId:
+      name: id
+      in: path
+      required: true
+      description: Identifiant du terrain
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Droits insuffisants (par exemple, gérant d'un autre terrain)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Conflit avec l'état actuel
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: 'https://teamslot.app/problems/slot-already-reserved' }
+        title: { type: string, example: Créneau déjà réservé }
+        status: { type: integer, example: 409 }
+        detail: { type: string }
+        instance: { type: string }
+    Money:
+      type: object
+      description: Montant en centimes avec sa devise
+      required: [amount, currency]
+      properties:
+        amount: { type: integer, minimum: 0, description: Montant en centimes, example: 15000 }
+        currency: { type: string, minLength: 3, maxLength: 3, example: MAD }
+    CancellationPolicy:
+      type: object
+      description: Délai d'annulation gratuite, fixé par chaque gérant
+      properties:
+        freeCancellationHours: { type: integer, minimum: 0, example: 24 }
+    Venue:
+      type: object
+      required: [id, name, latitude, longitude, pricePerHour, acceptsOnSitePayment]
+      properties:
+        id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid, description: Gérant du terrain }
+        name: { type: string, example: Terrain Hay Hassani }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+        pricePerHour: { $ref: '#/components/schemas/Money' }
+        acceptsOnSitePayment: { type: boolean }
+        cancellationPolicy: { $ref: '#/components/schemas/CancellationPolicy' }
+        equipment:
+          type: array
+          items: { $ref: '#/components/schemas/Equipment' }
+        distanceMeters: { type: integer, description: Présent dans les résultats de recherche par proximité }
+    VenuePage:
+      type: object
+      required: [content, page, size, totalElements]
+      properties:
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/Venue' }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+    CreateVenueRequest:
+      type: object
+      required: [name, latitude, longitude, pricePerHour]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+        pricePerHour: { $ref: '#/components/schemas/Money' }
+        acceptsOnSitePayment: { type: boolean, default: false }
+        cancellationPolicy: { $ref: '#/components/schemas/CancellationPolicy' }
+        equipment:
+          type: array
+          items: { $ref: '#/components/schemas/EquipmentInput' }
+    Equipment:
+      type: object
+      required: [id, name, extraPrice]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Chasubles }
+        extraPrice: { $ref: '#/components/schemas/Money' }
+    EquipmentInput:
+      type: object
+      required: [name, extraPrice]
+      properties:
+        name: { type: string }
+        extraPrice: { $ref: '#/components/schemas/Money' }
+    Slot:
+      type: object
+      required: [id, start, end, available]
+      properties:
+        id: { type: string, format: uuid }
+        start: { type: string, format: date-time, description: Début du créneau (UTC) }
+        end: { type: string, format: date-time, description: 'Fin du créneau (UTC, début + 1 h)' }
+        available: { type: boolean }
+        price: { $ref: '#/components/schemas/Money' }
+    CreateSlotsRequest:
+      type: object
+      required: [starts]
+      properties:
+        starts:
+          type: array
+          minItems: 1
+          description: Débuts des créneaux d'1 h à publier (UTC)
+          items: { type: string, format: date-time }
+    Price:
+      type: object
+      required: [slotId, total]
+      properties:
+        slotId: { type: string, format: uuid }
+        base: { $ref: '#/components/schemas/Money' }
+        equipmentTotal: { $ref: '#/components/schemas/Money' }
+        total: { $ref: '#/components/schemas/Money' }
+    ReserveSlotRequest:
+      type: object
+      required: [slotId, matchId]
+      properties:
+        slotId: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        equipmentIds:
+          type: array
+          items: { type: string, format: uuid }
+    SlotReservation:
+      type: object
+      required: [slotId, matchId, totalPrice, status]
+      properties:
+        slotId: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        venueId: { type: string, format: uuid }
+        equipment:
+          type: array
+          items: { $ref: '#/components/schemas/Equipment' }
+        totalPrice: { $ref: '#/components/schemas/Money' }
+        status: { type: string, enum: [RESERVED, RELEASED] }
