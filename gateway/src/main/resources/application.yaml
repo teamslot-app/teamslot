@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: template
+              uri: ${TEMPLATE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/template/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
