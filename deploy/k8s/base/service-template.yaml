@@ -14,11 +14,23 @@ spec:
       labels:
         app: service-template
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: service-template
           image: ghcr.io/teamslot-app/service-template
           ports:
             - containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -35,6 +47,9 @@ spec:
           #   httpGet:
           #     path: /actuator/health/liveness
           #     port: 8080
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
