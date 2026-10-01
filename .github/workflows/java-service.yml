@@ -3,11 +3,11 @@ on:
   workflow_call:
     inputs:
       service:
-        description: "Dossier du service (contient pom.xml et mvnw), ex. services/service-template"
+        description: "Dossier du service (contient pom.xml, mvnw et Dockerfile), ex. services/service-template"
         required: true
         type: string
       name:
-        description: "Nom court du service, ex. service-template"
+        description: "Nom de l'image sur GHCR, ex. service-template"
         required: true
         type: string
       sonar_project_key:
@@ -49,3 +49,38 @@ jobs:
           -Dsonar.organization=teamslot-app
           -Dsonar.projectKey=${{ inputs.sonar_project_key }}
           -Dsonar.qualitygate.wait=true
+
+  image:
+    needs: build-test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image (sans la publier)
+        run: >
+          docker build
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          -t "$IMAGE"
+          ${{ inputs.service }}
+
+      - name: Scanner l'image avec Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Connexion à GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publier l'image
+        run: |
+          docker push "$IMAGE"
+          echo "Image publiée : $IMAGE" >> "$GITHUB_STEP_SUMMARY"
