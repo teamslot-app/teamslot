@@ -63,3 +63,19 @@ Côté équipe :
 
 Le cluster n'est accessible que lorsque le PC d'Amira est allumé et le cluster démarré.
 Créneaux où le cluster est allumé : à compléter.
+
+## Supervision (Prometheus et Grafana)
+
+Installation :
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --set alertmanager.enabled=false --set prometheus.prometheusSpec.retention=2d
+```
+
+Accès à Grafana (utilisateur `admin`, mot de passe : voir le secret `monitoring-grafana`, jamais dans Git) :
+```bash
+kubectl port-forward svc/monitoring-grafana -n monitoring 3001:80
+```
+
+Tableau de bord : `deploy/monitoring/dashboard-teamslot.json` (import via Dashboards → New → Import).
