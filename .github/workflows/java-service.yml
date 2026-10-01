@@ -10,6 +10,11 @@ on:
         description: "Nom court du service, ex. service-template"
         required: true
         type: string
+      sonar_project_key:
+        description: "Clé du projet SonarCloud ; vide = pas d'analyse Sonar"
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build-test:
@@ -20,11 +25,11 @@ jobs:
       run:
         working-directory: ${{ inputs.service }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -33,3 +38,14 @@ jobs:
 
       - name: Build et tests
         run: ./mvnw -B verify
+
+      - name: Analyse SonarCloud
+        if: inputs.sonar_project_key != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.organization=teamslot-app
+          -Dsonar.projectKey=${{ inputs.sonar_project_key }}
+          -Dsonar.qualitygate.wait=true
