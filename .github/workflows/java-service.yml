@@ -1,0 +1,35 @@
+name: java-service
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Dossier du service (contient pom.xml et mvnw), ex. services/service-template"
+        required: true
+        type: string
+      name:
+        description: "Nom court du service, ex. service-template"
+        required: true
+        type: string
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: ${{ inputs.service }}/pom.xml
+
+      - name: Build et tests
+        run: ./mvnw -B verify
