@@ -17,4 +17,5 @@ jobs:
     with:
       service: services/service-template
       name: service-template
+      sonar_project_key: teamslot-app_teamslot
     secrets: inherit
