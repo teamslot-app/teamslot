@@ -43,9 +43,9 @@ services:
       - "8080:8080"
     depends_on:
       - service-template
-
-  # Le front (SCRUM-30) sera ajouté ici quand son Dockerfile existera :
-  # web:
-  #   build: ../frontend/apps/web
-  #   ports:
-  #     - "3000:8080"
+  web:
+    build: ../frontend/apps/web
+    ports:
+      - "3000:8080"
+    depends_on:
+      - gateway
