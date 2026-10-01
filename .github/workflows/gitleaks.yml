@@ -1,0 +1,20 @@
+name: gitleaks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Installer gitleaks
+        run: |
+          V=8.30.0
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_linux_x64.tar.gz" | tar -xz gitleaks
+      - name: Scanner l'historique
+        run: ./gitleaks git --redact -v --exit-code 1 .
