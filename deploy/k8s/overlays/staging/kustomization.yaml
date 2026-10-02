@@ -2,11 +2,11 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: staging
 resources:
-  - ../../base
+- ../../base
 images:
-  - name: ghcr.io/teamslot-app/gateway
-    newName: nginxinc/nginx-unprivileged
-    newTag: "1.27"
-  - name: ghcr.io/teamslot-app/service-template
-    newName: nginxinc/nginx-unprivileged
-    newTag: "1.27"
+- name: ghcr.io/teamslot-app/gateway
+  newName: nginxinc/nginx-unprivileged
+  newTag: "1.27"
+- name: ghcr.io/teamslot-app/service-template
+  newName: ghcr.io/teamslot-app/service-template
+  newTag: 935a9809cbce4ded6f7a0e380d9a3396a4588427
