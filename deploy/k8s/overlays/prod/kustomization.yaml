@@ -7,4 +7,4 @@ images:
   - name: ghcr.io/teamslot-app/gateway
     newTag: "f88ac7f1709194623e70daf8d62ef3d4e51e66a9"
   - name: ghcr.io/teamslot-app/service-template
-    newTag: "f88ac7f1709194623e70daf8d62ef3d4e51e66a9"
+    newTag: "935a9809cbce4ded6f7a0e380d9a3396a4588427"
