@@ -13,7 +13,7 @@ public class VersionController {
 
     private final String version;
 
-    public VersionController(@Value("${app.version:2}") String version) {
+    public VersionController(@Value("${app.version:3}") String version) {
         this.version = version;
     }
 
