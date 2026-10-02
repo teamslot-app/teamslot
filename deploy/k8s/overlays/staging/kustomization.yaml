@@ -2,9 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: staging
 resources:
-  - ../../base
+- ../../base
 images:
-  - name: ghcr.io/teamslot-app/gateway
-    newTag: "f88ac7f1709194623e70daf8d62ef3d4e51e66a9"
-  - name: ghcr.io/teamslot-app/service-template
-    newTag: "935a9809cbce4ded6f7a0e380d9a3396a4588427"
+- name: ghcr.io/teamslot-app/gateway
+  newName: ghcr.io/teamslot-app/gateway
+  newTag: 78980a863fe885ebf9db1d9684288d2a4c3580d0
+- name: ghcr.io/teamslot-app/service-template
+  newTag: 935a9809cbce4ded6f7a0e380d9a3396a4588427
