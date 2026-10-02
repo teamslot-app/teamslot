@@ -79,3 +79,7 @@ kubectl port-forward svc/monitoring-grafana -n monitoring 3001:80
 ```
 
 Tableau de bord : `deploy/monitoring/dashboard-teamslot.json` (import via Dashboards → New → Import).
+
+## Walking skeleton (SCRUM-36)
+
+Chaîne validée : modification d'une ligne → PR → fusion → CI → tag mis à jour dans `deploy/` → Argo CD synchronise → Grafana affiche la nouvelle version.
