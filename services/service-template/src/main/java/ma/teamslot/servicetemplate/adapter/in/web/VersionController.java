@@ -19,6 +19,6 @@ public class VersionController {
 
     @GetMapping("/version")
     public Map<String, String> version() {
-        return Map.of("service", "service-template", "version", version);
+        return Map.of("service", "service-template (demo)", "version", version);
     }
 }
