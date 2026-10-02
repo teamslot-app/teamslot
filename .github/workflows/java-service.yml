@@ -84,3 +84,53 @@ jobs:
         run: |
           docker push "$IMAGE"
           echo "Image publiée : $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-staging:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - name: Jeton temporaire du robot (1 heure)
+        id: bot
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.CI_BOT_APP_ID }}
+          private-key: ${{ secrets.CI_BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ steps.bot.outputs.token }}
+
+      - name: Mettre à jour le tag en staging
+        working-directory: deploy/k8s/overlays/staging
+        run: |
+          IMG="ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}"
+          kustomize edit set image "$IMG=$IMG:${{ github.sha }}"
+          cat kustomization.yaml
+
+      - name: Commit et push sur main
+        run: |
+          git config user.name "teamslot-ci-bot[bot]"
+          git config user.email "teamslot-ci-bot[bot]@users.noreply.github.com"
+          git add deploy/k8s/overlays/staging/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "Tag déjà à jour, rien à faire."
+            exit 0
+          fi
+          git commit -m "chore(deploy): staging ${{ inputs.name }} -> ${{ github.sha }}"
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Staging : ${{ inputs.name }} -> ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Push refusé, nouvel essai dans 5 s ($i/3)"
+            sleep 5
+          done
+          echo "::error::Impossible de pousser le nouveau tag après 3 essais"
+          exit 1
