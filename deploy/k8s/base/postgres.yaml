@@ -1,86 +1,91 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: service-template
+  name: postgres
   labels:
-    app: service-template
+    app: postgres
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
-      app: service-template
+      app: postgres
   template:
     metadata:
       labels:
-        app: service-template
+        app: postgres
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 100
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: service-template
-          image: ghcr.io/teamslot-app/service-template
+        - name: postgres
+          image: postgres:16-alpine
           ports:
-            - name: http
-              containerPort: 8081
+            - name: pg
+              containerPort: 5432
           env:
-            - name: DB_URL
-              value: "jdbc:postgresql://postgres:5432/template"
-            - name: DB_USER
+            - name: POSTGRES_DB
+              value: template
+            - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: service-template-db
                   key: DB_USER
-            - name: DB_PASSWORD
+            - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: service-template-db
                   key: DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
             - name: tmp
               mountPath: /tmp
           resources:
             requests:
               cpu: 100m
-              memory: 384Mi
+              memory: 256Mi
             limits:
-              cpu: "1"
-              memory: 768Mi
+              cpu: 500m
+              memory: 512Mi
           readinessProbe:
-            httpGet:
-              path: /actuator/health/readiness
-              port: 8081
-            initialDelaySeconds: 40
+            exec:
+              command: ["pg_isready", "-U", "teamslot", "-d", "template"]
+            initialDelaySeconds: 10
             periodSeconds: 10
-            failureThreshold: 6
-          livenessProbe:
-            httpGet:
-              path: /actuator/health/liveness
-              port: 8081
-            initialDelaySeconds: 60
-            periodSeconds: 15
-            failureThreshold: 6
       volumes:
+        - name: data
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
         - name: tmp
           emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: service-template
+  name: postgres
   labels:
-    app: service-template
+    app: postgres
 spec:
   selector:
-    app: service-template
+    app: postgres
   ports:
-    - name: http
-      port: 80
-      targetPort: http
+    - name: pg
+      port: 5432
+      targetPort: pg
