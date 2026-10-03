@@ -1,0 +1,53 @@
+# Dependabot — mises à jour automatiques des dépendances (SCRUM-18)
+# Chaque semaine, Dependabot ouvre une pull request quand une dépendance
+# a une nouvelle version ou une faille connue.
+version: 2
+updates:
+  # Java (Maven) : la passerelle et tous les services de services/
+  - package-ecosystem: "maven"
+    directories:
+      - "/gateway"
+      - "/services/*"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # npm : le front React
+  - package-ecosystem: "npm"
+    directory: "/frontend/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Images de base des Dockerfile
+  - package-ecosystem: "docker"
+    directories:
+      - "/gateway"
+      - "/services/*"
+      - "/frontend/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Actions utilisées par la CI (.github/workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
