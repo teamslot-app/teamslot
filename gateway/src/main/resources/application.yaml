@@ -8,11 +8,53 @@ spring:
     gateway:
       server:
         webflux:
+          # Appliqué à toutes les routes : on supprime toute identité envoyée
+          # par le client. L'identité vient uniquement du JWT (SCRUM-67).
+          default-filters:
+            - RemoveRequestHeader=X-User-Id
           routes:
             - id: template
               uri: ${TEMPLATE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/v1/template/**
+
+            # identity-service : comptes, connexion, profil
+            - id: identity
+              uri: ${IDENTITY_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/users/**
+
+            # venue-service : terrains, créneaux, prix
+            # /api/v1/slot-reservations (interne) n'a volontairement aucune route
+            - id: venue
+              uri: ${VENUE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/venues/**
+
+            # match-service : matchs, participants, répartition
+            - id: match
+              uri: ${MATCH_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/matches/**
+
+            # payment-service : paiements
+            - id: payment
+              uri: ${PAYMENT_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/payments/**
+
+# SCRUM-67 : vérification des JWT émis par identity-service (RS256)
+teamslot:
+  jwt:
+    # identity publie sa clé publique à cette adresse
+    jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8083/.well-known/jwks.json}
+    # valeur attendue dans la claim « iss » du jeton
+    issuer: ${JWT_ISSUER:teamslot-identity}
+  # SCRUM-67 : limitation de débit sur la connexion (test S4)
+  rate-limit:
+    login:
+      max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
+      window-seconds: ${LOGIN_WINDOW_SECONDS:60}
 
 management:
   endpoints:

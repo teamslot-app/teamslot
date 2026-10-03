@@ -14,6 +14,8 @@ tags:
     description: Inscription, connexion, renouvellement du jeton
   - name: users
     description: Profil de l'utilisateur connecté
+  - name: keys
+    description: Clés publiques de vérification des jetons (usage interne)
 paths:
   /api/v1/auth/register:
     post:
@@ -79,6 +81,24 @@ paths:
               schema: { $ref: "#/components/schemas/TokenPair" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /.well-known/jwks.json:
+    get:
+      tags: [keys]
+      summary: Clé publique de signature des jetons (JWKS)
+      description: |
+        Utilisée par la passerelle et par chaque service pour vérifier les JWT (RS256),
+        sans jamais connaître la clé privée, qui reste dans identity-service (ADR-013).
+        Ne contient que des clés publiques. Chemin standard, hors du préfixe /api/v1 :
+        appelé à l'intérieur du cluster, la passerelle ne l'expose pas.
+      operationId: getJwks
+      security: []
+      x-internal: true
+      responses:
+        "200":
+          description: Jeu de clés publiques
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JwkSet" }
   /api/v1/users/me:
     get:
       tags: [users]
@@ -190,9 +210,32 @@ components:
       type: object
       required: [accessToken, refreshToken, expiresIn]
       properties:
-        accessToken: { type: string, description: JWT signé à courte durée }
+        accessToken:
+          type: string
+          description: |
+            JWT signé en RS256 (ADR-013). Claims : sub = identifiant de l'utilisateur,
+            iss = teamslot-identity, iat, exp (15 minutes). À envoyer dans l'en-tête
+            Authorization: Bearer <jeton>.
         refreshToken: { type: string }
         expiresIn: { type: integer, description: Durée de validité du jeton d'accès en secondes, example: 900 }
+    Jwk:
+      type: object
+      description: Clé publique RSA au format JWK (RFC 7517)
+      required: [kty, kid, n, e]
+      properties:
+        kty: { type: string, example: RSA }
+        kid: { type: string, description: "Identifiant de la clé, repris dans l'en-tête des jetons" }
+        use: { type: string, example: sig }
+        alg: { type: string, example: RS256 }
+        n: { type: string, description: Module RSA (Base64url) }
+        e: { type: string, description: Exposant RSA (Base64url), example: AQAB }
+    JwkSet:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items: { $ref: "#/components/schemas/Jwk" }
     UpdateUserRequest:
       type: object
       properties:

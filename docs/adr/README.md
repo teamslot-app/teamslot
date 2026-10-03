@@ -16,6 +16,7 @@ Un ADR (*Architecture Decision Record*) est une note courte qui garde la trace d
 | [010](ADR-010-jira-et-github.md) | Jira pour le backlog, GitHub pour le code et la CI | Accepté |
 | [011](ADR-011-sonarcloud.md) | SonarCloud pour l'analyse du code | Accepté |
 | [012](ADR-012-recherche-geohash.md) | Recherche géographique par geohash dans DynamoDB | Accepté |
+| [013](ADR-013-jwt-rs256-jwks.md) | Jetons JWT signés en RS256, clé publique publiée en JWKS | Accepté |
 
 ## Faire évoluer une décision
 
