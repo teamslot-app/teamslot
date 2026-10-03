@@ -9,7 +9,7 @@ spring:
       server:
         webflux:
           # Appliqué à toutes les routes : on supprime toute identité envoyée
-          # par le client. Seule la passerelle pourra poser X-User-Id (SCRUM-67).
+          # par le client. L'identité vient uniquement du JWT (SCRUM-67).
           default-filters:
             - RemoveRequestHeader=X-User-Id
           routes:
@@ -42,6 +42,14 @@ spring:
               uri: ${PAYMENT_URL:http://localhost:8085}
               predicates:
                 - Path=/api/v1/payments/**
+
+# SCRUM-67 : vérification des JWT émis par identity-service (RS256)
+teamslot:
+  jwt:
+    # identity publie sa clé publique à cette adresse
+    jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8083/.well-known/jwks.json}
+    # valeur attendue dans la claim « iss » du jeton
+    issuer: ${JWT_ISSUER:teamslot-identity}
 
 management:
   endpoints:
