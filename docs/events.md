@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ticket** | SCRUM-24 |
-| **Version** | 1.0 — Sprint 0 |
+| **Version** | 1.1 — Sprint 1 (ajout de `acceptsOnSitePayment` dans `match.created`) |
 | **Source** | Conception TeamSlot, section 7.3 ; contrats `docs/api/*.yaml` |
 
 Les services communiquent par événements (ADR-002). Ce catalogue est **la référence** : un producteur n'émet que des événements listés ici, avec ces noms et ces champs, et tout nouvel événement est ajouté dans ce fichier **dans la même pull request** que le code qui le produit.
@@ -90,7 +90,7 @@ La colonne **S1** marque les événements nécessaires aux stories du Sprint 1 (
 
 | Topic | Clé | Consommateurs | Champs de `data` | S1 |
 |---|---|---|---|---|
-| `match.created` | matchId | payment, notification, search | matchId, kind, visibility, ownerId, payerId, venueId, slotId, startsAt, totalAmount, currency | ✓ |
+| `match.created` | matchId | payment, notification, search | matchId, kind, visibility, ownerId, payerId, venueId, slotId, startsAt, totalAmount, currency, acceptsOnSitePayment | ✓ |
 | `match.participant_added` | matchId | notification, messaging | matchId, participantId, userId ou guestName | ✓ |
 | `match.co_organizer_added` | matchId | notification | matchId, userId | |
 | `match.spots_opened` | matchId | search, notification | matchId, venueId, startsAt, openSpots | |
@@ -146,3 +146,9 @@ sequenceDiagram
 1. **Consommateurs par topic.** La conception donne les consommateurs par service producteur ; leur répartition topic par topic ci-dessus est déduite des parcours. Chaque responsable de service vérifie sa ligne.
 2. **Libération du créneau à l'annulation.** `match.cancelled` doit libérer le créneau. Deux options : venue-service consomme `match.cancelled`, ou match-service appelle venue en synchrone. À trancher avec Aya avant le Sprint 1.
 3. **Montants.** L'exemple de la conception écrit `300` ; ce catalogue suit la convention des contrats d'API (centimes : `30000`).
+
+## 6. Historique des changements
+
+| Version | Changement | Raison |
+|---|---|---|
+| 1.1 | Champ `acceptsOnSitePayment` (booléen) ajouté dans `match.created` | payment-service doit savoir si le terrain accepte le paiement sur place (SCRUM-62). match-service le reçoit de venue dans la réponse de réservation. Ajout de champ : compatible avec les consommateurs existants. |
