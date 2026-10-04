@@ -40,7 +40,7 @@ jobs:
         run: ./mvnw -B verify
 
       - name: Analyse SonarCloud
-        if: inputs.sonar_project_key != ''
+        if: inputs.sonar_project_key != '' && github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
