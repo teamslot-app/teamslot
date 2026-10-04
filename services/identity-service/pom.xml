@@ -11,8 +11,8 @@
 	<groupId>ma.teamslot</groupId>
 	<artifactId>identity-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-    <name>identity-service</name>
-    <description>Comptes, connexion et jetons JWT (SCRUM-57)</description>
+	<name>identity-service</name>
+	<description>Comptes, connexion et jetons JWT (SCRUM-57)</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -27,16 +27,16 @@
 		<url/>
 	</scm>
 	<properties>
-        <tomcat.version>11.0.25</tomcat.version>
-        <jackson-bom.version>3.1.7</jackson-bom.version>
+		<tomcat.version>11.0.25</tomcat.version>
+		<jackson-bom.version>3.1.7</jackson-bom.version>
 		<java.version>21</java.version>
 	</properties>
 	<dependencies>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
@@ -60,6 +60,17 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+		<!-- SCRUM-57 : hachage des mots de passe (BCrypt), sans activer Spring Security -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-crypto</artifactId>
+		</dependency>
+		<!-- SCRUM-57 : signature des JWT en RS256 et publication JWKS (ADR-013) -->
+		<dependency>
+			<groupId>com.nimbusds</groupId>
+			<artifactId>nimbus-jose-jwt</artifactId>
+			<version>10.9.1</version>
 		</dependency>
 
 		<dependency>
@@ -105,26 +116,26 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
-			   			<plugin>
-   				<groupId>org.jacoco</groupId>
-   				<artifactId>jacoco-maven-plugin</artifactId>
-   				<version>0.8.13</version>
-   				<executions>
-   					<execution>
-   						<id>prepare-agent</id>
-   						<goals>
-   							<goal>prepare-agent</goal>
-   						</goals>
-   					</execution>
-   					<execution>
-   						<id>report</id>
-   						<phase>verify</phase>
-   						<goals>
-   							<goal>report</goal>
-   						</goals>
-   					</execution>
-   				</executions>
-   			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.13</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
