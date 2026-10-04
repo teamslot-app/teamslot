@@ -5,7 +5,7 @@ RUN mvn -B -q dependency:go-offline
 COPY src ./src
 RUN mvn -B -q package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
