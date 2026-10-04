@@ -17,8 +17,8 @@ public record EventEnvelope<T>(
         String producer,
         T data) {
 
-    /** Format du catalogue : domaine.evenement, en minuscules (ex. match.created, match.teams_split). */
-    private static final Pattern TYPE_FORMAT = Pattern.compile("^[a-z]+(\\.[a-z_]+)+$");
+    /** Format du catalogue : exactement domaine.evenement, en minuscules. Longueurs bornées, sans groupe répété (Sonar java:S5998). */
+    private static final Pattern TYPE_FORMAT = Pattern.compile("^[a-z]{1,30}\\.[a-z_]{1,60}$");
 
     public EventEnvelope {
         Objects.requireNonNull(eventId, "eventId est obligatoire");

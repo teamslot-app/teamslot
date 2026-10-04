@@ -49,4 +49,13 @@ class EventEnvelopeTest {
                 new EventEnvelope<>(UUID.randomUUID(), "match.created", 1, Instant.now(), "match-service", null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void accepte_les_noms_du_catalogue_et_refuse_trois_parties() {
+        assertThat(EventEnvelope.of("payment.on_site_accepted", "payment-service", Map.of()).type())
+                .isEqualTo("payment.on_site_accepted");
+
+        assertThatThrownBy(() -> EventEnvelope.of("match.created.extra", "match-service", Map.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
