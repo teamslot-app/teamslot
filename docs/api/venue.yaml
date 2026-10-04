@@ -320,7 +320,7 @@ components:
           items: { type: string, format: uuid }
     SlotReservation:
       type: object
-      required: [slotId, matchId, totalPrice, status]
+      required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status]
       properties:
         slotId: { type: string, format: uuid }
         matchId: { type: string, format: uuid }
@@ -329,4 +329,7 @@ components:
           type: array
           items: { $ref: '#/components/schemas/Equipment' }
         totalPrice: { $ref: '#/components/schemas/Money' }
+        acceptsOnSitePayment:
+          type: boolean
+          description: Le terrain accepte-t-il le paiement sur place ? Repris par match-service dans l'événement match.created (SCRUM-62).
         status: { type: string, enum: [RESERVED, RELEASED] }
