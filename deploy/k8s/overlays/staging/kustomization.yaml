@@ -6,7 +6,7 @@ resources:
 images:
 - name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
-  newTag: 78980a863fe885ebf9db1d9684288d2a4c3580d0
+  newTag: 54e73e66a07cb82ddb00f6393497fa9a1f0f44b5
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: 0cdad41fa87b3b51292f7097a900b57a3384b0e6
