@@ -45,8 +45,9 @@ class EventEnvelopeTest {
 
     @Test
     void refuse_une_enveloppe_sans_data() {
-        assertThatThrownBy(() ->
-                new EventEnvelope<>(UUID.randomUUID(), "match.created", 1, Instant.now(), "match-service", null))
+        UUID eventId = UUID.randomUUID();
+        Instant maintenant = Instant.now();
+        assertThatThrownBy(() -> new EventEnvelope<>(eventId, "match.created", 1, maintenant, "match-service", null))
                 .isInstanceOf(NullPointerException.class);
     }
 
