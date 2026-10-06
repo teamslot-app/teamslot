@@ -5,3 +5,8 @@ resources:
   - service-template.yaml
   - servicemonitor.yaml
   - postgres.yaml
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init-databases.sh
