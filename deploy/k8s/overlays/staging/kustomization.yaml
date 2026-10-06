@@ -15,4 +15,4 @@ images:
   newTag: 73f02ea9ce654dbafae3edfd208e3eb40dd727c5
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
-  newTag: 2a733d1bb45cae4e752703734ac759294ae0d89a
+  newTag: 1ee16f42bd0e19f4cd03cfd4136f3a63a1a21914
