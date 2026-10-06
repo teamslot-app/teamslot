@@ -16,5 +16,20 @@ jobs:
         run: |
           V=8.30.0
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${V}/gitleaks_${V}_linux_x64.tar.gz" | tar -xz gitleaks
+      # HEAD = ce qui va être fusionné (main + commits de la PR), sans les branches des autres.
       - name: Scanner l'historique
-        run: ./gitleaks git --redact -v --exit-code 1 .
+        run: ./gitleaks git --redact -v --exit-code 1 --log-opts="--full-history HEAD" .
+      # Défense en profondeur : l'exception de .gitleaks.toml ne doit couvrir que des SealedSecret chiffrés.
+      - name: Seuls des SealedSecret dans les dossiers sealed-secrets
+        run: |
+          set -euo pipefail
+          nb=0
+          while IFS= read -r f; do
+            nb=$((nb + 1))
+            if ! grep -qE '^kind:[[:space:]]*SealedSecret[[:space:]]*$' "$f" \
+               || grep -qE '^kind:[[:space:]]*Secret[[:space:]]*$' "$f"; then
+              echo "::error file=$f::Seuls des SealedSecret sont autorisés dans sealed-secrets/ (jamais de Secret en clair)."
+              exit 1
+            fi
+          done < <(find deploy -path '*/sealed-secrets/*' -type f \( -name '*.yaml' -o -name '*.yml' \))
+          echo "OK : $nb fichier(s) vérifié(s), tous des SealedSecret."
