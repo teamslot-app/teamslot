@@ -7,6 +7,12 @@ images:
 - name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
   newTag: 54e73e66a07cb82ddb00f6393497fa9a1f0f44b5
+- name: ghcr.io/teamslot-app/match-service
+  newName: ghcr.io/teamslot-app/match-service
+  newTag: 73f02ea9ce654dbafae3edfd208e3eb40dd727c5
+- name: ghcr.io/teamslot-app/payment-service
+  newName: ghcr.io/teamslot-app/payment-service
+  newTag: 73f02ea9ce654dbafae3edfd208e3eb40dd727c5
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
-  newTag: 0cdad41fa87b3b51292f7097a900b57a3384b0e6
+  newTag: 2a733d1bb45cae4e752703734ac759294ae0d89a
