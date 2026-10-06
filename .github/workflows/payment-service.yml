@@ -1,0 +1,23 @@
+name: payment-service
+on:
+  pull_request:
+    paths:
+      - 'services/payment-service/**'
+      - '.github/workflows/java-service.yml'
+      - '.github/workflows/payment-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/payment-service/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  ci:
+    uses: ./.github/workflows/java-service.yml
+    with:
+      service: services/payment-service
+      name: payment-service
+      sonar_project_key: teamslot-app_teamslot
+    secrets: inherit
