@@ -1,0 +1,10 @@
+title = "TeamSlot Gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Secrets scellés (Sealed Secrets) : valeurs chiffrées avec le certificat public du cluster"
+paths = [
+  '''deploy/k8s/overlays/.*/sealed-secrets/.*\.yaml''',
+]
