@@ -1,9 +1,46 @@
 name: ci-gate
 on: [pull_request]
+
+# Lecture seule : le jeton peut lire les checks, rien modifier.
 permissions:
   contents: read
+  checks: read
+
 jobs:
+  # "gate" est le seul check obligatoire du ruleset protect-main.
+  # Il attend tous les autres checks du commit et échoue si l'un d'eux est en échec.
   gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
-      - run: echo "Checks de base OK"
+      - name: Attendre et vérifier tous les checks du commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Laisser aux autres workflows le temps de démarrer et de créer leurs checks.
+          sleep 30
+
+          while true; do
+            checks=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name != "gate")]')
+            en_cours=$(echo "$checks" | jq '[.[] | select(.status != "completed")] | length')
+            if [ "$en_cours" -eq 0 ]; then
+              break
+            fi
+            echo "En attente de $en_cours check(s)..."
+            sleep 20
+          done
+
+          echo "Résultats :"
+          echo "$checks" | jq -r '.[] | "  \(.name) : \(.conclusion)"'
+
+          echecs=$(echo "$checks" | jq '[.[] | select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length')
+          if [ "$echecs" -gt 0 ]; then
+            echo "::error::$echecs check(s) en échec : fusion bloquée."
+            exit 1
+          fi
+          echo "Tous les checks sont verts."
