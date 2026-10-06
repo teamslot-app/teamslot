@@ -1,6 +1,6 @@
 # ADR-011 — SonarCloud pour l'analyse du code
 
-Statut : accepté (Sprint 0)  
+Statut : accepté (Sprint 0), complété au Sprint 1 (SCRUM-86)  
 Remplace : —
 
 ## Contexte
