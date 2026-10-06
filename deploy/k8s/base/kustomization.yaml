@@ -5,3 +5,5 @@ resources:
   - service-template.yaml
   - servicemonitor.yaml
   - postgres.yaml
+  - match-service.yaml
+  - payment-service.yaml
