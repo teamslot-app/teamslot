@@ -1,10 +1,8 @@
-title = "TeamSlot Gitleaks"
-
+# Configuration Gitleaks : lue par la CI (gitleaks.yml) et par le hook pre-commit.
+# Toutes les règles par défaut restent actives ; une seule exception, la plus étroite possible.
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Secrets scellés (Sealed Secrets) : valeurs chiffrées avec le certificat public du cluster"
-paths = [
-  '''deploy/k8s/overlays/.*/sealed-secrets/.*\.yaml''',
-]
+[[allowlists]]
+description = "SealedSecret : valeurs chiffrées avec la clé publique du cluster. La CI vérifie que ces dossiers ne contiennent que des SealedSecret (SCRUM-86)."
+paths = ['''^deploy/k8s/overlays/[^/]+/sealed-secrets/[^/]+\.ya?ml$''']
