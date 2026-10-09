@@ -25,7 +25,7 @@ public class SecuriteConfig {
     private static final String[] PUBLICS = {"/actuator/health/**", "/actuator/prometheus"};
 
     @Bean
-    SecurityFilterChain securite(HttpSecurity http) throws Exception {
+    SecurityFilterChain securite(HttpSecurity http) {
         http
                 .authorizeHttpRequests(regles -> regles
                         .requestMatchers(PUBLICS).permitAll()
