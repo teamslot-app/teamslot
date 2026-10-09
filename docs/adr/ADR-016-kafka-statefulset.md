@@ -1,4 +1,4 @@
-# ADR-015 — Kafka en StatefulSet Kustomize, image officielle apache/kafka
+# ADR-016 — Kafka en StatefulSet Kustomize, image officielle apache/kafka
 
 Statut : proposé (exception à ADR-008 à valider par Laila)
 Remplace : —
