@@ -25,8 +25,9 @@ class KafkaErreursConfig {
 
     @Bean
     DefaultErrorHandler gestionnaireErreursKafka(KafkaTemplate<?, ?> kafka) {
+        // Partition -1 : Kafka la choisit avec la cle, meme si le .dlt a moins de partitions que le topic.
         DeadLetterPublishingRecoverer versDlt = new DeadLetterPublishingRecoverer(kafka,
-                (message, erreur) -> new TopicPartition(message.topic() + SUFFIXE_DLT, message.partition()));
+                (message, erreur) -> new TopicPartition(message.topic() + SUFFIXE_DLT, -1));
 
         DefaultErrorHandler gestionnaire =
                 new DefaultErrorHandler(versDlt, new FixedBackOff(PAUSE_ENTRE_ESSAIS_MS, NOUVEAUX_ESSAIS));
