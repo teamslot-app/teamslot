@@ -7,3 +7,8 @@ resources:
   - postgres.yaml
   - match-service.yaml
   - payment-service.yaml
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init-databases.sh

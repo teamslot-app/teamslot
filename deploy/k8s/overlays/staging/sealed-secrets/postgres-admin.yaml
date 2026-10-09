@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: postgres-admin
+  namespace: staging
+spec:
+  encryptedData:
+    ADMIN_PASSWORD: AgAUQiuVGW4iGHhNhflChHyclj5IpEy1rbGTsZusuMpd2Jvog5d1F1831RrV6OjOMPVK86hQdxkI7nd2zltRYUoJI9W+YtLvshvBe0RKZov8vHKMcqSO86nA2ym+Gk5yTAUW7jgW0K3j5uA3a+OnDXs9VfR3cFUfzypr/Myudt62eknbIYO5PlE4YSg6dnzQzTjLTB1WCjiODZLhLTD+J/30zEiUac9WLWFsyJVZilI9cQeccq+/A9H/FFbdhiP3ZTXyMFt3p1hRWNbyuf2jzZeGMeWwoRmqPAJalkLwyQMd5pioq70+rzoMq5Y16nGjk7Mx6YlIFrI2MIBeND3K48FKylMFfQAKC6Lf8OFVe2p6PdgFMk4UHB5GWiJ9ZnhfhlNYkHRx6E6SB9SIW6LDXaCQ5dc+1xxJTBVHg+h355io/qSdWLBMNsSb+jtdjhGCZKbkLbQhsJpqJkd6Buz4ypnFc9UQm9Hl0xldh5d/o/jfl+51vxnwoYeLgb1YSX3QOYGwigTlgDrCT++0u06cBMwOKydBwHxouw8juwTbQDd0uAJJvEHqQuob77Pp4YdmUXlJpYiMyusy8V/yM2jtLdrEHNCI+dLdNvKNmGyVLuNVvtJomvdFQG+D/t21vpvxCgJ/fCMzRxF090AYvlHBbkp4MiQxlgn6tXIXP/hfrpBcFlgBZdd3syhfTA0cl7BKcJoJnXdEy58SAcIf1tk7TpIybyseE4VD0wqNPkNTkhLrTg==
+  template:
+    metadata:
+      name: postgres-admin
+      namespace: staging
