@@ -19,6 +19,7 @@ Un ADR (*Architecture Decision Record*) est une note courte qui garde la trace d
 | [013](ADR-013-jwt-rs256-jwks.md) | Jetons JWT signés en RS256, clé publique publiée en JWKS | Accepté |
 | [014](ADR-014-postgresql-une-instance.md) | Une instance PostgreSQL, quatre bases isolées par les droits | Proposé |
 | [015](ADR-015-modules-partages.md) | Modules partagés et build Maven unique | Proposé |
+| [016](ADR-016-kafka-statefulset.md) | Kafka KRaft en StatefulSet Kustomize, image officielle apache/kafka | Proposé |
 
 ## Faire évoluer une décision
 
