@@ -3,12 +3,12 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: pgadmin
-      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
-      TEMPLATE_DB_PASSWORD: ${DB_PASSWORD}
-      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
-      VENUE_DB_PASSWORD: ${VENUE_DB_PASSWORD}
-      MATCH_DB_PASSWORD: ${MATCH_DB_PASSWORD}
-      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?à définir dans deploy/.env}
+      TEMPLATE_DB_PASSWORD: ${DB_PASSWORD:?à définir dans deploy/.env}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
+      VENUE_DB_PASSWORD: ${VENUE_DB_PASSWORD:?à définir dans deploy/.env}
+      MATCH_DB_PASSWORD: ${MATCH_DB_PASSWORD:?à définir dans deploy/.env}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?à définir dans deploy/.env}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -67,7 +67,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/template
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:?à définir dans deploy/.env}
     depends_on:
       postgres:
         condition: service_healthy
