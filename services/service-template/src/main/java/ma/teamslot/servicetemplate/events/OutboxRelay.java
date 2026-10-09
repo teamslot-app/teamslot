@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,9 +23,10 @@ public class OutboxRelay {
 
     private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
     private static final int TAILLE_LOT = 50;
-    private static final long DELAI_ENVOI_SECONDES = 10;
+    // Plus long que delivery.timeout.ms (10 s) : c est l erreur de Kafka, avec sa cause, qui remonte.
+    private static final long DELAI_ENVOI_SECONDES = 15;
 
-    /** SKIP LOCKED : si plusieurs pods tournent, chacun prend des lignes différentes. */
+    /** SKIP LOCKED + un seul pod par service : avec plusieurs pods, deux événements du même agrégat pourraient partir dans le désordre (docs/outbox-howto.md). */
     private static final String SELECT_A_PUBLIER = """
             SELECT id, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
             FROM outbox_event
@@ -75,7 +77,7 @@ public class OutboxRelay {
         } catch (ExecutionException | TimeoutException e) {
             // Jamais le payload dans les logs : il peut contenir des données personnelles.
             LOG.warn("Envoi Kafka impossible pour l'événement {} ({}), nouvel essai au prochain passage : {}",
-                    ligne.id(), ligne.eventType(), e.getClass().getSimpleName());
+                    ligne.id(), ligne.eventType(), NestedExceptionUtils.getMostSpecificCause(e).getClass().getSimpleName());
             return false;
         }
     }

@@ -22,6 +22,8 @@ public Match creer(CreerMatch commande) {
 
 Le relais (`OutboxRelay`) publie toutes les secondes les lignes non publiées, dans l'ordre, puis remplit `published_at`. Livraison « au moins une fois » : un doublon est possible, le consommateur le neutralise.
 
+**Un seul pod par service (`replicas: 1`).** Avec plusieurs pods, `SKIP LOCKED` répartit les lignes entre eux : deux événements du même agrégat (ex. `match.created` puis `match.confirmed`) peuvent alors partir dans le désordre. Avant de passer à plusieurs réplicas : un verrou par agrégat ou un seul relais actif (élection de leader).
+
 ## Consommer un événement
 
 ```java
@@ -50,8 +52,9 @@ public void surMatchCree(String message) {
 | Réglage | Valeur |
 |---|---|
 | Adresse du broker | variable `KAFKA_BOOTSTRAP_SERVERS` (défaut `localhost:9092`, voir `docs/kafka.md`) |
-| Migration | `V2__outbox.sql` (tables `outbox_event`, `processed_event`) ; le schéma du service commence à **V3** |
+| Migration | `V2__outbox.sql` (tables `outbox_event`, `processed_event`) ; V1 = schéma initial du service, V2 = outbox, **V3** et suivants = évolutions |
 | Relais planifié | `teamslot.outbox.relay.enabled` (désactivé dans les tests), `teamslot.outbox.relay.delay-ms` (1000 par défaut) |
+| Délais du producteur | `max.block.ms=5000`, `request.timeout.ms=5000`, `delivery.timeout.ms=10000` : à changer ensemble (`delivery` ≥ `request` + `linger.ms`). Le relais attend 15 s, plus que `delivery`, pour logger la vraie cause (classe seulement, jamais le payload). |
 
 **Service copié du modèle avant SCRUM-70 :** copier le package `events/` (adapter la ligne `package`), `V2__outbox.sql`, les lignes `spring.kafka.*` de `application.properties` et `teamslot.outbox.relay.enabled=false` dans `application-test.properties`.
 
