@@ -18,6 +18,7 @@ Un ADR (*Architecture Decision Record*) est une note courte qui garde la trace d
 | [012](ADR-012-recherche-geohash.md) | Recherche géographique par geohash dans DynamoDB | Accepté |
 | [013](ADR-013-jwt-rs256-jwks.md) | Jetons JWT signés en RS256, clé publique publiée en JWKS | Accepté |
 | [014](ADR-014-postgresql-une-instance.md) | Une instance PostgreSQL, quatre bases isolées par les droits | Proposé |
+| [015](ADR-015-modules-partages.md) | Modules partagés et build Maven unique | Proposé |
 
 ## Faire évoluer une décision
 
