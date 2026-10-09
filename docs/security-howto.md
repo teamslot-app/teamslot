@@ -32,3 +32,8 @@ Import : `SecurityMockMvcRequestPostProcessors.jwt`. Exemples : `SecuriteTests` 
 ## Ajouter la vérification à un service copié avant SCRUM-87
 
 Copier le package `security` (adapter la ligne `package`), les deux dépendances du `pom.xml` (`spring-boot-starter-security-oauth2-resource-server`, `spring-security-test`), les lignes `teamslot.jwt.*` de `application.properties`, puis ajouter `.with(jwt())` aux tests qui appellent l'API.
+
+## Décision : protection CSRF désactivée
+
+`csrf.disable()` dans `SecuriteConfig` est **volontaire**. Une attaque CSRF utilise les **cookies de session** d'un navigateur ; nos services n'ont ni session ni cookie : le jeton voyage dans l'en-tête `Authorization`, qu'un autre site ne peut pas ajouter. Réactiver CSRF ferait échouer toutes les requêtes `POST` légitimes.
+Alerte SonarCloud `java:S4502` acceptée avec cette justification (SCRUM-87). **À revoir** si un service utilise un jour des cookies de session.
