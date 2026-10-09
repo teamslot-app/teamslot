@@ -19,5 +19,5 @@ jobs:
     with:
       service: services/payment-service
       name: payment-service
-      sonar_project_key: teamslot-app_teamslot
+      sonar_project_key: teamslot-app_payment-service
     secrets: inherit
