@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payment-service
+          image: ghcr.io/teamslot-app/payment-service
+          ports:
+            - name: http
+              containerPort: 8085
+          env:
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/payment"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payment-db
+                  key: DB_PASSWORD
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8085
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8085
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
