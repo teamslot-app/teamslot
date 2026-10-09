@@ -46,7 +46,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - ./kafka/create-topics.sh:/create-topics.sh:ro
+      - ./k8s/base/create-topics.sh:/create-topics.sh:ro
     entrypoint: ["/bin/bash", "/create-topics.sh"]
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
