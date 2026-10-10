@@ -1,0 +1,23 @@
+name: match-service
+on:
+  pull_request:
+    paths:
+      - 'services/match-service/**'
+      - '.github/workflows/java-service.yml'
+      - '.github/workflows/match-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/match-service/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  ci:
+    uses: ./.github/workflows/java-service.yml
+    with:
+      service: services/match-service
+      name: match-service
+      sonar_project_key: teamslot-app_match-service
+    secrets: inherit
