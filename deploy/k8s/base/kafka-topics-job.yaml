@@ -1,0 +1,55 @@
+# Crée les topics après chaque synchronisation (--if-not-exists : sans effet s'ils existent déjà).
+# Hook Argo CD : le Job est recréé à chaque synchronisation, car la spec d'un Job ne se modifie pas.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topics
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: create-topics
+          image: apache/kafka:4.1.0
+          command: ["/bin/bash", "/scripts/create-topics.sh"]
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: LOG_DIR
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: kafka-topics
+            defaultMode: 0755
+        - name: tmp
+          emptyDir: {}

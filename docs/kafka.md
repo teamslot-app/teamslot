@@ -13,7 +13,7 @@ docker compose -f deploy/docker-compose.yml up -d kafka kafka-init
 | Les conteneurs du compose | `kafka:19092` (variable `KAFKA_BOOTSTRAP_SERVERS`) |
 | Une application lancée depuis l'IDE | `localhost:9092` (lié à `127.0.0.1` seulement) |
 
-Le service `kafka-init` crée les topics du Sprint 1 (`deploy/kafka/create-topics.sh`) : 9 topics et leurs 9 `.dlt`, 1 partition, réplication 1. Chaque `.dlt` a le même nombre de partitions que son topic (Spring Kafka renvoie le message dans la même partition). La création automatique de topics est désactivée : une faute de frappe ne crée pas de topic fantôme. Pour ajouter un topic, modifier le script.
+Le service `kafka-init` crée les topics du Sprint 1 (`deploy/k8s/base/create-topics.sh`) : 9 topics et leurs 9 `.dlt`, 1 partition, réplication 1. La création automatique de topics est désactivée : une faute de frappe ne crée pas de topic fantôme. Pour ajouter un topic, modifier le script.
 
 ## Tester un message
 
@@ -51,7 +51,7 @@ Le relais de l'outbox envoie chaque événement dans le topic qui porte le nom d
 
 Pour ajouter un type d'événement :
 
-1. Ajouter son topic, et son `.dlt`, dans la liste de `deploy/kafka/create-topics.sh`.
+1. Ajouter son topic, et son `.dlt`, dans la liste de `deploy/k8s/base/create-topics.sh`.
 2. Mettre à jour le catalogue `docs/events.md`.
 3. En local, recréer les topics : `docker compose -f deploy/docker-compose.yml up kafka-init`.
 4. Dans le cluster, rejouer le même script (la procédure sera précisée quand Kafka y sera déployé).

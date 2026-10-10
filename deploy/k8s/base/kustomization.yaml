@@ -7,8 +7,12 @@ resources:
   - postgres.yaml
   - match-service.yaml
   - payment-service.yaml
-
+  - kafka.yaml
+  - kafka-topics-job.yaml
 configMapGenerator:
   - name: postgres-init
     files:
       - init-databases.sh
+  - name: kafka-topics
+    files:
+      - create-topics.sh
