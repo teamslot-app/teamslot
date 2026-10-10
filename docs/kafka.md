@@ -13,7 +13,7 @@ docker compose -f deploy/docker-compose.yml up -d kafka kafka-init
 | Les conteneurs du compose | `kafka:19092` (variable `KAFKA_BOOTSTRAP_SERVERS`) |
 | Une application lancée depuis l'IDE | `localhost:9092` (lié à `127.0.0.1` seulement) |
 
-Le service `kafka-init` crée les topics du Sprint 1 (`deploy/k8s/base/create-topics.sh`) : 9 topics et leurs 9 `.dlt`, 1 partition, réplication 1. Chaque `.dlt` a le même nombre de partitions que son topic (Spring Kafka renvoie le message dans la même partition). La création automatique de topics est désactivée : une faute de frappe ne crée pas de topic fantôme. Pour ajouter un topic, modifier le script.
+Le service `kafka-init` crée les topics du Sprint 1 (`deploy/k8s/base/create-topics.sh`) : 9 topics et leurs 9 `.dlt`, 1 partition, réplication 1. La création automatique de topics est désactivée : une faute de frappe ne crée pas de topic fantôme. Pour ajouter un topic, modifier le script.
 
 ## Tester un message
 
