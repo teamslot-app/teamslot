@@ -19,5 +19,5 @@ jobs:
     with:
       service: services/identity-service
       name: identity-service
-      sonar_project_key: teamslot-app_teamslot
+      sonar_project_key: teamslot-app_identity-service
     secrets: inherit
