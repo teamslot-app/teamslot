@@ -100,7 +100,7 @@ La colonne **S1** marque les événements nécessaires aux stories du Sprint 1 (
 | `match.challenge_accepted` | matchId | notification, messaging | matchId, teamId, opponentTeamId | |
 | `match.confirmed` | matchId | notification, search | matchId | ✓ |
 | `match.teams_split` | matchId | notification | matchId, strategy, sideA, sideB (`user:<id>` ou `guest:<surnom>`) | ✓ |
-| `match.cancelled` | matchId | payment, notification, search | matchId, reason, cancelledBy | |
+| `match.cancelled` | matchId | venue, payment, notification, search | matchId, reason, cancelledBy | |
 | `match.no_show` | matchId | review, notification | matchId, absentUserIds | |
 | `match.result_submitted` | matchId | notification | matchId, scoreA, scoreB, submittedBy | |
 | `match.result_confirmed` | matchId | team, review, notification | matchId, scoreA, scoreB | |
@@ -144,7 +144,7 @@ sequenceDiagram
 ## 5. Points à confirmer en relecture
 
 1. **Consommateurs par topic.** La conception donne les consommateurs par service producteur ; leur répartition topic par topic ci-dessus est déduite des parcours. Chaque responsable de service vérifie sa ligne.
-2. **Libération du créneau à l'annulation.** `match.cancelled` doit libérer le créneau. Deux options : venue-service consomme `match.cancelled`, ou match-service appelle venue en synchrone. À trancher avec Aya avant le Sprint 1.
+2. **Libération du créneau à l'annulation.** Tranché (SCRUM-25) : venue-service consomme `match.cancelled` et libère le créneau, sans appel synchrone de match vers venue ; il publie ensuite `slot.released`. `match.cancelled` n'est pas dans les topics du Sprint 1 : son topic et son `.dlt` doivent être ajoutés à `create-topics.sh` avant la première publication.
 3. **Montants.** L'exemple de la conception écrit `300` ; ce catalogue suit la convention des contrats d'API (centimes : `30000`).
 
 ## 6. Historique des changements
