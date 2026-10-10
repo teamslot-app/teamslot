@@ -9,6 +9,8 @@ Il faut décrire le déploiement de nos services sur Kubernetes, et installer de
 ## Décision
 Kustomize (base et overlays staging et prod) pour nos propres manifestes. Helm seulement pour installer les outils tiers, à partir de leurs charts officiels.
 
+**Exception :** PostgreSQL est déployé avec Kustomize et l'image officielle `postgres`, pas avec un chart Helm (voir ADR-014).
+
 ## Conséquences
 + Nos manifestes restent lisibles : pas de templates à apprendre pour nos propres services.
 + Les charts officiels évitent de réécrire des installations complexes.
