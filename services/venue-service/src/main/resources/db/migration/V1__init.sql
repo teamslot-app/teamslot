@@ -1,37 +1,47 @@
--- venue-service : terrains, équipements et créneaux (contrat docs/api/venue.yaml)
--- Montants en centimes avec la devise ; heures en UTC.
--- La table des réservations (un créneau réservé une seule fois) viendra avec SCRUM-59.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 CREATE TABLE venue (
-    id                       UUID                     PRIMARY KEY,
-    owner_id                 UUID                     NOT NULL,
-    name                     VARCHAR(120)             NOT NULL,
-    latitude                 DOUBLE PRECISION         NOT NULL,
-    longitude                DOUBLE PRECISION         NOT NULL,
-    price_per_hour_cents     BIGINT                   NOT NULL CHECK (price_per_hour_cents >= 0),
-    currency                 CHAR(3)                  NOT NULL,
-    accepts_on_site_payment  BOOLEAN                  NOT NULL DEFAULT FALSE,
-    free_cancellation_hours  INTEGER,
-    created_at               TIMESTAMP WITH TIME ZONE NOT NULL
+  id UUID PRIMARY KEY,
+  owner_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  price_per_hour_cents BIGINT NOT NULL CHECK (price_per_hour_cents >= 0),
+  currency CHAR(3) NOT NULL,
+  accepts_on_site_payment BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE equipment (
-    id                  UUID         PRIMARY KEY,
-    venue_id            UUID         NOT NULL REFERENCES venue (id),
-    name                VARCHAR(60)  NOT NULL,
-    extra_price_cents   BIGINT       NOT NULL CHECK (extra_price_cents >= 0),
-    currency            CHAR(3)      NOT NULL
+  id UUID PRIMARY KEY,
+  venue_id UUID NOT NULL REFERENCES venue(id),
+  name TEXT NOT NULL,
+  price_cents BIGINT NOT NULL CHECK (price_cents >= 0)
 );
 
--- Créneaux d'1 h ; un terrain n'a jamais deux créneaux qui commencent à la même heure.
 CREATE TABLE slot (
-    id        UUID                     PRIMARY KEY,
-    venue_id  UUID                     NOT NULL REFERENCES venue (id),
-    start_at  TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    CONSTRAINT uq_slot_venue_start UNIQUE (venue_id, start_at),
-    CONSTRAINT ck_slot_one_hour CHECK (end_at > start_at)
+  id UUID PRIMARY KEY,
+  venue_id UUID NOT NULL REFERENCES venue(id),
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  CHECK (end_at > start_at),
+  UNIQUE (venue_id, start_at),
+  EXCLUDE USING gist (venue_id WITH =, tstzrange(start_at, end_at) WITH &&)
 );
 
-CREATE INDEX idx_equipment_venue ON equipment (venue_id);
-CREATE INDEX idx_slot_venue_start ON slot (venue_id, start_at);
+CREATE TABLE slot_reservation (
+  id UUID PRIMARY KEY,
+  slot_id UUID NOT NULL REFERENCES slot(id),
+  match_id UUID NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ACTIVE',
+  total_amount_cents BIGINT NOT NULL,
+  currency CHAR(3) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX uq_slot_reservation_active
+  ON slot_reservation(slot_id) WHERE status = 'ACTIVE';
+
+CREATE TABLE slot_reservation_equipment (
+  reservation_id UUID NOT NULL REFERENCES slot_reservation(id),
+  equipment_id UUID NOT NULL REFERENCES equipment(id),
+  PRIMARY KEY (reservation_id, equipment_id)
+);
