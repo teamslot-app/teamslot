@@ -44,7 +44,7 @@ public void surMatchCree(String message) {
 - Erreur passagère : 2 nouveaux essais, à 1 seconde d'intervalle.
 - Message invalide (JSON cassé, enveloppe incomplète) : aucun nouvel essai.
 - Ensuite, le message part dans `<topic>.dlt` (exemple : `match.created.dlt`) et les suivants sont traités.
-- Le `.dlt` doit avoir **le même nombre de partitions** que son topic (topics créés par `deploy/k8s/base/create-topics.sh`).
+- Le `.dlt` d'un topic doit exister : il est créé avec lui par `deploy/k8s/base/create-topics.sh`. Sa partition est choisie par Kafka, donc inutile d'avoir le même nombre de partitions que le topic.
 - Le contenu d'un message n'est jamais écrit dans les logs : seuls l'`eventId`, le type et le nom de l'erreur le sont.
 
 ## Configuration
