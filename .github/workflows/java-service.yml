@@ -40,7 +40,7 @@ jobs:
         run: ./mvnw -B verify
 
       - name: Analyse SonarCloud
-        if: inputs.sonar_project_key != ''
+        if: inputs.sonar_project_key != '' && github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
@@ -95,12 +95,14 @@ jobs:
       group: deploy-staging
       cancel-in-progress: false
     steps:
-      - name: Jeton temporaire du robot (1 heure)
+      - name: Jeton temporaire du robot (1 heure, écriture du contenu seulement)
         id: bot
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.CI_BOT_APP_ID }}
           private-key: ${{ secrets.CI_BOT_PRIVATE_KEY }}
+          # Moindre privilège (ADR-004) : le jeton ne peut qu'écrire du contenu dans ce dépôt.
+          permission-contents: write
 
       - uses: actions/checkout@v5
         with:
@@ -109,24 +111,39 @@ jobs:
 
       - name: Mettre à jour le tag en staging
         working-directory: deploy/k8s/overlays/staging
+        env:
+          OWNER: ${{ github.repository_owner }}
+          SERVICE: ${{ inputs.name }}
+          SHA: ${{ github.sha }}
         run: |
-          IMG="ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}"
-          kustomize edit set image "$IMG=$IMG:${{ github.sha }}"
+          IMG="ghcr.io/${OWNER}/${SERVICE}"
+          kustomize edit set image "$IMG=$IMG:${SHA}"
           cat kustomization.yaml
 
       - name: Commit et push sur main
+        env:
+          SERVICE: ${{ inputs.name }}
+          SHA: ${{ github.sha }}
+          FICHIER: deploy/k8s/overlays/staging/kustomization.yaml
         run: |
+          set -euo pipefail
           git config user.name "teamslot-ci-bot[bot]"
           git config user.email "teamslot-ci-bot[bot]@users.noreply.github.com"
-          git add deploy/k8s/overlays/staging/kustomization.yaml
+          git add "$FICHIER"
           if git diff --cached --quiet; then
             echo "Tag déjà à jour, rien à faire."
             exit 0
           fi
-          git commit -m "chore(deploy): staging ${{ inputs.name }} -> ${{ github.sha }}"
+          # Garde-fou (ADR-004) : le bot contourne la protection de main, il ne doit modifier que ce fichier.
+          modifies=$(git diff --cached --name-only)
+          if [ "$modifies" != "$FICHIER" ]; then
+            echo "::error::Le bot ne doit modifier que $FICHIER. Fichiers prêts : $modifies"
+            exit 1
+          fi
+          git commit -m "chore(deploy): staging ${SERVICE} -> ${SHA}"
           for i in 1 2 3; do
             if git pull --rebase origin main && git push origin HEAD:main; then
-              echo "Staging : ${{ inputs.name }} -> ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+              echo "Staging : ${SERVICE} -> ${SHA}" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             echo "Push refusé, nouvel essai dans 5 s ($i/3)"

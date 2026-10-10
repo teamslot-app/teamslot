@@ -1,0 +1,24 @@
+package ma.teamslot.match.adapter.in.web;
+
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/match")
+public class VersionController {
+
+    private final String version;
+
+    public VersionController(@Value("${app.version:3}") String version) {
+        this.version = version;
+    }
+
+    @GetMapping("/version")
+    public Map<String, String> version() {
+        return Map.of("service", "match-service", "version", version);
+    }
+}

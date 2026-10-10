@@ -3,10 +3,22 @@ kind: Kustomization
 namespace: staging
 resources:
 - ../../base
+- sealed-secrets/postgres-admin.yaml
+- sealed-secrets/service-template-db.yaml
+- sealed-secrets/identity-db.yaml
+- sealed-secrets/venue-db.yaml
+- sealed-secrets/match-db.yaml
+- sealed-secrets/payment-db.yaml
 images:
 - name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
   newTag: 54e73e66a07cb82ddb00f6393497fa9a1f0f44b5
+- name: ghcr.io/teamslot-app/match-service
+  newName: ghcr.io/teamslot-app/match-service
+  newTag: f059bfb9d38f685205a5c65e6cc573eaa9c8be4b
+- name: ghcr.io/teamslot-app/payment-service
+  newName: ghcr.io/teamslot-app/payment-service
+  newTag: 73f02ea9ce654dbafae3edfd208e3eb40dd727c5
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
-  newTag: 0cdad41fa87b3b51292f7097a900b57a3384b0e6
+  newTag: 42e6579e8b4a65ef9a7e4bf12508229ff31611bc

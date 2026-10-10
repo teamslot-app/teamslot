@@ -40,6 +40,12 @@ updates:
     labels: ["dependencies"]
     commit-message:
       prefix: "chore(deps)"
+    # L'équipe a choisi Java 21 (Sprint 0) : pas de changement de version de Java automatique
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      # Tag "3.9-eclipse-temurin-21" : contient la version de Java, image de build seulement
+      - dependency-name: "maven"
 
   # Actions utilisées par la CI (.github/workflows)
   - package-ecosystem: "github-actions"
