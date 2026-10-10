@@ -23,3 +23,13 @@ images:
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: 42e6579e8b4a65ef9a7e4bf12508229ff31611bc
+patches:
+- target:
+    kind: Deployment
+    name: venue-service
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: SPRING_PROFILES_ACTIVE
+        value: demo

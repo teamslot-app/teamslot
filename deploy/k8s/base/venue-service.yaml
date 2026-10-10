@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gateway
+  name: venue-service
   labels:
-    app: gateway
+    app: venue-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gateway
+      app: venue-service
   template:
     metadata:
       labels:
-        app: gateway
+        app: venue-service
     spec:
       securityContext:
         runAsNonRoot: true
@@ -20,24 +20,26 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: gateway
-          image: ghcr.io/teamslot-app/gateway
+        - name: venue-service
+          image: ghcr.io/teamslot-app/venue-service
           ports:
             - name: http
-              containerPort: 8080
+              containerPort: 8081
           env:
-            - name: TEMPLATE_URL
-              value: "http://service-template"
-            - name: IDENTITY_URL
-              value: "http://identity-service"
-            - name: VENUE_URL
-              value: "http://venue-service"
-            - name: MATCH_URL
-              value: "http://match-service"
-            - name: PAYMENT_URL
-              value: "http://payment-service"
-            - name: JWT_JWK_SET_URI
-              value: "http://identity-service/.well-known/jwks.json"
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/venue"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: venue-db
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: venue-db
+                  key: DB_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -55,15 +57,15 @@ spec:
               memory: 768Mi
           readinessProbe:
             httpGet:
-              path: /actuator/health
-              port: 8080
+              path: /actuator/health/readiness
+              port: 8081
             initialDelaySeconds: 40
             periodSeconds: 10
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /actuator/health
-              port: 8080
+              path: /actuator/health/liveness
+              port: 8081
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 6
@@ -74,12 +76,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gateway
+  name: venue-service
   labels:
-    app: gateway
+    app: venue-service
 spec:
   selector:
-    app: gateway
+    app: venue-service
   ports:
     - name: http
       port: 80

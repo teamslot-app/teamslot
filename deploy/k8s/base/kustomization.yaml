@@ -7,6 +7,8 @@ resources:
   - postgres.yaml
   - match-service.yaml
   - payment-service.yaml
+  - venue-service.yaml
+  - identity-service.yaml
   - kafka.yaml
   - kafka-topics-job.yaml
 configMapGenerator:
