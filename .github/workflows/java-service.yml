@@ -25,7 +25,7 @@ jobs:
       run:
         working-directory: ${{ inputs.service }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -60,7 +60,7 @@ jobs:
       IMAGE: pr-scan/${{ inputs.name }}:${{ github.sha }}
       CONTEXTE: ${{ inputs.service }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Construire l'image (PR, sans publication)
         run: docker build -t "$IMAGE" "$CONTEXTE"
@@ -83,7 +83,7 @@ jobs:
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}:${{ github.sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Construire l'image (sans la publier)
         run: >
@@ -127,7 +127,7 @@ jobs:
           # Moindre privilège (ADR-004) : le jeton ne peut qu'écrire du contenu dans ce dépôt.
           permission-contents: write
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: main
           token: ${{ steps.bot.outputs.token }}
