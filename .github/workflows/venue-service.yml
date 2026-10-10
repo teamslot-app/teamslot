@@ -19,5 +19,5 @@ jobs:
     with:
       service: services/venue-service
       name: venue-service
-      sonar_project_key: teamslot-app_teamslot
+      sonar_project_key: teamslot-app_venue-service
     secrets: inherit
