@@ -5,16 +5,12 @@ import java.util.UUID;
 import ma.teamslot.match.application.VenueClient.VenueReservation;
 import ma.teamslot.match.domain.Match;
 import ma.teamslot.match.events.Outbox;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class CreateMatchService {
-
-    private static final Logger log = LoggerFactory.getLogger(CreateMatchService.class);
 
     private static final String KIND = "FRIENDLY";
     private static final String STATUS = "PENDING_PAYMENT";
@@ -46,11 +42,7 @@ public class CreateMatchService {
         try {
             return transaction.execute(status -> enregistrer(matchId, callerId, slotId, reservation));
         } catch (RuntimeException e) {
-            // Compensation : venue libère le créneau en consommant match.cancelled, prévu dans
-            // SCRUM-76 (topic et consommateur absents pour l'instant). On trace pour pouvoir agir.
-            log.error("Créneau réservé mais match non enregistré : matchId={} slotId={} (à libérer, SCRUM-76)",
-                    matchId, slotId, e);
-            throw e;
+            throw new MatchNotSavedException(matchId, slotId, e);
         }
     }
 

@@ -107,8 +107,8 @@ class MatchCreationTests {
 
         Map<String, Object> match = jdbc.sql("SELECT id, owner_id, payer_id FROM matches")
                 .query().singleRow();
-        assertThat(match.get("owner_id")).isEqualTo(caller);
-        assertThat(match.get("payer_id")).isEqualTo(caller);
+        assertThat(match).containsEntry("owner_id", caller);
+        assertThat(match).containsEntry("payer_id", caller);
 
         Map<String, Object> evenement = jdbc.sql("""
                 SELECT aggregate_id, event_type,
@@ -117,11 +117,11 @@ class MatchCreationTests {
                        payload->'data'->>'acceptsOnSitePayment' AS sur_place
                 FROM outbox_event
                 """).query().singleRow();
-        assertThat(evenement.get("event_type")).isEqualTo("match.created");
-        assertThat(evenement.get("aggregate_id")).isEqualTo(match.get("id"));
-        assertThat(evenement.get("owner_id")).isEqualTo(caller.toString());
-        assertThat(evenement.get("total")).isEqualTo("30000");
-        assertThat(evenement.get("sur_place")).isEqualTo("true");
+        assertThat(evenement).containsEntry("event_type", "match.created");
+        assertThat(evenement).containsEntry("aggregate_id", match.get("id"));
+        assertThat(evenement).containsEntry("owner_id", caller.toString());
+        assertThat(evenement).containsEntry("total", "30000");
+        assertThat(evenement).containsEntry("sur_place", "true");
     }
 
     @Test
