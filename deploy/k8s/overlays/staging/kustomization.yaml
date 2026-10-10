@@ -6,6 +6,7 @@ resources:
 - sealed-secrets/postgres-admin.yaml
 - sealed-secrets/service-template-db.yaml
 - sealed-secrets/identity-db.yaml
+- sealed-secrets/identity-jwt.yaml
 - sealed-secrets/venue-db.yaml
 - sealed-secrets/match-db.yaml
 - sealed-secrets/payment-db.yaml

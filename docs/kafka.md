@@ -44,3 +44,14 @@ Pas d'authentification ni de TLS : le broker n'est joignable que depuis la machi
 - Sous Git Bash (Windows), sans `MSYS_NO_PATHCONV=1`, `/opt/kafka/...` est transformé en chemin Windows et la commande échoue.
 - Après `docker compose restart kafka`, attendre que le broker soit `healthy` avant de lire (commande ci-dessus), sinon le consommateur expire.
 - Ne jamais créer deux topics qui ne diffèrent que par `.` et `_` (collision des métriques Kafka).
+
+## Ajouter un type d'événement
+
+Le relais de l'outbox envoie chaque événement dans le topic qui porte le nom de son type (par exemple `match.created`). Les topics ne sont pas créés automatiquement (`auto.create.topics.enable=false`) : un type sans topic **bloque le relais**, qui réessaie sans fin et retarde tous les événements suivants du service.
+
+Pour ajouter un type d'événement :
+
+1. Ajouter son topic, et son `.dlt`, dans la liste de `deploy/kafka/create-topics.sh`.
+2. Mettre à jour le catalogue `docs/events.md`.
+3. En local, recréer les topics : `docker compose -f deploy/docker-compose.yml up kafka-init`.
+4. Dans le cluster, rejouer le même script (la procédure sera précisée quand Kafka y sera déployé).

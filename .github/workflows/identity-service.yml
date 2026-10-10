@@ -1,0 +1,23 @@
+name: identity-service
+on:
+  pull_request:
+    paths:
+      - 'services/identity-service/**'
+      - '.github/workflows/java-service.yml'
+      - '.github/workflows/identity-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/identity-service/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  ci:
+    uses: ./.github/workflows/java-service.yml
+    with:
+      service: services/identity-service
+      name: identity-service
+      sonar_project_key: teamslot-app_identity-service
+    secrets: inherit
