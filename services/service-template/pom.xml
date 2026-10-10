@@ -31,6 +31,16 @@
         <jackson-bom.version>3.1.7</jackson-bom.version>
 		<java.version>21</java.version>
 	</properties>
+	<!-- CVE-2026-106451 (HIGH) : lz4-java arrive par kafka-clients ; version corrigee forcee (Trivy) -->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>at.yawk.lz4</groupId>
+				<artifactId>lz4-java</artifactId>
+				<version>1.11.4</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
