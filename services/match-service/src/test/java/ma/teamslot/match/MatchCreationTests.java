@@ -6,10 +6,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueClient;
@@ -32,8 +35,6 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class MatchCreationTests {
 
-    private static final String HEADER = "X-User-Id";
-
     @Autowired MockMvc mvc;
     @Autowired JdbcClient jdbc;
     @Autowired FakeVenueClient venue;
@@ -50,20 +51,31 @@ class MatchCreationTests {
     static class FakeVenueClient implements VenueClient {
         VenueReservation reservation;
         RuntimeException erreur;
+        String dernierJeton;
 
         void reinitialiser() {
             reservation = new VenueReservation(UUID.randomUUID(),
                     Instant.parse("2026-10-20T18:00:00Z"), 30000L, "MAD", true);
             erreur = null;
+            dernierJeton = null;
         }
 
         @Override
-        public VenueReservation reserve(UUID matchId, UUID slotId, List<UUID> equipmentIds) {
+        public VenueReservation reserve(UUID matchId, UUID slotId, List<UUID> equipmentIds, String bearerToken) {
+            dernierJeton = bearerToken;
             if (erreur != null) {
                 throw erreur;
             }
             return reservation;
         }
+    }
+
+    /** Jeton factice (non signé) dont la claim sub est l'identifiant donné. */
+    static String jeton(UUID sub) {
+        Base64.Encoder e = Base64.getUrlEncoder().withoutPadding();
+        String h = e.encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+        String p = e.encodeToString(("{\"sub\":\"" + sub + "\"}").getBytes(StandardCharsets.UTF_8));
+        return h + "." + p + ".sig";
     }
 
     @BeforeEach
@@ -76,18 +88,22 @@ class MatchCreationTests {
     @Test
     void creneau_libre_cree_le_match_et_ecrit_match_created() throws Exception {
         UUID caller = UUID.randomUUID();
+        String jeton = jeton(caller);
 
-        mvc.perform(post("/api/v1/matches").header(HEADER, caller.toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.kind").value("FRIENDLY"))
+                .andExpect(jsonPath("$.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
                 .andExpect(jsonPath("$.ownerId").value(caller.toString()))
                 .andExpect(jsonPath("$.payerId").value(caller.toString()))
                 .andExpect(jsonPath("$.totalPrice.amount").value(30000))
                 .andExpect(jsonPath("$.totalPrice.currency").value("MAD"));
+
+        assertThat(venue.dernierJeton).isEqualTo(jeton);
 
         Map<String, Object> match = jdbc.sql("SELECT id, owner_id, payer_id FROM matches")
                 .query().singleRow();
@@ -110,7 +126,7 @@ class MatchCreationTests {
 
     @Test
     void le_prix_envoye_par_le_client_est_ignore() throws Exception {
-        mvc.perform(post("/api/v1/matches").header(HEADER, UUID.randomUUID().toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID()
                                 + "\",\"price\":1,\"totalPrice\":{\"amount\":1,\"currency\":\"MAD\"}}"))
@@ -119,8 +135,37 @@ class MatchCreationTests {
     }
 
     @Test
-    void sans_appelant_401() throws Exception {
+    void sans_jeton_401() throws Exception {
         mvc.perform(post("/api/v1/matches").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(nombre("matches")).isZero();
+    }
+
+    @Test
+    void l_en_tete_x_user_id_ne_suffit_pas() throws Exception {
+        mvc.perform(post("/api/v1/matches").header("X-User-Id", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(nombre("matches")).isZero();
+    }
+
+    @Test
+    void jeton_illisible_401() throws Exception {
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer abc.def.ghi")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(nombre("matches")).isZero();
+    }
+
+    @Test
+    void jeton_refuse_par_venue_401() throws Exception {
+        venue.erreur = new CallerNotAuthenticatedException();
+
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isUnauthorized());
         assertThat(nombre("matches")).isZero();
@@ -131,7 +176,7 @@ class MatchCreationTests {
         UUID slot = UUID.randomUUID();
         venue.erreur = new SlotAlreadyReservedException(slot);
 
-        mvc.perform(post("/api/v1/matches").header(HEADER, UUID.randomUUID().toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + slot + "\"}"))
                 .andExpect(status().isConflict());
@@ -145,7 +190,7 @@ class MatchCreationTests {
         UUID slot = UUID.randomUUID();
         venue.erreur = new SlotNotFoundException(slot);
 
-        mvc.perform(post("/api/v1/matches").header(HEADER, UUID.randomUUID().toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + slot + "\"}"))
                 .andExpect(status().isNotFound());
@@ -153,32 +198,24 @@ class MatchCreationTests {
 
     @Test
     void slotId_absent_400() throws Exception {
-        mvc.perform(post("/api/v1/matches").header(HEADER, UUID.randomUUID().toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void echec_apres_reservation_ecrit_match_cancelled_pour_que_venue_libere() throws Exception {
-        UUID caller = UUID.randomUUID();
+    void echec_apres_reservation_500_sans_match_ni_evenement() throws Exception {
         // un montant négatif viole la contrainte CHECK : l'enregistrement échoue après la réservation
         venue.reservation = new VenueClient.VenueReservation(UUID.randomUUID(),
                 Instant.parse("2026-10-20T18:00:00Z"), -1L, "MAD", false);
 
-        mvc.perform(post("/api/v1/matches").header(HEADER, caller.toString())
+        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isInternalServerError());
 
         assertThat(nombre("matches")).isZero();
-        Map<String, Object> evenement = jdbc.sql("""
-                SELECT event_type, payload->'data'->>'reason' AS reason,
-                       payload->'data'->>'cancelledBy' AS cancelled_by
-                FROM outbox_event
-                """).query().singleRow();
-        assertThat(evenement.get("event_type")).isEqualTo("match.cancelled");
-        assertThat(evenement.get("reason")).isEqualTo("creation_failed");
-        assertThat(evenement.get("cancelled_by")).isEqualTo(caller.toString());
+        assertThat(nombre("outbox_event")).isZero();
     }
 
     private long nombre(String table) {

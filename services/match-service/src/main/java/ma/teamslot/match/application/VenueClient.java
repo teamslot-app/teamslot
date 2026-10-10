@@ -6,14 +6,16 @@ import java.util.UUID;
 
 /**
  * Port vers venue-service (POST /api/v1/slot-reservations, appel interne et synchrone).
- * Pas de méthode de libération : venue consomme match.cancelled (docs/events.md, point 2).
+ * Le jeton de l'utilisateur est transmis tel quel (Authorization: Bearer) : venue le vérifie.
+ * Pas de méthode de libération : venue consomme match.cancelled (SCRUM-76).
  */
 public interface VenueClient {
 
-    /** @throws SlotAlreadyReservedException si le créneau est pris (409)
-     *  @throws SlotNotFoundException si le créneau n'existe pas (404)
-     *  @throws VenueUnavailableException si venue ne répond pas */
-    VenueReservation reserve(UUID matchId, UUID slotId, List<UUID> equipmentIds);
+    /** @throws SlotAlreadyReservedException 409
+     *  @throws SlotNotFoundException 404
+     *  @throws CallerNotAuthenticatedException 401 (jeton refusé par venue)
+     *  @throws VenueUnavailableException venue ne répond pas ou répond mal */
+    VenueReservation reserve(UUID matchId, UUID slotId, List<UUID> equipmentIds, String bearerToken);
 
     /** Réponse de venue : le prix vient toujours d'ici, jamais du client. */
     record VenueReservation(UUID venueId, Instant startsAt, long totalAmountCents,

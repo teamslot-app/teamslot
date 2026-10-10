@@ -1,6 +1,7 @@
 package ma.teamslot.match.adapter.in.web;
 
 import java.net.URI;
+import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueUnavailableException;
@@ -18,8 +19,8 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
-    @ExceptionHandler(MissingCallerException.class)
-    ProblemDetail nonAuthentifie(MissingCallerException ex) {
+    @ExceptionHandler(CallerNotAuthenticatedException.class)
+    ProblemDetail nonAuthentifie(CallerNotAuthenticatedException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "unauthenticated", "Authentification requise",
                 "Authentification requise.");
     }

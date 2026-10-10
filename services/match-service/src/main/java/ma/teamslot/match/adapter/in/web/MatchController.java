@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CreateMatchService;
 import ma.teamslot.match.domain.Match;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,34 +20,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class MatchController {
 
     private final CreateMatchService service;
-    private final String userHeader;
 
-    public MatchController(CreateMatchService service,
-                           @Value("${teamslot.auth.user-header:X-User-Id}") String userHeader) {
+    public MatchController(CreateMatchService service) {
         this.service = service;
-        this.userHeader = userHeader;
     }
 
     @PostMapping
     public ResponseEntity<MatchResponse> create(@Valid @RequestBody CreateMatchRequest request,
                                                 HttpServletRequest http) {
-        UUID caller = caller(http);
-        Match match = service.create(caller, request.slotId(), request.equipmentIds());
+        String token = BearerCaller.token(http);
+        UUID caller = BearerCaller.subject(token);
+        Match match = service.create(caller, token, request.slotId(), request.equipmentIds());
         return ResponseEntity.created(URI.create("/api/v1/matches/" + match.id()))
                 .body(MatchResponse.from(match));
-    }
-
-    /** L'appelant est posé par la passerelle après contrôle du jeton. Absent ou illisible : 401. */
-    private UUID caller(HttpServletRequest http) {
-        String value = http.getHeader(userHeader);
-        if (value == null || value.isBlank()) {
-            throw new MissingCallerException();
-        }
-        try {
-            return UUID.fromString(value.trim());
-        } catch (IllegalArgumentException e) {
-            throw new MissingCallerException();
-        }
     }
 
     /** Aucun champ « prix » : tout autre champ envoyé par le client est ignoré. */

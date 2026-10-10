@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
@@ -19,13 +18,12 @@ public class CreateMatchService {
 
     private static final String KIND = "FRIENDLY";
     private static final String STATUS = "PENDING_PAYMENT";
-    private static final String VISIBILITE = "PRIVATE"; // à confirmer dans match.yaml (MatchVisibility)
+    private static final String VISIBILITE = "PRIVATE"; // confirmé par Laila pour un match FRIENDLY
 
     private final VenueClient venue;
     private final MatchRepository matches;
     private final Outbox outbox;
     private final TransactionTemplate transaction;
-    private final TransactionTemplate compensation;
 
     public CreateMatchService(VenueClient venue, MatchRepository matches, Outbox outbox,
                               PlatformTransactionManager transactionManager) {
@@ -33,8 +31,6 @@ public class CreateMatchService {
         this.matches = matches;
         this.outbox = outbox;
         this.transaction = new TransactionTemplate(transactionManager);
-        this.compensation = new TransactionTemplate(transactionManager);
-        this.compensation.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -42,15 +38,18 @@ public class CreateMatchService {
      * venue est lent. Seuls l'enregistrement du match et l'écriture dans l'outbox partagent
      * la même transaction.
      */
-    public Match create(UUID callerId, UUID slotId, List<UUID> equipmentIds) {
+    public Match create(UUID callerId, String bearerToken, UUID slotId, List<UUID> equipmentIds) {
         UUID matchId = UUID.randomUUID();
         List<UUID> equipment = equipmentIds == null ? List.of() : List.copyOf(equipmentIds);
 
-        VenueReservation reservation = venue.reserve(matchId, slotId, equipment);
+        VenueReservation reservation = venue.reserve(matchId, slotId, equipment, bearerToken);
         try {
             return transaction.execute(status -> enregistrer(matchId, callerId, slotId, reservation));
         } catch (RuntimeException e) {
-            annulerSansMasquerLErreur(matchId, callerId);
+            // Compensation : venue libère le créneau en consommant match.cancelled, prévu dans
+            // SCRUM-76 (topic et consommateur absents pour l'instant). On trace pour pouvoir agir.
+            log.error("Créneau réservé mais match non enregistré : matchId={} slotId={} (à libérer, SCRUM-76)",
+                    matchId, slotId, e);
             throw e;
         }
     }
@@ -64,19 +63,5 @@ public class CreateMatchService {
                 callerId, callerId, r.venueId(), slotId, r.startsAt(), r.totalAmountCents(),
                 r.currency(), r.acceptsOnSitePayment()));
         return match;
-    }
-
-    /**
-     * Compensation (décision SCRUM-25) : venue libère le créneau en consommant match.cancelled.
-     * Transaction séparée, car celle de l'enregistrement est annulée.
-     * Si l'écriture échoue aussi, on trace l'erreur sans masquer l'erreur d'origine.
-     */
-    private void annulerSansMasquerLErreur(UUID matchId, UUID callerId) {
-        try {
-            compensation.executeWithoutResult(status -> outbox.record(matchId, "match.cancelled",
-                    new MatchCancelledData(matchId, "creation_failed", callerId)));
-        } catch (RuntimeException e) {
-            log.error("match.cancelled non écrit : créneau possiblement bloqué, match {}", matchId, e);
-        }
     }
 }

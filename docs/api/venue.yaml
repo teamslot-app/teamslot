@@ -320,11 +320,13 @@ components:
           items: { type: string, format: uuid }
     SlotReservation:
       type: object
-      required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status]
+      required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status, startsAt, endsAt]
       properties:
         slotId: { type: string, format: uuid }
         matchId: { type: string, format: uuid }
         venueId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
         equipment:
           type: array
           items: { $ref: '#/components/schemas/Equipment' }
