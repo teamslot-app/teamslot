@@ -26,6 +26,8 @@ spec:
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: kafka:9092
+            - name: LOG_DIR
+              value: /tmp
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
