@@ -1,0 +1,23 @@
+name: venue-service
+on:
+  pull_request:
+    paths:
+      - 'services/venue-service/**'
+      - '.github/workflows/java-service.yml'
+      - '.github/workflows/venue-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/venue-service/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  ci:
+    uses: ./.github/workflows/java-service.yml
+    with:
+      service: services/venue-service
+      name: venue-service
+      sonar_project_key: teamslot-app_venue-service
+    secrets: inherit
