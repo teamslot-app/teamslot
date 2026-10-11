@@ -1,6 +1,6 @@
 package ma.teamslot.match;
 
-import static ma.teamslot.match.MatchCreationTests.jeton;
+import static ma.teamslot.match.MatchCreationTests.appelant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,9 +53,9 @@ class ParticipantTests {
                 .update();
     }
 
-    private ResultActions ajouter(UUID appelant, UUID match, String corps) throws Exception {
+    private ResultActions ajouter(UUID qui, UUID match, String corps) throws Exception {
         return mvc.perform(post("/api/v1/matches/" + match + "/participants")
-                .header("Authorization", "Bearer " + jeton(appelant))
+                .with(appelant(qui))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corps));
     }

@@ -1,6 +1,5 @@
 package ma.teamslot.match.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -10,6 +9,8 @@ import java.util.UUID;
 import ma.teamslot.match.application.CreateMatchService;
 import ma.teamslot.match.domain.Match;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,10 +28,10 @@ public class MatchController {
 
     @PostMapping
     public ResponseEntity<MatchResponse> create(@Valid @RequestBody CreateMatchRequest request,
-                                                HttpServletRequest http) {
-        String token = BearerCaller.token(http);
-        UUID caller = BearerCaller.subject(token);
-        Match match = service.create(caller, token, request.slotId(), request.equipmentIds());
+                                                @AuthenticationPrincipal Jwt jeton) {
+        // Le jeton verifie est transmis tel quel a venue-service, qui le verifie aussi (ADR-013).
+        Match match = service.create(Appelant.de(jeton), jeton.getTokenValue(), request.slotId(),
+                request.equipmentIds());
         return ResponseEntity.created(URI.create("/api/v1/matches/" + match.id()))
                 .body(MatchResponse.from(match));
     }
