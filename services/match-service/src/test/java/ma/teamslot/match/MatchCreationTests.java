@@ -1,14 +1,13 @@
 package ma.teamslot.match;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +27,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** POST /api/v1/matches, avec un faux venue-service (règle d'équipe : simuler plutôt qu'attendre). */
 @SpringBootTest
@@ -70,12 +70,16 @@ class MatchCreationTests {
         }
     }
 
-    /** Jeton factice (non signé) dont la claim sub est l'identifiant donné. */
-    static String jeton(UUID sub) {
-        Base64.Encoder e = Base64.getUrlEncoder().withoutPadding();
-        String h = e.encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
-        String p = e.encodeToString(("{\"sub\":\"" + sub + "\"}").getBytes(StandardCharsets.UTF_8));
-        return h + "." + p + ".sig";
+    /**
+     * Appelant authentifie : jeton considere comme deja verifie par Spring Security (SCRUM-87),
+     * avec la claim sub et une valeur reconnaissable pour verifier sa transmission a venue-service.
+     */
+    static RequestPostProcessor appelant(UUID sub) {
+        return jwt().jwt(j -> j.subject(sub.toString()).tokenValue(valeurDuJeton(sub)));
+    }
+
+    static String valeurDuJeton(UUID sub) {
+        return "jeton-de-" + sub;
     }
 
     @BeforeEach
@@ -89,9 +93,7 @@ class MatchCreationTests {
     @Test
     void creneau_libre_cree_le_match_et_ecrit_match_created() throws Exception {
         UUID caller = UUID.randomUUID();
-        String jeton = jeton(caller);
-
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton)
+        mvc.perform(post("/api/v1/matches").with(appelant(caller))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isCreated())
@@ -104,7 +106,7 @@ class MatchCreationTests {
                 .andExpect(jsonPath("$.totalPrice.amount").value(30000))
                 .andExpect(jsonPath("$.totalPrice.currency").value("MAD"));
 
-        assertThat(venue.dernierJeton).isEqualTo(jeton);
+        assertThat(venue.dernierJeton).isEqualTo(valeurDuJeton(caller));
 
         Map<String, Object> match = jdbc.sql("SELECT id, owner_id, payer_id FROM matches")
                 .query().singleRow();
@@ -127,7 +129,7 @@ class MatchCreationTests {
 
     @Test
     void le_prix_envoye_par_le_client_est_ignore() throws Exception {
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID()
                                 + "\",\"price\":1,\"totalPrice\":{\"amount\":1,\"currency\":\"MAD\"}}"))
@@ -165,7 +167,7 @@ class MatchCreationTests {
     void jeton_refuse_par_venue_401() throws Exception {
         venue.erreur = new CallerNotAuthenticatedException();
 
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isUnauthorized());
@@ -177,7 +179,7 @@ class MatchCreationTests {
         UUID slot = UUID.randomUUID();
         venue.erreur = new SlotAlreadyReservedException(slot);
 
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + slot + "\"}"))
                 .andExpect(status().isConflict());
@@ -191,7 +193,7 @@ class MatchCreationTests {
         UUID slot = UUID.randomUUID();
         venue.erreur = new SlotNotFoundException(slot);
 
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + slot + "\"}"))
                 .andExpect(status().isNotFound());
@@ -199,7 +201,7 @@ class MatchCreationTests {
 
     @Test
     void slotId_absent_400() throws Exception {
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }
@@ -210,7 +212,7 @@ class MatchCreationTests {
         venue.reservation = new VenueClient.VenueReservation(UUID.randomUUID(),
                 Instant.parse("2026-10-20T18:00:00Z"), -1L, "MAD", false);
 
-        mvc.perform(post("/api/v1/matches").header("Authorization", "Bearer " + jeton(UUID.randomUUID()))
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isInternalServerError());

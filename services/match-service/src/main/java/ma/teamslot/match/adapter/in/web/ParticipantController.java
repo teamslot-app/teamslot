@@ -1,6 +1,5 @@
 package ma.teamslot.match.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
@@ -9,6 +8,8 @@ import ma.teamslot.match.domain.Participant;
 import ma.teamslot.match.domain.ParticipantStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,9 +30,8 @@ public class ParticipantController {
     @PostMapping
     public ResponseEntity<ParticipantResponse> add(@PathVariable UUID matchId,
                                                    @Valid @RequestBody AddParticipantRequest request,
-                                                   HttpServletRequest http) {
-        UUID appelant = BearerCaller.subject(BearerCaller.token(http));
-        Participant p = service.add(appelant, matchId, request.userId(), request.guestName());
+                                                   @AuthenticationPrincipal Jwt jeton) {
+        Participant p = service.add(Appelant.de(jeton), matchId, request.userId(), request.guestName());
         return ResponseEntity.status(HttpStatus.CREATED).body(ParticipantResponse.from(p));
     }
 
