@@ -2,6 +2,7 @@ package ma.teamslot.match.adapter.in.web;
 
 import java.net.URI;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
+import ma.teamslot.match.application.MatchClosedException;
 import ma.teamslot.match.application.MatchNotFoundException;
 import ma.teamslot.match.application.NotMatchOrganizerException;
 import ma.teamslot.match.application.ParticipantAlreadyAddedException;
@@ -62,8 +63,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ParticipantAlreadyAddedException.class)
     ProblemDetail dejaParticipant(ParticipantAlreadyAddedException ex) {
-        return problem(HttpStatus.CONFLICT, "participant-already-added", "Déjà participant",
-                "Ce compte participe déjà au match.");
+        String detail = switch (ex.raison()) {
+            case COMPTE -> "Ce compte participe déjà au match.";
+            case SURNOM -> "Ce surnom est déjà utilisé dans ce match : choisis-en un autre (par exemple « Yassir 2 »).";
+            case ORGANISATEUR -> "L'organisateur fait déjà partie du match.";
+        };
+        return problem(HttpStatus.CONFLICT, "participant-already-added", "Déjà participant", detail);
+    }
+
+    @ExceptionHandler(MatchClosedException.class)
+    ProblemDetail matchFerme(MatchClosedException ex) {
+        return problem(HttpStatus.CONFLICT, "match-closed", "Match fermé",
+                "Ce match n'accepte plus de participants.");
     }
 
     /** Message de la règle du domaine : il ne contient jamais la valeur envoyée. */

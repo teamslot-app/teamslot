@@ -13,6 +13,10 @@ CREATE TABLE participants (
     CONSTRAINT participant_statut CHECK (status IN ('INVITED', 'CONFIRMED', 'REQUESTED', 'DECLINED'))
 );
 
--- Un meme compte n'est ajoute qu'une fois a un match ; plusieurs invites peuvent avoir le meme surnom.
+-- Un meme compte n'est ajoute qu'une fois a un match.
 CREATE UNIQUE INDEX uq_participants_match_compte ON participants (match_id, user_id) WHERE user_id IS NOT NULL;
+-- Decision PO (Laila) : un surnom n'est utilise qu'une fois par match, sans tenir compte de la casse
+-- ni des espaces, car match.teams_split identifie les invites par guest:<surnom> (SCRUM-61).
+CREATE UNIQUE INDEX uq_participants_match_surnom ON participants (match_id, lower(replace(guest_name, ' ', '')))
+    WHERE guest_name IS NOT NULL;
 CREATE INDEX idx_participants_match ON participants (match_id);

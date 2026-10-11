@@ -10,6 +10,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -127,10 +128,44 @@ class ParticipantTests {
     }
 
     @Test
-    void deux_invites_peuvent_avoir_le_meme_surnom() throws Exception {
+    void un_surnom_deja_utilise_409_sans_tenir_compte_de_la_casse_ni_des_espaces() throws Exception {
         ajouter(organisateur, matchId, "{\"guestName\":\"Yassir\"}").andExpect(status().isCreated());
-        ajouter(organisateur, matchId, "{\"guestName\":\"Yassir\"}").andExpect(status().isCreated());
+
+        ajouter(organisateur, matchId, "{\"guestName\":\"  yassir \"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("https://teamslot.app/problems/participant-already-added"))
+                .andExpect(jsonPath("$.detail").value(Matchers.containsString("surnom")));
+        ajouter(organisateur, matchId, "{\"guestName\":\"YAS SIR\"}").andExpect(status().isConflict());
+        ajouter(organisateur, matchId, "{\"guestName\":\"Yassir 2\"}").andExpect(status().isCreated());
+
         assertThat(nombre("participants")).isEqualTo(2);
+        assertThat(nombre("outbox_event")).isEqualTo(2);
+    }
+
+    @Test
+    void l_organisateur_ne_peut_pas_s_ajouter_lui_meme_409() throws Exception {
+        ajouter(organisateur, matchId, "{\"userId\":\"" + organisateur + "\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(Matchers.containsString("organisateur")));
+        assertThat(nombre("participants")).isZero();
+    }
+
+    @Test
+    void match_annule_ou_joue_409_sans_rien_enregistrer() throws Exception {
+        for (String statut : List.of("CANCELLED", "PLAYED")) {
+            changerStatut(statut);
+            ajouter(organisateur, matchId, "{\"guestName\":\"Yassir\"}")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.type").value("https://teamslot.app/problems/match-closed"));
+        }
+        assertThat(nombre("participants")).isZero();
+        assertThat(nombre("outbox_event")).isZero();
+    }
+
+    @Test
+    void match_confirme_accepte_encore_des_participants() throws Exception {
+        changerStatut("CONFIRMED");
+        ajouter(organisateur, matchId, "{\"guestName\":\"Yassir\"}").andExpect(status().isCreated());
     }
 
     // Critere 2 : seul l'organisateur ajoute des participants, les autres recoivent 403
@@ -189,6 +224,10 @@ class ParticipantTests {
 
         assertThat(colonnes).containsExactly("added_by", "created_at", "guest_name", "id",
                 "match_id", "status", "user_id");
+    }
+
+    private void changerStatut(String statut) {
+        jdbc.sql("UPDATE matches SET status = :s WHERE id = :id").param("s", statut).param("id", matchId).update();
     }
 
     private long nombre(String table) {

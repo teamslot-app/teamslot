@@ -3,6 +3,7 @@ package ma.teamslot.match.adapter.out.persistence;
 import java.sql.Types;
 import java.util.Optional;
 import java.util.UUID;
+import ma.teamslot.match.application.MatchPourAjout;
 import ma.teamslot.match.application.ParticipantAlreadyAddedException;
 import ma.teamslot.match.application.ParticipantRepository;
 import ma.teamslot.match.domain.Participant;
@@ -13,7 +14,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JdbcParticipantRepository implements ParticipantRepository {
 
-    private static final String ORGANISATEUR = "SELECT owner_id FROM matches WHERE id = :matchId";
+    /** FOR SHARE : le match ne peut pas changer de statut (annulation) avant la fin de l'ajout. */
+    private static final String MATCH = "SELECT owner_id, status FROM matches WHERE id = :matchId FOR SHARE";
+    private static final String INDEX_SURNOM = "uq_participants_match_surnom";
 
     private static final String INSERT = """
             INSERT INTO participants (id, match_id, user_id, guest_name, status, added_by)
@@ -27,8 +30,10 @@ public class JdbcParticipantRepository implements ParticipantRepository {
     }
 
     @Override
-    public Optional<UUID> organisateurDe(UUID matchId) {
-        return jdbc.sql(ORGANISATEUR).param("matchId", matchId).query(UUID.class).optional();
+    public Optional<MatchPourAjout> matchPourAjout(UUID matchId) {
+        return jdbc.sql(MATCH).param("matchId", matchId)
+                .query((rs, ligne) -> new MatchPourAjout(rs.getObject("owner_id", UUID.class), rs.getString("status")))
+                .optional();
     }
 
     @Override
@@ -43,7 +48,10 @@ public class JdbcParticipantRepository implements ParticipantRepository {
                     .param("addedBy", ajoutePar)
                     .update();
         } catch (DuplicateKeyException e) {
-            throw new ParticipantAlreadyAddedException(e);
+            String message = String.valueOf(e.getMessage());
+            throw new ParticipantAlreadyAddedException(message.contains(INDEX_SURNOM)
+                    ? ParticipantAlreadyAddedException.Raison.SURNOM
+                    : ParticipantAlreadyAddedException.Raison.COMPTE, e);
         }
     }
 }

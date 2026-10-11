@@ -27,7 +27,8 @@ public class AddParticipantService {
 
     /**
      * Exactement un des deux : userId (compte) ou guestName (invite sans compte).
-     * Verification de l'organisateur, enregistrement et outbox dans la meme transaction.
+     * Ordre : 404 match introuvable, 403 pas organisateur, 409 match ferme, 409 organisateur ou deja present.
+     * Verification, enregistrement et outbox dans la meme transaction.
      */
     public Participant add(UUID appelant, UUID matchId, UUID userId, String guestName) {
         if ((userId == null) == (guestName == null)) {
@@ -38,10 +39,16 @@ public class AddParticipantService {
                 : Participant.invite(matchId, guestName);
 
         return transaction.execute(status -> {
-            UUID organisateur = participants.organisateurDe(matchId)
+            MatchPourAjout match = participants.matchPourAjout(matchId)
                     .orElseThrow(() -> new MatchNotFoundException(matchId));
-            if (!organisateur.equals(appelant)) {
+            if (!match.organisateur().equals(appelant)) {
                 throw new NotMatchOrganizerException();
+            }
+            if (!match.ouvertAuxAjouts()) {
+                throw new MatchClosedException(match.statut());
+            }
+            if (match.organisateur().equals(userId)) {
+                throw new ParticipantAlreadyAddedException(ParticipantAlreadyAddedException.Raison.ORGANISATEUR, null);
             }
             participants.save(participant, appelant);
             outbox.record(matchId, EVENEMENT, new ParticipantAddedData(matchId, participant.id(),
