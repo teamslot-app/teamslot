@@ -1,6 +1,7 @@
 package ma.teamslot.match.adapter.out.persistence;
 
 import java.time.ZoneOffset;
+import java.util.UUID;
 import ma.teamslot.match.application.MatchRepository;
 import ma.teamslot.match.domain.Match;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -15,6 +16,11 @@ public class JdbcMatchRepository implements MatchRepository {
                                  accepts_on_site_payment, version)
             VALUES (:id, :kind, :status, :visibility, :openSpots, :ownerId, :payerId,
                     :venueId, :slotId, :startsAt, :total, :currency, :onSite, :version)
+            """;
+
+    private static final String CONFIRMER = """
+            UPDATE matches SET status = 'CONFIRMED', version = version + 1
+            WHERE id = :id AND status = 'PENDING_PAYMENT'
             """;
 
     private final JdbcClient jdbc;
@@ -41,5 +47,10 @@ public class JdbcMatchRepository implements MatchRepository {
                 .param("onSite", m.acceptsOnSitePayment())
                 .param("version", m.version())
                 .update();
+    }
+
+    @Override
+    public boolean confirmer(UUID matchId) {
+        return jdbc.sql(CONFIRMER).param("id", matchId).update() == 1;
     }
 }
