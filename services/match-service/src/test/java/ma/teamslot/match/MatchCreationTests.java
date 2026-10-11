@@ -81,6 +81,7 @@ class MatchCreationTests {
     @BeforeEach
     void preparer() {
         venue.reinitialiser();
+        jdbc.sql("DELETE FROM participants").update(); // SCRUM-60 : cle etrangere vers matches
         jdbc.sql("DELETE FROM outbox_event").update();
         jdbc.sql("DELETE FROM matches").update();
     }
