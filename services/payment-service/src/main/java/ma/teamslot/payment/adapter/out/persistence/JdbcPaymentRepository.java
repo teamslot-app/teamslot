@@ -15,6 +15,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JdbcPaymentRepository implements PaymentRepository {
 
+    private static final String MATCH_ID = "matchId";
+    private static final String STATUS = "status";
+
     private static final String INSERT_SI_ABSENT = """
             INSERT INTO payments (id, match_id, payer_id, total_amount_cents, currency,
                                   accepts_on_site_payment, status)
@@ -41,23 +44,23 @@ public class JdbcPaymentRepository implements PaymentRepository {
     public boolean creerSiAbsent(Payment p) {
         return jdbc.sql(INSERT_SI_ABSENT)
                 .param("id", p.id())
-                .param("matchId", p.matchId())
+                .param(MATCH_ID, p.matchId())
                 .param("payerId", p.payerId())
                 .param("total", p.totalAmountCents())
                 .param("currency", p.currency())
                 .param("onSite", p.acceptsOnSitePayment())
-                .param("status", p.status().name())
+                .param(STATUS, p.status().name())
                 .update() == 1;
     }
 
     @Override
     public Optional<Payment> trouver(UUID matchId) {
-        return jdbc.sql(SELECT).param("matchId", matchId).query(JdbcPaymentRepository::lire).optional();
+        return jdbc.sql(SELECT).param(MATCH_ID, matchId).query(JdbcPaymentRepository::lire).optional();
     }
 
     @Override
     public Optional<Payment> trouverPourMiseAJour(UUID matchId) {
-        return jdbc.sql(SELECT + " FOR UPDATE").param("matchId", matchId)
+        return jdbc.sql(SELECT + " FOR UPDATE").param(MATCH_ID, matchId)
                 .query(JdbcPaymentRepository::lire).optional();
     }
 
@@ -66,7 +69,7 @@ public class JdbcPaymentRepository implements PaymentRepository {
         jdbc.sql(UPDATE)
                 .param("id", p.id())
                 .param("mode", p.mode() == null ? null : p.mode().name(), Types.VARCHAR)
-                .param("status", p.status().name())
+                .param(STATUS, p.status().name())
                 .update();
     }
 
