@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: venue-service
+  labels:
+    app: venue-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: venue-service
+  template:
+    metadata:
+      labels:
+        app: venue-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: venue-service
+          image: ghcr.io/teamslot-app/venue-service
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/venue"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: venue-db
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: venue-db
+                  key: DB_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: venue-service
+  labels:
+    app: venue-service
+spec:
+  selector:
+    app: venue-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -28,6 +28,16 @@ spec:
           env:
             - name: TEMPLATE_URL
               value: "http://service-template"
+            - name: IDENTITY_URL
+              value: "http://identity-service"
+            - name: VENUE_URL
+              value: "http://venue-service"
+            - name: MATCH_URL
+              value: "http://match-service"
+            - name: PAYMENT_URL
+              value: "http://payment-service"
+            - name: JWT_JWK_SET_URI
+              value: "http://identity-service/.well-known/jwks.json"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
