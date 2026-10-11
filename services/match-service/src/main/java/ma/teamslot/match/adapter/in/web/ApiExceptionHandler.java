@@ -2,9 +2,14 @@ package ma.teamslot.match.adapter.in.web;
 
 import java.net.URI;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
+import ma.teamslot.match.application.MatchClosedException;
+import ma.teamslot.match.application.MatchNotFoundException;
+import ma.teamslot.match.application.NotMatchOrganizerException;
+import ma.teamslot.match.application.ParticipantAlreadyAddedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueUnavailableException;
+import ma.teamslot.match.domain.InvalidParticipantException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -42,6 +47,41 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("venue-service indisponible : {}", ex.getMessage());
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "venue-unavailable", "Service indisponible",
                 "Le service des terrains est momentanément indisponible.");
+    }
+
+    @ExceptionHandler(MatchNotFoundException.class)
+    ProblemDetail matchIntrouvable(MatchNotFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, "match-not-found", "Match introuvable",
+                "Ce match n'existe pas.");
+    }
+
+    @ExceptionHandler(NotMatchOrganizerException.class)
+    ProblemDetail pasOrganisateur(NotMatchOrganizerException ex) {
+        return problem(HttpStatus.FORBIDDEN, "not-match-organizer", "Action réservée à l'organisateur",
+                "Seul l'organisateur du match peut ajouter des participants.");
+    }
+
+    @ExceptionHandler(ParticipantAlreadyAddedException.class)
+    ProblemDetail dejaParticipant(ParticipantAlreadyAddedException ex) {
+        String detail = switch (ex.raison()) {
+            case COMPTE -> "Ce compte participe déjà au match.";
+            case SURNOM -> "Ce surnom est déjà utilisé dans ce match : choisis-en un autre (par exemple « Yassir 2 »).";
+            case ORGANISATEUR -> "L'organisateur fait déjà partie du match.";
+        };
+        return problem(HttpStatus.CONFLICT, "participant-already-added", "Déjà participant", detail);
+    }
+
+    @ExceptionHandler(MatchClosedException.class)
+    ProblemDetail matchFerme(MatchClosedException ex) {
+        return problem(HttpStatus.CONFLICT, "match-closed", "Match fermé",
+                "Ce match n'accepte plus de participants.");
+    }
+
+    /** Message de la règle du domaine : il ne contient jamais la valeur envoyée. */
+    @ExceptionHandler(InvalidParticipantException.class)
+    ProblemDetail participantInvalide(InvalidParticipantException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-participant", "Participant invalide",
+                ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
