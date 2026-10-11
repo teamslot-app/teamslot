@@ -1,0 +1,4 @@
+ALTER TABLE matches
+  ADD COLUMN open_spots INTEGER NOT NULL DEFAULT 0 CHECK (open_spots >= 0),
+  ADD COLUMN accepts_on_site_payment BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

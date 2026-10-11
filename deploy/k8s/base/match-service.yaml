@@ -38,6 +38,8 @@ spec:
                 secretKeyRef:
                   name: match-db
                   key: DB_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
