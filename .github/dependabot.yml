@@ -18,7 +18,9 @@ updates:
 
   # npm : le front React
   - package-ecosystem: "npm"
-    directory: "/frontend/apps/web"
+    directories:
+      - "/frontend/apps/web"
+      - "/frontend/packages/shared"
     schedule:
       interval: "weekly"
       day: "monday"
