@@ -28,4 +28,4 @@ images:
   newTag: a15cc0603ddace3ebc6c90bb1683155e4ce907f7
 - name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: feafe8ddadb431cdd0fa05f37e9bc5282266df07
+  newTag: 4833a7688dd885c4ffa91717af56546a89886a6a
