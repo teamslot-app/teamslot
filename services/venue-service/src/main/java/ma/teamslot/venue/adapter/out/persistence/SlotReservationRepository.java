@@ -11,6 +11,6 @@ public interface SlotReservationRepository extends JpaRepository<SlotReservation
 
   @Query(
       "select r.slotId from SlotReservationEntity r"
-          + " where r.slotId in :slotIds and r.status = 'ACTIVE'")
+          + " where r.slotId in :slotIds and r.status = 'RESERVED'")
   List<UUID> findActiveSlotIds(@Param("slotIds") Collection<UUID> slotIds);
 }
