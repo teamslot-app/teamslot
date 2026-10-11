@@ -36,7 +36,14 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Lister les participants d'un match
+         * @description Réservé à l'organisateur et aux participants avec compte (INVITED ou CONFIRMED) ;
+         *     les invités sans compte voient les équipes sur place, par l'organisateur.
+         *     Après une répartition, chaque joueur tiré a son côté (side). L'organisateur
+         *     n'apparaît dans la liste qu'à partir du premier tirage.
+         */
+        get: operations["listParticipants"];
         put?: never;
         /**
          * Ajouter un participant (organisateur)
@@ -160,6 +167,10 @@ export interface paths {
          * @description Un joueur n'est jamais des deux côtés. Publie match.teams_split.
          *     La stratégie est un point d'extension (TeamSplitStrategy) : « random » aujourd'hui,
          *     « balanced » plus tard, sans modifier ce contrat.
+         *     Seul un match CONFIRMED (paiement en ligne effectué ou accepté sur place) peut être réparti,
+         *     avec au moins deux joueurs (409 sinon). Sont tirés les participants INVITED ou CONFIRMED ;
+         *     l'organisateur joue : il est inscrit CONFIRMED s'il ne l'est pas déjà.
+         *     Un nouveau tirage remplace les côtés précédents et publie un nouveau match.teams_split.
          */
         post: operations["splitTeams"];
         delete?: never;
@@ -454,6 +465,32 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+        };
+    };
+    listParticipants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Participants du match */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Participant"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     addParticipant: {

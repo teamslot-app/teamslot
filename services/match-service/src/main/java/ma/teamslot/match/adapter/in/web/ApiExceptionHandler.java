@@ -2,6 +2,10 @@ package ma.teamslot.match.adapter.in.web;
 
 import java.net.URI;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
+import ma.teamslot.match.application.MatchNotConfirmedException;
+import ma.teamslot.match.application.NotAParticipantException;
+import ma.teamslot.match.application.NotEnoughPlayersException;
+import ma.teamslot.match.application.UnknownStrategyException;
 import ma.teamslot.match.application.MatchClosedException;
 import ma.teamslot.match.application.MatchNotFoundException;
 import ma.teamslot.match.application.NotMatchOrganizerException;
@@ -58,7 +62,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NotMatchOrganizerException.class)
     ProblemDetail pasOrganisateur(NotMatchOrganizerException ex) {
         return problem(HttpStatus.FORBIDDEN, "not-match-organizer", "Action réservée à l'organisateur",
-                "Seul l'organisateur du match peut ajouter des participants.");
+                "Cette action est réservée à l'organisateur du match.");
     }
 
     @ExceptionHandler(ParticipantAlreadyAddedException.class)
@@ -82,6 +86,29 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail participantInvalide(InvalidParticipantException ex) {
         return problem(HttpStatus.BAD_REQUEST, "invalid-participant", "Participant invalide",
                 ex.getMessage());
+    }
+
+    @ExceptionHandler(UnknownStrategyException.class)
+    ProblemDetail strategieInconnue(UnknownStrategyException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "unknown-strategy", "Stratégie inconnue", ex.getMessage());
+    }
+
+    @ExceptionHandler(MatchNotConfirmedException.class)
+    ProblemDetail matchPasConfirme(MatchNotConfirmedException ex) {
+        return problem(HttpStatus.CONFLICT, "match-not-confirmed", "Match non confirmé",
+                "Le match doit être confirmé (paiement effectué ou accepté sur place) avant la répartition.");
+    }
+
+    @ExceptionHandler(NotEnoughPlayersException.class)
+    ProblemDetail pasAssezDeJoueurs(NotEnoughPlayersException ex) {
+        return problem(HttpStatus.CONFLICT, "not-enough-players", "Pas assez de joueurs",
+                "Il faut au moins deux joueurs pour répartir les équipes.");
+    }
+
+    @ExceptionHandler(NotAParticipantException.class)
+    ProblemDetail pasParticipant(NotAParticipantException ex) {
+        return problem(HttpStatus.FORBIDDEN, "not-a-participant", "Accès réservé aux participants",
+                "Seuls l'organisateur et les participants du match peuvent voir cette liste.");
     }
 
     @ExceptionHandler(Exception.class)

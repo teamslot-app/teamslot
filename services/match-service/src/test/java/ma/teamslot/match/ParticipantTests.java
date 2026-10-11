@@ -222,8 +222,9 @@ class ParticipantTests {
                 WHERE table_name = 'participants' ORDER BY column_name
                 """).query(String.class).list();
 
+        // side (SCRUM-61, V5) : côté A ou B du tirage au sort, aucune donnée personnelle.
         assertThat(colonnes).containsExactly("added_by", "created_at", "guest_name", "id",
-                "match_id", "status", "user_id");
+                "match_id", "side", "status", "user_id");
     }
 
     private void changerStatut(String statut) {
