@@ -33,4 +33,38 @@ public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents
         return new Payment(UUID.randomUUID(), matchId, payerId, totalAmountCents, currency,
                 acceptsOnSitePayment, null, PaymentStatus.PENDING);
     }
+
+    /** Paiement en ligne (simule) : seul le payeur, une seule fois. */
+    public Payment payerEnLigne(UUID appelant) {
+        verifierPayeurEtAttente(appelant);
+        return avec(PaymentMode.ONLINE, PaymentStatus.COMPLETED);
+    }
+
+    /** Paiement sur place : seul le payeur, une seule fois, et seulement si le terrain l'accepte. */
+    public Payment choisirSurPlace(UUID appelant) {
+        verifierPayeurEtAttente(appelant);
+        if (!acceptsOnSitePayment) {
+            throw new OnSitePaymentNotAcceptedException();
+        }
+        return avec(PaymentMode.ON_SITE, PaymentStatus.ON_SITE_ACCEPTED);
+    }
+
+    /** Lecture du paiement : seul le payeur. */
+    public void verifierLecture(UUID appelant) {
+        if (!payerId.equals(appelant)) {
+            throw new NotPayerException();
+        }
+    }
+
+    private void verifierPayeurEtAttente(UUID appelant) {
+        verifierLecture(appelant);
+        if (status != PaymentStatus.PENDING) {
+            throw new PaymentNotPendingException(status);
+        }
+    }
+
+    private Payment avec(PaymentMode nouveauMode, PaymentStatus nouveauStatut) {
+        return new Payment(id, matchId, payerId, totalAmountCents, currency, acceptsOnSitePayment,
+                nouveauMode, nouveauStatut);
+    }
 }
