@@ -38,6 +38,10 @@ spec:
                 secretKeyRef:
                   name: payment-db
                   key: DB_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: JWT_JWK_SET_URI
+              value: "http://identity-service/.well-known/jwks.json"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
