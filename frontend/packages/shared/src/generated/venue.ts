@@ -459,7 +459,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            /** @description Créneau déjà réservé */
+            /** @description Conflit : créneau déjà réservé (type slot-already-reserved) ou créneau déjà commencé (type slot-already-started). */
             409: {
                 headers: {
                     [name: string]: unknown;
