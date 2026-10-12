@@ -51,8 +51,7 @@ class SlotsApiTests {
    * Depuis SCRUM-87, venue exige un JWT valide : chaque requête de ces tests porte un jeton de test.
    * Les refus (sans jeton, jeton illisible, alg none) sont testés dans SecuriteTests.
    */
-  @BeforeEach
-  void appelantAuthentifie() {
+  private void appelantAuthentifie() {
     mvc =
         MockMvcBuilders.webAppContextSetup(contexte)
             .apply(springSecurity())
@@ -62,6 +61,7 @@ class SlotsApiTests {
 
   @BeforeEach
   void prepareData() {
+    appelantAuthentifie();
     jdbc.update("DELETE FROM slot_reservation_equipment");
     jdbc.update("DELETE FROM slot_reservation");
     jdbc.update("DELETE FROM slot");
