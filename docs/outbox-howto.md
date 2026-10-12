@@ -1,6 +1,7 @@
 # Publier et consommer un événement (outbox) — SCRUM-70
 
-Le code commun est dans le package `events` du service modèle (`services/service-template`).
+Le code commun est dans le module partagé `libs/events` (ADR-015, SCRUM-88), paquet `ma.teamslot.events`.
+Un service l'obtient en ajoutant la dépendance `ma.teamslot:events` : l'auto-configuration crée `Outbox`, `EventReader`, `IdempotentProcessor`, le relais et la gestion du `.dlt`. Les classes de `ma.teamslot.events.internal` ne sont pas à utiliser dans un service.
 Règles du catalogue : voir `docs/events.md`.
 
 ## Publier un événement
@@ -56,14 +57,20 @@ public void surMatchCree(String message) {
 | Relais planifié | `teamslot.outbox.relay.enabled` (désactivé dans les tests), `teamslot.outbox.relay.delay-ms` (1000 par défaut) |
 | Délais du producteur | `max.block.ms=5000`, `request.timeout.ms=5000`, `delivery.timeout.ms=10000` : à changer ensemble (`delivery` ≥ `request` + `linger.ms`). Le relais attend 15 s, plus que `delivery`, pour logger la vraie cause (classe seulement, jamais le payload). |
 
-**Service copié du modèle avant SCRUM-70 :** copier le package `events/` (adapter la ligne `package`), `V2__outbox.sql`, les lignes `spring.kafka.*` de `application.properties` et `teamslot.outbox.relay.enabled=false` dans `application-test.properties`.
+**Passer un service à `libs/events`** (une PR par service, ordre de l'ADR-015) :
+1. ajouter la dépendance `ma.teamslot:events` (`<version>${project.version}</version>`) et le module dans le `pom.xml` racine ;
+2. **dans le même commit**, supprimer la copie du package `events/` **et** `V2__outbox.sql` du service (sinon Flyway trouve deux V2 et refuse de démarrer) ;
+3. garder les lignes `spring.kafka.*` de `application.properties` et `teamslot.outbox.relay.enabled=false` dans `application-test.properties`.
+
+`V2__outbox.sql` est déjà appliquée en staging : elle n'est **jamais** modifiée (test d'empreinte `MigrationOutboxTest` dans `libs/events`). Une évolution de l'outbox = une nouvelle migration.
 
 ## Tester
 
 Les tests utilisent Testcontainers (PostgreSQL 16, Kafka `apache/kafka:4.1.0`) : **Docker Desktop doit être lancé**.
-Exemples à copier : `JdbcOutboxTests` (publication), `OutboxRelayTests` (relais), `KafkaConsommateurTests` (consommateur, doublon, `.dlt`).
+Le comportement commun est testé une seule fois, dans `libs/events` : `./mvnw -pl libs/events -am verify`.
+Exemples pour les tests d'un service : `JdbcOutboxTests` (publication), `OutboxRelayTests` (relais), `KafkaConsommateurTests` (consommateur, doublon, `.dlt`).
 
 ## Prévu au Sprint 2
 
 - Supprimer ou archiver les lignes publiées anciennes de `outbox_event`.
-- Déplacer le package `events` dans un module partagé (`libs/events`) pour éviter les copies.
+- Faire passer match-service, payment-service et venue-service à `libs/events` (ils ont encore leur copie du package `events`).
