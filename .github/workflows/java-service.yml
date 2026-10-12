@@ -3,7 +3,7 @@ on:
   workflow_call:
     inputs:
       service:
-        description: "Dossier du service (contient pom.xml, mvnw et Dockerfile), ex. services/service-template"
+        description: "Dossier du service (contient pom.xml et Dockerfile), ex. services/service-template"
         required: true
         type: string
       name:
@@ -15,6 +15,11 @@ on:
         required: false
         type: string
         default: ''
+      racine:
+        description: "true = service passé au build Maven unique (ADR-015) : build depuis la racine (-pl -am), image construite avec la racine comme contexte"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-test:
@@ -23,7 +28,10 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.service }}
+        working-directory: ${{ inputs.racine && '.' || inputs.service }}
+    env:
+      SERVICE: ${{ inputs.service }}
+      RACINE: ${{ inputs.racine }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -34,21 +42,37 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-          cache-dependency-path: ${{ inputs.service }}/pom.xml
+          cache-dependency-path: ${{ inputs.racine && '**/pom.xml' || format('{0}/pom.xml', inputs.service) }}
 
       - name: Build et tests
-        run: ./mvnw -B verify
+        run: |
+          if [ "$RACINE" = "true" ]; then
+            # Le service et les modules dont il dépend (libs/*). install : l'analyse Sonar ci-dessous
+            # ne traite que le module du service et lit ses modules dans le dépôt Maven local.
+            ./mvnw -B -pl "$SERVICE" -am install
+          else
+            ./mvnw -B verify
+          fi
 
       - name: Analyse SonarCloud
         if: inputs.sonar_project_key != '' && github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: >
-          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-          -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.organization=teamslot-app
-          -Dsonar.projectKey=${{ inputs.sonar_project_key }}
-          -Dsonar.qualitygate.wait=true
+          CLE_SONAR: ${{ inputs.sonar_project_key }}
+        run: |
+          # Build unique : seulement le module du service (un projet Sonar par service, ADR-015 règle 5)
+          MODULE=()
+          if [ "$RACINE" = "true" ]; then MODULE=(-pl "$SERVICE"); fi
+          ./mvnw -B "${MODULE[@]}" org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.organization=teamslot-app \
+            -Dsonar.projectKey="$CLE_SONAR" \
+            -Dsonar.qualitygate.wait=true
+
+      # Les modules TeamSlot installés ne doivent pas entrer dans le cache Maven partagé
+      - name: Retirer les modules TeamSlot du dépôt Maven local
+        if: always() && inputs.racine
+        run: rm -rf ~/.m2/repository/ma/teamslot
 
   # SCRUM-90 : sur une PR, construire et scanner l'image sans la publier (faille vue avant la fusion)
   image-scan:
@@ -58,12 +82,13 @@ jobs:
       contents: read
     env:
       IMAGE: pr-scan/${{ inputs.name }}:${{ github.sha }}
-      CONTEXTE: ${{ inputs.service }}
+      DOCKERFILE: ${{ inputs.service }}/Dockerfile
+      CONTEXTE: ${{ inputs.racine && '.' || inputs.service }}
     steps:
       - uses: actions/checkout@v5
 
       - name: Construire l'image (PR, sans publication)
-        run: docker build -t "$IMAGE" "$CONTEXTE"
+        run: docker build -f "$DOCKERFILE" -t "$IMAGE" "$CONTEXTE"
 
       - name: Scanner l'image avec Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -82,6 +107,8 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}:${{ github.sha }}
+      DOCKERFILE: ${{ inputs.service }}/Dockerfile
+      CONTEXTE: ${{ inputs.racine && '.' || inputs.service }}
     steps:
       - uses: actions/checkout@v5
 
@@ -89,8 +116,9 @@ jobs:
         run: >
           docker build
           --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          -f "$DOCKERFILE"
           -t "$IMAGE"
-          ${{ inputs.service }}
+          "$CONTEXTE"
 
       - name: Scanner l'image avec Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
