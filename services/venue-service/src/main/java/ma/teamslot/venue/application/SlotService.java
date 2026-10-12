@@ -1,5 +1,6 @@
 package ma.teamslot.venue.application;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -29,17 +30,20 @@ public class SlotService {
   private final SlotRepository slots;
   private final SlotReservationRepository reservations;
   private final EquipmentRepository equipment;
+  private final Clock clock;
   private final PriceCalculator priceCalculator = new PriceCalculator();
 
   public SlotService(
       VenueRepository venues,
       SlotRepository slots,
       SlotReservationRepository reservations,
-      EquipmentRepository equipment) {
+      EquipmentRepository equipment,
+      Clock clock) {
     this.venues = venues;
     this.slots = slots;
     this.reservations = reservations;
     this.equipment = equipment;
+    this.clock = clock;
   }
 
   public List<SlotView> slotsOfDay(UUID venueId, LocalDate date) {
@@ -55,6 +59,7 @@ public class SlotService {
         Set.copyOf(
             reservations.findActiveSlotIds(found.stream().map(SlotEntity::getId).toList()));
     Money price = new Money(venue.getPricePerHourCents(), venue.getCurrency());
+    Instant now = clock.instant();
 
     return found.stream()
         .map(
@@ -63,7 +68,7 @@ public class SlotService {
                     slot.getId(),
                     slot.getStartAt(),
                     slot.getEndAt(),
-                    !taken.contains(slot.getId()),
+                    !taken.contains(slot.getId()) && slot.getStartAt().isAfter(now),
                     price))
         .toList();
   }

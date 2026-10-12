@@ -12,6 +12,7 @@ public class VenueEntity {
   @Id private UUID id;
   private long pricePerHourCents;
   private String currency;
+  private boolean acceptsOnSitePayment;
 
   protected VenueEntity() {}
 
@@ -25,5 +26,9 @@ public class VenueEntity {
 
   public String getCurrency() {
     return currency;
+  }
+
+  public boolean isAcceptsOnSitePayment() {
+    return acceptsOnSitePayment;
   }
 }

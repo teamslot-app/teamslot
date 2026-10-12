@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -24,6 +25,7 @@ import org.springframework.web.context.WebApplicationContext;
 /** SCRUM-58 : créneaux d'un terrain et prix, sur un vrai PostgreSQL (Testcontainers, profil test). */
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestClockConfig.class)
 class SlotsApiTests {
 
   private static final String VENUE = "a1000000-0000-4000-8000-000000000001";
@@ -85,7 +87,7 @@ class SlotsApiTests {
       insertSlot(slotId(hour - 16), VENUE, "2026-10-12 " + hour + ":00+00", "2026-10-12 " + (hour + 1) + ":00+00");
     }
     // 1er créneau : réservation active. 2e créneau : réservation libérée, donc toujours disponible
-    insertReservation("e1000000-0000-4000-8000-000000000001", slotId(1), "ACTIVE");
+    insertReservation("e1000000-0000-4000-8000-000000000001", slotId(1), "RESERVED");
     insertReservation("e1000000-0000-4000-8000-000000000002", slotId(2), "RELEASED");
   }
 
