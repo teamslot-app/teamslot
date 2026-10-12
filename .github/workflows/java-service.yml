@@ -60,10 +60,12 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           CLE_SONAR: ${{ inputs.sonar_project_key }}
         run: |
-          # Build unique : seulement le module du service (un projet Sonar par service, ADR-015 règle 5)
-          MODULE=()
-          if [ "$RACINE" = "true" ]; then MODULE=(-pl "$SERVICE"); fi
-          ./mvnw -B "${MODULE[@]}" org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          # Build unique : seulement le module du service (un projet Sonar par service, ADR-015 règle 5).
+          # -f et non -pl : avec -pl, le scanner refuse la session ("does not declare a top level project").
+          # Les modules libs/* sont lus dans le dépôt Maven local, remplis par "install" ci-dessus.
+          POM=()
+          if [ "$RACINE" = "true" ]; then POM=(-f "$SERVICE/pom.xml"); fi
+          ./mvnw -B "${POM[@]}" org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar \
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.organization=teamslot-app \
             -Dsonar.projectKey="$CLE_SONAR" \
