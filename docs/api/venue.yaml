@@ -155,7 +155,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Créneau déjà réservé
+          description: >-
+            Conflit : créneau déjà réservé (type slot-already-reserved)
+            ou créneau déjà commencé (type slot-already-started).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
