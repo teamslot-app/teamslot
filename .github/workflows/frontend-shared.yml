@@ -1,0 +1,40 @@
+name: frontend-shared
+on:
+  pull_request:
+    paths:
+      - 'docs/api/**'
+      - 'frontend/packages/shared/**'
+      - '.github/workflows/frontend-shared.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/api/**'
+      - 'frontend/packages/shared/**'
+permissions:
+  contents: read
+jobs:
+  client-a-jour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend/packages/shared
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/packages/shared/package-lock.json
+      - run: npm ci
+      - name: Régénérer le client depuis docs/api
+        run: npm run generate:api
+      - name: Le client commité doit être identique à celui des contrats
+        run: |
+          if [ -n "$(git status --porcelain -- src/generated)" ]; then
+            echo "::error::Le client dans src/generated n'est plus à jour par rapport à docs/api. Lance « npm run generate:api » dans frontend/packages/shared puis commite le résultat."
+            git --no-pager diff --stat -- src/generated
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm test

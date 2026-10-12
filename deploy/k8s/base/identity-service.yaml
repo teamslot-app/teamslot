@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  labels:
+    app: identity-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: identity-service
+          image: ghcr.io/teamslot-app/identity-service
+          ports:
+            - name: http
+              containerPort: 8083
+          env:
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/identity"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: identity-db
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: identity-db
+                  key: DB_PASSWORD
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: identity-jwt
+                  key: JWT_PRIVATE_KEY
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8083
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8083
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  labels:
+    app: identity-service
+spec:
+  selector:
+    app: identity-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

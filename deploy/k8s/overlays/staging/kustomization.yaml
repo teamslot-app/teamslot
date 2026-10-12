@@ -19,13 +19,23 @@ images:
   newTag: 944595e9d5985cdebeebf6fe980046a445eb6a71
 - name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
-  newTag: f089582a975b889eb0ff52c9380f6eff5369e8b0
+  newTag: 9159349fd25adee72481bbb186be2fd31350d3bf
 - name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
-  newTag: 7a821a2aaaa7778de505719e0fb86e2f0e1c03dc
+  newTag: 5c3bbcf511bfb5b01fc4cb84ed620f683331e72f
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: a15cc0603ddace3ebc6c90bb1683155e4ce907f7
 - name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: feafe8ddadb431cdd0fa05f37e9bc5282266df07
+  newTag: 598310dc48e8ed9009f3b6c541a7005dbbd9ec54
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: SPRING_PROFILES_ACTIVE
+        value: demo
+  target:
+    kind: Deployment
+    name: venue-service

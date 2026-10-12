@@ -1,6 +1,8 @@
 package ma.teamslot.venue;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -20,16 +22,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 /** SCRUM-93 : réservation d'un créneau, sur un vrai PostgreSQL (Testcontainers, profil test). */
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestClockConfig.class)
 class ReservationApiTests {
@@ -45,7 +47,8 @@ class ReservationApiTests {
   private static final String URL = "/api/v1/slot-reservations";
   private static final String PROBLEMS = "https://teamslot.app/problems/";
 
-  @Autowired private MockMvc mvc;
+  @Autowired private WebApplicationContext contexte;
+  private MockMvc mvc;
   @Autowired private JdbcTemplate jdbc;
 
   private static String slotId(int n) {
@@ -54,6 +57,11 @@ class ReservationApiTests {
 
   @BeforeEach
   void prepareData() {
+    mvc =
+        MockMvcBuilders.webAppContextSetup(contexte)
+            .apply(springSecurity())
+            .defaultRequest(get("/").with(jwt()))
+            .build();
     jdbc.update("DELETE FROM slot_reservation_equipment");
     jdbc.update("DELETE FROM slot_reservation");
     jdbc.update("DELETE FROM slot");
