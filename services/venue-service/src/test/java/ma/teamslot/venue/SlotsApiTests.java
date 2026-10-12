@@ -1,6 +1,8 @@
 package ma.teamslot.venue;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,15 +14,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 /** SCRUM-58 : créneaux d'un terrain et prix, sur un vrai PostgreSQL (Testcontainers, profil test). */
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SlotsApiTests {
 
@@ -33,8 +35,9 @@ class SlotsApiTests {
   private static final String SLOTS = "/api/v1/venues/" + VENUE + "/slots";
   private static final String PRICE = "/api/v1/venues/" + VENUE + "/price";
 
-  @Autowired private MockMvc mvc;
+  @Autowired private WebApplicationContext contexte;
   @Autowired private JdbcTemplate jdbc;
+  private MockMvc mvc;
 
   private static String slotId(int n) {
     return String.format("d1000000-0000-4000-8000-%012d", n);
@@ -42,6 +45,19 @@ class SlotsApiTests {
 
   private static int count(String body, String needle) {
     return body.split(Pattern.quote(needle), -1).length - 1;
+  }
+
+  /**
+   * Depuis SCRUM-87, venue exige un JWT valide : chaque requête de ces tests porte un jeton de test.
+   * Les refus (sans jeton, jeton illisible, alg none) sont testés dans SecuriteTests.
+   */
+  @BeforeEach
+  void appelantAuthentifie() {
+    mvc =
+        MockMvcBuilders.webAppContextSetup(contexte)
+            .apply(springSecurity())
+            .defaultRequest(get("/").with(jwt()))
+            .build();
   }
 
   @BeforeEach
