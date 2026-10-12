@@ -21,6 +21,7 @@
 	<description>Parent Maven de TeamSlot : versions, correctifs de securite et plugins communs (ADR-015)</description>
 
 	<modules>
+		<module>libs/events</module>
 		<module>services/service-template</module>
 	</modules>
 
