@@ -3,9 +3,12 @@
 # a une nouvelle version ou une faille connue.
 version: 2
 updates:
-  # Java (Maven) : la passerelle et tous les services de services/
+  # Java (Maven) : la passerelle, le parent racine (versions et correctifs communs, ADR-015),
+  # les modules partagés libs/ et tous les services de services/
   - package-ecosystem: "maven"
     directories:
+      - "/"
+      - "/libs/*"
       - "/gateway"
       - "/services/*"
     schedule:
