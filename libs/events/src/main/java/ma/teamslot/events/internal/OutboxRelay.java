@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events.internal;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,15 +11,14 @@ import org.springframework.core.NestedExceptionUtils;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Relais de l'outbox : envoie à Kafka les événements pas encore publiés, dans l'ordre d'enregistrement.
  * Livraison "au moins une fois" : un doublon est possible, le consommateur idempotent le neutralise.
+ * Classe interne : bean créé par EventsAutoConfiguration.
  */
-@Component
-public class OutboxRelay {
+class OutboxRelay {
 
     private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
     private static final int TAILLE_LOT = 50;
@@ -42,12 +41,12 @@ public class OutboxRelay {
     private final JdbcClient jdbc;
     private final KafkaTemplate<String, String> kafka;
 
-    public OutboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka) {
+    OutboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka) {
         this.jdbc = jdbc;
         this.kafka = kafka;
     }
 
-    /** Toutes les secondes (si la planification est active, voir OutboxSchedulingConfig). */
+    /** Toutes les secondes (si la planification est active, voir EventsAutoConfiguration.PlanificationDuRelais). */
     @Scheduled(fixedDelayString = "${teamslot.outbox.relay.delay-ms:1000}")
     @Transactional
     public void publierEnAttente() {

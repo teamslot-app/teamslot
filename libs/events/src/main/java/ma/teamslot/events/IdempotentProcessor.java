@@ -1,17 +1,16 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events;
 
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Consommateur idempotent : un événement reçu deux fois n'a qu'un seul effet.
  * L'eventId est enregistré dans processed_event DANS LA MÊME transaction que le traitement :
  * si le traitement échoue, l'enregistrement est annulé et l'événement pourra être retraité.
+ * Bean créé par l'auto-configuration de libs/events (EventsAutoConfiguration).
  */
-@Component
 public class IdempotentProcessor {
 
     private static final String MARQUER_TRAITE = """

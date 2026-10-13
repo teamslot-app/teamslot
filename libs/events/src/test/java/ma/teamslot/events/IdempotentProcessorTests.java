@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -10,11 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.ActiveProfiles;
 
 /** Critère Jira : un événement reçu deux fois n'a qu'un seul effet. */
 @SpringBootTest
-@ActiveProfiles("test")
 class IdempotentProcessorTests {
 
     @Autowired

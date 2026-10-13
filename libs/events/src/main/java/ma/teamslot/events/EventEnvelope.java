@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events;
 
 import java.time.Instant;
 import java.util.Objects;

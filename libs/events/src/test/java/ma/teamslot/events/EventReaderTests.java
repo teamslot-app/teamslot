@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,13 +8,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 
 /** Lecture des messages reçus : valide, champ inconnu (règle d'évolution), invalide. */
 @SpringBootTest
-@ActiveProfiles("test")
 class EventReaderTests {
 
     private static final String VALIDE = """

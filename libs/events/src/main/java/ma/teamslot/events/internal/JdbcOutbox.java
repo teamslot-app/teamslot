@@ -1,18 +1,20 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events.internal;
 
 import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
+import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.Outbox;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Écrit les événements dans la table outbox_event, dans la transaction de l'appelant. */
-@Component
-public class JdbcOutbox implements Outbox {
+/**
+ * Écrit les événements dans la table outbox_event, dans la transaction de l'appelant.
+ * Classe interne : les services utilisent l'interface Outbox.
+ */
+class JdbcOutbox implements Outbox {
 
     private static final String INSERT = """
             INSERT INTO outbox_event (id, aggregate_id, event_type, payload, occurred_at)
@@ -23,8 +25,8 @@ public class JdbcOutbox implements Outbox {
     private final JsonMapper jsonMapper;
     private final String producer;
 
-    public JdbcOutbox(JdbcClient jdbc, JsonMapper jsonMapper,
-                      @Value("${spring.application.name}") String producer) {
+    /** @param producer nom du service émetteur (spring.application.name), champ producer de l'enveloppe */
+    JdbcOutbox(JdbcClient jdbc, JsonMapper jsonMapper, String producer) {
         this.jdbc = jdbc;
         this.jsonMapper = jsonMapper;
         this.producer = producer;

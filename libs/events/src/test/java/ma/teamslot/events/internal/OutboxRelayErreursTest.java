@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

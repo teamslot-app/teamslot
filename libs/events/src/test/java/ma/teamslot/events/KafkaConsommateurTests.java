@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,7 +24,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.JsonNode;
 
@@ -34,12 +33,11 @@ import tools.jackson.databind.JsonNode;
  * - un message invalide part dans <topic>.dlt sans bloquer les suivants.
  */
 @SpringBootTest
-@ActiveProfiles("test")
 class KafkaConsommateurTests {
 
     private static final String TOPIC = "match.created";
 
-    /** Joue le rôle de payment-service : lit match.created, traite chaque événement une seule fois. */
+    /** Joue le rôle d'un service qui consomme (ex. payment-service) : lit match.created, traite chaque événement une seule fois. */
     public static class ConsommateurDeTest {
         private final EventReader lecteur;
         private final IdempotentProcessor processeur;
@@ -117,7 +115,8 @@ class KafkaConsommateurTests {
         attendre(() -> effets.get() >= 1);
         assertThat(effets).hasValue(1);
 
-        List<ConsumerRecord<String, String>> dlt = lire(TOPIC + KafkaErreursConfig.SUFFIXE_DLT);
+        // Nom fixé par le catalogue (docs/events.md) : "<topic>.dlt", pas "-dlt" comme Spring Kafka par défaut.
+        List<ConsumerRecord<String, String>> dlt = lire(TOPIC + ".dlt");
         assertThat(dlt).hasSize(1);
         assertThat(dlt.get(0).value()).isEqualTo(invalide);
     }

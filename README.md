@@ -89,6 +89,8 @@ Jamais de secret dans le dépôt.
 
 Les tests d'intégration tournent sur un vrai PostgreSQL avec Testcontainers : Docker Desktop doit être lancé pour `./mvnw verify`. H2 n'est plus utilisé.
 
+Build Maven unique (ADR-015) : depuis la racine, `./mvnw -B -pl services/<service> -am verify` construit et teste un service et les modules `libs/*` dont il dépend. Services déjà passés au build unique : `service-template`. Les autres se construisent encore depuis leur dossier (`./mvnw verify`).
+
 ### Kafka
 
 Topics : `domaine.événement` (ex. `slot.reserved`), clé = identifiant de l'agrégat, topic `.dlt` pour les erreurs. Liste complète dans `docs/events.md`. Montants : entiers en centimes (30000 = 300,00).

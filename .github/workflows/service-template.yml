@@ -3,12 +3,23 @@ on:
   pull_request:
     paths:
       - 'services/service-template/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
       - '.github/workflows/java-service.yml'
       - '.github/workflows/service-template.yml'
   push:
     branches: [main]
+    # Build Maven unique (ADR-015) : un changement des modules ou du parent reconstruit et redéploie le service
     paths:
       - 'services/service-template/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,4 +31,5 @@ jobs:
       service: services/service-template
       name: service-template
       sonar_project_key: teamslot-app_teamslot
+      racine: true
     secrets: inherit

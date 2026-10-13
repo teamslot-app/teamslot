@@ -1,0 +1,9 @@
+# Contexte Docker = racine du dépôt (ADR-015) pour les services passés au build Maven unique.
+# Liste blanche : tout est exclu (secrets, .git, deploy, frontend...), sauf ce que les Dockerfile copient.
+*
+!pom.xml
+!libs/*/pom.xml
+!libs/*/src
+!services/*/pom.xml
+!services/*/src
+**/target

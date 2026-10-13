@@ -1,4 +1,4 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import ma.teamslot.events.Outbox;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -19,13 +20,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.kafka.KafkaContainer;
 
 /** Test de bout en bout : outbox (PostgreSQL) -> relais -> Kafka, tous en conteneurs. */
 @SpringBootTest
-@ActiveProfiles("test")
 class OutboxRelayTests {
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -74,7 +73,7 @@ class OutboxRelayTests {
         assertThat(recus.get(0).key()).isEqualTo(matchId.toString());
         assertThat(recus.get(0).value())
                 .contains("match.created")
-                .contains("service-template")
+                .contains("events-test")
                 .contains(matchId.toString());
     }
 

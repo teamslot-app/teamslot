@@ -1,22 +1,21 @@
-package ma.teamslot.servicetemplate.events;
+package ma.teamslot.events.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 import java.util.UUID;
+import ma.teamslot.events.Outbox;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** Tests de l'outbox sur un vrai PostgreSQL (Testcontainers, profil test). */
 @SpringBootTest
-@ActiveProfiles("test")
 class JdbcOutboxTests {
 
     @Autowired
@@ -54,7 +53,7 @@ class JdbcOutboxTests {
         assertThat(ligne.get("event_type")).isEqualTo("match.created");
         assertThat(ligne.get("published_at")).isNull();
         assertThat(ligne.get("event_id")).isEqualTo(ligne.get("id"));
-        assertThat(ligne.get("producer")).isEqualTo("service-template");
+        assertThat(ligne.get("producer")).isEqualTo("events-test");
         assertThat((String) ligne.get("occurred_at")).contains("T").endsWith("Z");
         assertThat(ligne.get("data_match_id")).isEqualTo(matchId.toString());
     }
