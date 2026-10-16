@@ -1,0 +1,75 @@
+# Initialise le replica set rs0 et crée match_user (SCRUM-115).
+# Hook Argo CD PostSync, recréé à chaque synchronisation (même modèle que kafka-topics) :
+# le script est idempotent, le relancer ne change rien.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-init
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  # MongoDB peut ne pas être encore prêt au premier passage : Kubernetes relance le pod
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: init
+          image: mongo:7.0 # même image que la base : mongosh est inclus
+          command:
+            - mongosh
+            - --quiet
+            - mongodb://mongodb-0.mongodb:27017/admin?directConnection=true
+            - --file
+            - /scripts/init-mongodb.js
+          env:
+            # Les mots de passe sont lus par le script dans l'environnement :
+            # ils n'apparaissent ni dans la ligne de commande ni dans les logs
+            - name: MONGO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-auth
+                  key: root-password
+            - name: MATCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-auth
+                  key: match-password
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: mongodb-init
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,153 @@
+# MongoDB pour match-service (ADR-017, SCRUM-115).
+# Replica set d'un seul nœud (rs0) : nécessaire pour les transactions de l'outbox (SCRUM-111).
+# Authentification obligatoire : keyfile + utilisateur root ; match_user est créé par le Job mongodb-init.
+# Interne au cluster : Service headless, aucun NodePort ni LoadBalancer.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  labels:
+    app: mongodb
+spec:
+  # Headless : chaque pod a une adresse stable (mongodb-0.mongodb), utilisée dans la config du replica set
+  clusterIP: None
+  # Le nom DNS existe avant que le pod soit prêt : rs.initiate en a besoin
+  publishNotReadyAddresses: true
+  selector:
+    app: mongodb
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: mongodb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  labels:
+    app: mongodb
+spec:
+  serviceName: mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # MongoDB refuse un keyfile lisible par d'autres. Le Secret monté est en lecture seule :
+        # on le copie dans un emptyDir puis chmod 400. Le conteneur tourne déjà en 999,
+        # le fichier lui appartient : pas besoin de root ni de chown.
+        - name: keyfile
+          image: busybox:1.36 # SCRUM-84 : à épingler par empreinte sha256
+          command: ["sh", "-c", "cp /secret/keyfile /mongo/keyfile && chmod 400 /mongo/keyfile"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: auth
+              mountPath: /secret
+              readOnly: true
+            - name: keyfile
+              mountPath: /mongo
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+      containers:
+        - name: mongodb
+          image: mongo:7.0 # SCRUM-84 : à épingler par empreinte sha256
+          args:
+            - --replSet
+            - rs0
+            - --bind_ip_all
+            - --keyFile
+            - /etc/mongo/keyfile
+            - --wiredTigerCacheSizeGB
+            - "0.25"
+          ports:
+            - name: mongodb
+              containerPort: 27017
+          env:
+            # Utilisé par l'image au tout premier démarrage (dossier de données vide) pour créer root
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: root
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-auth
+                  key: root-password
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+            - name: configdb
+              mountPath: /data/configdb
+            - name: keyfile
+              mountPath: /etc/mongo
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            # Le PC d'Amira n'a que 6 Go pour tout le cluster (ADR-003)
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          startupProbe:
+            tcpSocket:
+              port: mongodb
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: mongodb
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: mongodb
+            periodSeconds: 20
+            failureThreshold: 6
+      volumes:
+        - name: auth
+          secret:
+            secretName: mongodb-auth
+            items:
+              - key: keyfile
+                path: keyfile
+        - name: keyfile
+          emptyDir: {}
+        - name: configdb
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
