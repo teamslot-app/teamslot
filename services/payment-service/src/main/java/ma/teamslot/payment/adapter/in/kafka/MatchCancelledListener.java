@@ -1,16 +1,10 @@
 package ma.teamslot.payment.adapter.in.kafka;
 
-import ma.teamslot.events.EventEnvelope;
-import ma.teamslot.events.EventReader;
 import ma.teamslot.events.IdempotentProcessor;
 import ma.teamslot.payment.application.RefundService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * SCRUM-76 : lit match.cancelled et rembourse le paiement en ligne, une seule fois par événement (S6).
@@ -21,30 +15,20 @@ import tools.jackson.databind.json.JsonMapper;
 public class MatchCancelledListener {
 
     static final String TOPIC = "match.cancelled";
-    private static final int VERSION_LUE = 1;
-    private static final Logger LOG = LoggerFactory.getLogger(MatchCancelledListener.class);
 
-    private final EventReader lecteur;
+    private final LecteurDEvenements lecteur;
     private final IdempotentProcessor processeur;
-    private final JsonMapper json;
     private final RefundService service;
 
-    public MatchCancelledListener(EventReader lecteur, IdempotentProcessor processeur, JsonMapper json,
-                                  RefundService service) {
+    MatchCancelledListener(LecteurDEvenements lecteur, IdempotentProcessor processeur, RefundService service) {
         this.lecteur = lecteur;
         this.processeur = processeur;
-        this.json = json;
         this.service = service;
     }
 
     @KafkaListener(topics = TOPIC)
     public void recevoir(String message) {
-        EventEnvelope<JsonNode> evenement = lecteur.lire(message);
-        if (!TOPIC.equals(evenement.type()) || evenement.version() != VERSION_LUE) {
-            LOG.info("Evenement ignore {} ({} v{})", evenement.eventId(), evenement.type(), evenement.version());
-            return;
-        }
-        MatchCancelledData data = json.treeToValue(evenement.data(), MatchCancelledData.class);
-        processeur.traiterUneFois(evenement.eventId(), () -> service.surMatchAnnule(data.matchId()));
+        lecteur.lire(message, TOPIC, MatchCancelledData.class).ifPresent(recu ->
+                processeur.traiterUneFois(recu.eventId(), () -> service.surMatchAnnule(recu.data().matchId())));
     }
 }

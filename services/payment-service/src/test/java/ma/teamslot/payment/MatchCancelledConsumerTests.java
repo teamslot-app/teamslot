@@ -4,18 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.testcontainers.kafka.KafkaContainer;
 
 /**
  * SCRUM-76 : match.cancelled rembourse un paiement en ligne (COMPLETED), une seule fois (S6), avec un vrai Kafka.
@@ -23,18 +19,10 @@ import org.testcontainers.kafka.KafkaContainer;
  */
 @SpringBootTest(properties = "teamslot.payment.consumers.enabled=true")
 @ActiveProfiles("test")
+@Import(KafkaDeTest.class)
 class MatchCancelledConsumerTests {
 
     private static final String TOPIC = "match.cancelled";
-
-    @TestConfiguration(proxyBeanMethods = false)
-    static class KafkaDeTest {
-        @Bean
-        @ServiceConnection
-        KafkaContainer kafka() {
-            return new KafkaContainer("apache/kafka:4.1.0");
-        }
-    }
 
     @Autowired KafkaTemplate<String, String> kafkaTemplate;
     @Autowired JdbcClient jdbc;
@@ -53,7 +41,7 @@ class MatchCancelledConsumerTests {
         // Un champ « amount » dans l'événement doit être ignoré : le montant vient de la base.
         envoyer(matchAnnule(UUID.randomUUID(), 1, matchId, ",\"amount\":1"));
 
-        attendre(() -> "REFUNDED".equals(statut(matchId)));
+        Attente.jusqua(() -> "REFUNDED".equals(statut(matchId)));
         assertThat(statut(matchId)).isEqualTo("REFUNDED");
         assertThat(remboursements(matchId)).isEqualTo(1L);
         assertThat(jdbc.sql("""
@@ -75,7 +63,7 @@ class MatchCancelledConsumerTests {
         envoyer(matchAnnule(UUID.randomUUID(), 1, temoin, ""));
 
         // Une seule partition : quand le témoin est remboursé, les trois messages précédents ont été traités.
-        attendre(() -> "REFUNDED".equals(statut(temoin)));
+        Attente.jusqua(() -> "REFUNDED".equals(statut(temoin)));
         assertThat(remboursements(matchId)).isEqualTo(1L);
         assertThat(statut(matchId)).isEqualTo("REFUNDED");
     }
@@ -91,7 +79,7 @@ class MatchCancelledConsumerTests {
         UUID temoin = paiement("COMPLETED", "ONLINE", 100);
         envoyer(matchAnnule(UUID.randomUUID(), 1, temoin, ""));
 
-        attendre(() -> "REFUNDED".equals(statut(temoin)));
+        Attente.jusqua(() -> "REFUNDED".equals(statut(temoin)));
         assertThat(statut(enAttente)).isEqualTo("PENDING");
         assertThat(statut(surPlace)).isEqualTo("ON_SITE_ACCEPTED");
         assertThat(jdbc.sql("SELECT count(*) FROM outbox_event WHERE event_type = 'payment.refunded'")
@@ -133,13 +121,5 @@ class MatchCancelledConsumerTests {
     private long remboursements(UUID matchId) {
         return jdbc.sql("SELECT count(*) FROM outbox_event WHERE aggregate_id = :m AND event_type = 'payment.refunded'")
                 .param("m", matchId).query(Long.class).single();
-    }
-
-    /** Attend qu'une condition soit vraie, 30 secondes au maximum. */
-    private static void attendre(BooleanSupplier condition) throws InterruptedException {
-        long fin = System.currentTimeMillis() + 30_000;
-        while (!condition.getAsBoolean() && System.currentTimeMillis() < fin) {
-            Thread.sleep(200);
-        }
     }
 }
