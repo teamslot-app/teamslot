@@ -179,6 +179,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/matches/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Annuler le match (organisateur)
+         * @description SCRUM-76. Seul l'organisateur (claim sub du JWT) annule, et seulement un match PENDING_PAYMENT
+         *     ou CONFIRMED : un match joué, terminé ou déjà annulé renvoie 409 (match-not-cancellable).
+         *     Le match passe à CANCELLED et publie match.cancelled (outbox). Sans appel synchrone :
+         *     venue-service libère le créneau (slot.released), payment-service rembourse un paiement en ligne
+         *     effectué (payment.refunded).
+         */
+        post: operations["cancelMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/matches/{id}/result": {
         parameters: {
             query?: never;
@@ -671,6 +698,31 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    cancelMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Match annulé */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
