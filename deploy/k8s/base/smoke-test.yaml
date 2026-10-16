@@ -1,0 +1,70 @@
+# Test de fumée après chaque synchronisation (SCRUM-99).
+# Hook Argo CD PostSync : Argo CD le lance seulement quand toutes les ressources sont synchronisées
+# et en bonne santé (donc après le déploiement complet des nouvelles images). Si le Job échoue,
+# la synchronisation est marquée en échec (visible dans Argo CD, et sur GitHub avec SCRUM-113).
+# Le test tourne DANS le cluster : aucun port à ouvrir, aucun secret à donner à GitHub.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-test
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0
+  # Garde-fou : le Job ne peut pas tourner plus de 10 minutes
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: smoke-test
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      # Le test n'appelle pas l'API Kubernetes : aucun jeton de compte de service dans le pod
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: smoke
+          # Version épinglée (empreinte @sha256 avec SCRUM-84)
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh", "/scripts/smoke-test.sh"]
+          # Tags d'image déployés, copiés depuis les Deployment par overlays/staging (replacements)
+          env:
+            - name: IMAGE_GATEWAY
+              value: "non renseignée"
+            - name: IMAGE_IDENTITY
+              value: "non renseignée"
+            - name: IMAGE_VENUE
+              value: "non renseignée"
+            - name: IMAGE_MATCH
+              value: "non renseignée"
+            - name: IMAGE_PAYMENT
+              value: "non renseignée"
+            - name: IMAGE_TEMPLATE
+              value: "non renseignée"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: smoke-test
