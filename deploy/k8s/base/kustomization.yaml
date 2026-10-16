@@ -27,3 +27,7 @@ configMapGenerator:
   - name: mongodb-init
     files:
       - init-mongodb.js
+    options:
+      annotations:
+        # Doit exister avant le Job mongodb-init (vague -1)
+        argocd.argoproj.io/sync-wave: "-2"

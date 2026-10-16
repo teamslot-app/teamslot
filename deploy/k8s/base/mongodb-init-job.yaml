@@ -1,12 +1,17 @@
 # Initialise le replica set rs0 et crée match_user (SCRUM-115).
-# Hook Argo CD PostSync, recréé à chaque synchronisation (même modèle que kafka-topics) :
-# le script est idempotent, le relancer ne change rien.
+# Hook Argo CD de la phase Sync, vague -1 : il tourne AVANT les services (vague 0) et Argo CD attend
+# qu'il soit terminé pour les déployer. Pas PostSync : un hook PostSync n'est lancé que si toute
+# l'application est en bonne santé, or match-service ne peut pas l'être sans replica set ni match_user
+# (blocage constaté en staging le 16/10). Recréé à chaque synchronisation : le script est idempotent.
+# Ordre : Secret mongodb-auth et ConfigMap mongodb-init (vague -2), puis MongoDB et ce Job (vague -1).
+# Le Job peut démarrer avant MongoDB : backoffLimit relance le pod jusqu'à ce que la base réponde.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: mongodb-init
   annotations:
-    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "-1"
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   # MongoDB peut ne pas être encore prêt au premier passage : Kubernetes relance le pod
