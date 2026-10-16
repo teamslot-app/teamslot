@@ -12,6 +12,10 @@ public final class PaymentEventData {
                             String currency) {
     }
 
+    /** payment.refunded : matchId, paymentId, amount, currency. Aucune donnée personnelle. */
+    public record Refunded(UUID matchId, UUID paymentId, long amount, String currency) {
+    }
+
     public record OnSiteAccepted(UUID matchId, UUID paymentId, UUID payerId, long totalAmount,
                                  String currency) {
     }

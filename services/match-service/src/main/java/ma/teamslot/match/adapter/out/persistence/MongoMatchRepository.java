@@ -7,7 +7,9 @@ import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.VERSION;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
+import ma.teamslot.match.application.MatchPourAnnulation;
 import ma.teamslot.match.application.MatchRepository;
 import ma.teamslot.match.domain.Match;
 import org.bson.Document;
@@ -54,5 +56,23 @@ public class MongoMatchRepository implements MatchRepository {
         Query enAttente = Query.query(Criteria.where(ID).is(matchId.toString()).and(STATUT).is("PENDING_PAYMENT"));
         Update confirme = new Update().set(STATUT, "CONFIRMED").inc(VERSION, 1);
         return mongo.updateFirst(enAttente, confirme, COLLECTION).getModifiedCount() == 1;
+    }
+
+    @Override
+    public Optional<MatchPourAnnulation> pourAnnulation(UUID matchId) {
+        Query query = MatchDocuments.parId(matchId);
+        query.fields().include(MatchDocuments.ORGANISATEUR, STATUT);
+        return Optional.ofNullable(mongo.findOne(query, Document.class, COLLECTION))
+                .map(m -> new MatchPourAnnulation(UUID.fromString(m.getString(MatchDocuments.ORGANISATEUR)),
+                        m.getString(STATUT)));
+    }
+
+    /** Écriture conditionnelle sur le statut : deux annulations simultanées, une seule réussit. */
+    @Override
+    public boolean annuler(UUID matchId) {
+        Query annulable = Query.query(Criteria.where(ID).is(matchId.toString())
+                .and(STATUT).in("PENDING_PAYMENT", "CONFIRMED"));
+        Update annule = new Update().set(STATUT, "CANCELLED").inc(VERSION, 1);
+        return mongo.updateFirst(annulable, annule, COLLECTION).getModifiedCount() == 1;
     }
 }

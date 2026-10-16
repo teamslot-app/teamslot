@@ -224,6 +224,26 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    post:
+      tags: [matches]
+      summary: Annuler le match (organisateur)
+      description: |
+        SCRUM-76. Seul l'organisateur (claim sub du JWT) annule, et seulement un match PENDING_PAYMENT
+        ou CONFIRMED : un match joué, terminé ou déjà annulé renvoie 409 (match-not-cancellable).
+        Le match passe à CANCELLED et publie match.cancelled (outbox). Sans appel synchrone :
+        venue-service libère le créneau (slot.released), payment-service rembourse un paiement en ligne
+        effectué (payment.refunded).
+      operationId: cancelMatch
+      responses:
+        '204':
+          description: Match annulé
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/matches/{id}/result:
     parameters:
       - { $ref: '#/components/parameters/MatchId' }
