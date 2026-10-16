@@ -1,8 +1,8 @@
 package ma.teamslot.payment.application;
 
 import java.util.UUID;
+import ma.teamslot.events.Outbox;
 import ma.teamslot.payment.domain.Payment;
-import ma.teamslot.payment.events.Outbox;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

@@ -1,9 +1,9 @@
 package ma.teamslot.payment.adapter.in.kafka;
 
+import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.EventReader;
+import ma.teamslot.events.IdempotentProcessor;
 import ma.teamslot.payment.application.CreatePendingPaymentService;
-import ma.teamslot.payment.events.EventEnvelope;
-import ma.teamslot.payment.events.EventReader;
-import ma.teamslot.payment.events.IdempotentProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

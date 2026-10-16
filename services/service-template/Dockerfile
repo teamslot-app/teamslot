@@ -7,6 +7,7 @@ WORKDIR /app
 COPY pom.xml ./
 COPY libs/events/pom.xml libs/events/
 COPY services/service-template/pom.xml services/service-template/
+COPY services/payment-service/pom.xml services/payment-service/
 # Sources : seulement le service et les modules dont il dépend
 COPY libs/events/src libs/events/src
 COPY services/service-template/src services/service-template/src
