@@ -61,7 +61,9 @@ services:
     restart: "no"
 
   service-template:
-    build: ../services/service-template
+    build:
+      context: ..
+      dockerfile: services/service-template/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/template
       KAFKA_BOOTSTRAP_SERVERS: kafka:19092
@@ -77,10 +79,75 @@ services:
     build: ../gateway
     environment:
       TEMPLATE_URL: http://service-template:8081
+      IDENTITY_URL: http://identity-service:8083
+      VENUE_URL: http://venue-service:8081
+      MATCH_URL: http://match-service:8082
+      PAYMENT_URL: http://payment-service:8085
+      JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
     ports:
       - "8080:8080"
     depends_on:
       - service-template
+      - identity-service
+      - venue-service
+      - match-service
+      - payment-service
+
+  identity-service:
+    build: ../services/identity-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/identity
+      DB_USER: identity_user
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  venue-service:
+    build: ../services/venue-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/venue
+      DB_USER: venue_user
+      DB_PASSWORD: ${VENUE_DB_PASSWORD:?à définir dans deploy/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
+      SPRING_PROFILES_ACTIVE: demo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  match-service:
+    build:
+      context: ..
+      dockerfile: services/match-service/Dockerfile
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/match?replicaSet=rs0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
+      VENUE_BASE_URL: http://venue-service:8081
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: services/payment-service/Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/payment
+      DB_USER: payment_user
+      DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?à définir dans deploy/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   web:
     build: ../frontend/apps/web
