@@ -1,6 +1,6 @@
 # Bases de données
 
-Une instance PostgreSQL, cinq bases (template, identity, venue, match, payment), un utilisateur par base sans droit sur les autres (voir ADR-014).
+Une instance PostgreSQL, quatre bases (template, identity, venue, payment), un utilisateur par base sans droit sur les autres (voir ADR-014). match-service utilise MongoDB (voir plus bas).
 
 ## En local (docker-compose)
 1. Dans `deploy/`, copier `.env.example` en `.env` et remplir les mots de passe (valeurs aléatoires, jamais commitées).
@@ -30,4 +30,5 @@ Depuis SCRUM-112, match-service n'utilise plus PostgreSQL : ses données sont da
 - **Outbox et idempotence** : collections `outbox_event` et `processed_event`, dans la même transaction MongoDB (libs/events, SCRUM-111).
 - **Local** : `docker compose up -d mongodb` (dans `deploy/`), puis `docker compose exec mongodb mongosh match`.
 - **Staging** : `kubectl exec -it -n staging mongodb-0 -- mongosh -u root -p --authenticationDatabase admin match` (mot de passe demandé, jamais dans la commande).
-- La base PostgreSQL `match` et le secret `match-db` restent jusqu'au test E2E vert en staging, puis sont retirés (plan de retour arrière d'ADR-017).
+- La base PostgreSQL `match` et le secret `match-db` ont été retirés après le test E2E vert en staging du 16/10 (plan de retour arrière d'ADR-017).
+- **Test E2E du parcours** : `deploy/e2e/parcours-match.sh`. Dans le cluster : `kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 --command -- sh -s < deploy/e2e/parcours-match.sh`. Depuis un poste : `API=http://<passerelle> sh deploy/e2e/parcours-match.sh`.

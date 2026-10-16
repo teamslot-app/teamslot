@@ -62,11 +62,6 @@ spec:
                 secretKeyRef:
                   name: venue-db
                   key: DB_PASSWORD
-            - name: MATCH_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: match-db
-                  key: DB_PASSWORD
             - name: PAYMENT_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
