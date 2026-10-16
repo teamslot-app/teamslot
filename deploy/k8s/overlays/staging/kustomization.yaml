@@ -20,7 +20,7 @@ images:
   newTag: 944595e9d5985cdebeebf6fe980046a445eb6a71
 - name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
-  newTag: e506ef67ff3f7d449d662fb811d8d2f7efb8f8b7
+  newTag: f631d986c7fc0d2bb38a1f6a6eb4d388db500bc1
 - name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
   newTag: 07c889e7561d09de9d5d408c81d52c858dfdc144
