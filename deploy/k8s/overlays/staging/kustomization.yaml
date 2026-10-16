@@ -22,7 +22,7 @@ images:
   newTag: f631d986c7fc0d2bb38a1f6a6eb4d388db500bc1
 - name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
-  newTag: 07c889e7561d09de9d5d408c81d52c858dfdc144
+  newTag: 475db0a274a263f8cda709474e53d37f7d2200f2
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: e506ef67ff3f7d449d662fb811d8d2f7efb8f8b7
