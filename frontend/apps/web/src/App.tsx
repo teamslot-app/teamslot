@@ -1,33 +1,23 @@
-import { useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import RequireAuth from './auth/RequireAuth'
+import Accueil from './pages/Accueil'
+import Connexion from './pages/Connexion'
+import Inscription from './pages/Inscription'
 
-type VersionResponse = { service: string; version: string }
-
-function App() {
-  const [data, setData] = useState<VersionResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/template/version')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-  }, [])
-
+export default function App() {
   return (
-    <main>
-      <h1>TeamSlot</h1>
-      {error && <p role="alert">Backend unreachable: {error}</p>}
-      {!error && !data && <p>Loading…</p>}
-      {data && (
-        <p>
-          {data.service} is up, version {data.version}
-        </p>
-      )}
-    </main>
+    <Routes>
+      <Route path="/connexion" element={<Connexion />} />
+      <Route path="/inscription" element={<Inscription />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <Accueil />
+          </RequireAuth>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
-
-export default App

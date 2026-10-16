@@ -83,7 +83,9 @@ services:
       - service-template
 
   web:
-    build: ../frontend/apps/web
+    build:
+      context: ../frontend
+      dockerfile: apps/web/Dockerfile
     ports:
       - "3000:8080"
     depends_on:
