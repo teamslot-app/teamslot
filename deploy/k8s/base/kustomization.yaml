@@ -12,6 +12,8 @@ resources:
   - kafka.yaml
   - kafka-topics-job.yaml
   - smoke-test.yaml
+  - mongodb.yaml
+  - mongodb-init-job.yaml
 configMapGenerator:
   - name: postgres-init
     files:
@@ -22,3 +24,6 @@ configMapGenerator:
   - name: smoke-test
     files:
       - smoke-test.sh
+  - name: mongodb-init
+    files:
+      - init-mongodb.js
