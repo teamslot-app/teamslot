@@ -19,3 +19,15 @@ Se connecter en administrateur : `kubectl exec -it -n staging deploy/postgres --
 
 ## Ajouter ou changer un secret
 Créer le Secret en clair hors du dépôt, le sceller avec `kubeseal --cert pub-cert.pem --format yaml`, commiter seulement le fichier scellé. Si le cluster est recréé, il faut resceller (la clé de scellement est sauvegardée hors du dépôt).
+
+## match-service : MongoDB (ADR-017, SCRUM-112)
+Depuis SCRUM-112, match-service n'utilise plus PostgreSQL : ses données sont dans la base `match` du MongoDB (replica set `rs0`, SCRUM-115).
+
+- **Collection `matches`** : un document par match, avec ses participants et leur côté (A ou B) dans le tableau `participants`. Les UUID sont stockés en texte.
+- **Validateur JSON Schema** posé à la création de la collection : statuts, montant ≥ 0, surnom de 1 à 40 caractères, soit un compte soit un surnom (mêmes règles que les anciens `CHECK`). Le modifier ensuite demande `collMod` (rôle dbAdmin), donc `mongosh` en root : `match_user` n'a que `readWrite`.
+- **Unicité dans un match** (un compte, ou un surnom sans espaces ni casse, une seule fois) : assurée par la condition de l'écriture (`$push` seulement si absent), car un index unique MongoDB ne compare pas les éléments d'un même tableau.
+- **Index** créés au démarrage par `CollectionMatches` (`ownerId`, `participants.userId`) : pas de Flyway pour MongoDB.
+- **Outbox et idempotence** : collections `outbox_event` et `processed_event`, dans la même transaction MongoDB (libs/events, SCRUM-111).
+- **Local** : `docker compose up -d mongodb` (dans `deploy/`), puis `docker compose exec mongodb mongosh match`.
+- **Staging** : `kubectl exec -it -n staging mongodb-0 -- mongosh -u root -p --authenticationDatabase admin match` (mot de passe demandé, jamais dans la commande).
+- La base PostgreSQL `match` et le secret `match-db` restent jusqu'au test E2E vert en staging, puis sont retirés (plan de retour arrière d'ADR-017).

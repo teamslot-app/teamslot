@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
@@ -22,21 +21,25 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.bson.Document;
+import tools.jackson.databind.JsonNode;
 
 /** POST /api/v1/matches, avec un faux venue-service (règle d'équipe : simuler plutôt qu'attendre). */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(MongoDeTest.class)
 class MatchCreationTests {
 
     @Autowired MockMvc mvc;
-    @Autowired JdbcClient jdbc;
+    @Autowired MongoTemplate mongo;
     @Autowired FakeVenueClient venue;
 
     @TestConfiguration
@@ -85,9 +88,7 @@ class MatchCreationTests {
     @BeforeEach
     void preparer() {
         venue.reinitialiser();
-        jdbc.sql("DELETE FROM participants").update(); // SCRUM-60 : cle etrangere vers matches
-        jdbc.sql("DELETE FROM outbox_event").update();
-        jdbc.sql("DELETE FROM matches").update();
+        donnees().vider();
     }
 
     @Test
@@ -108,23 +109,19 @@ class MatchCreationTests {
 
         assertThat(venue.dernierJeton).isEqualTo(valeurDuJeton(caller));
 
-        Map<String, Object> match = jdbc.sql("SELECT id, owner_id, payer_id FROM matches")
-                .query().singleRow();
-        assertThat(match).containsEntry("owner_id", caller);
-        assertThat(match).containsEntry("payer_id", caller);
+        assertThat(donnees().matchs()).hasSize(1);
+        Document match = donnees().matchs().getFirst();
+        assertThat(match).containsEntry("ownerId", caller.toString());
+        assertThat(match).containsEntry("payerId", caller.toString());
 
-        Map<String, Object> evenement = jdbc.sql("""
-                SELECT aggregate_id, event_type,
-                       payload->'data'->>'ownerId' AS owner_id,
-                       payload->'data'->>'totalAmount' AS total,
-                       payload->'data'->>'acceptsOnSitePayment' AS sur_place
-                FROM outbox_event
-                """).query().singleRow();
-        assertThat(evenement).containsEntry("event_type", "match.created");
-        assertThat(evenement).containsEntry("aggregate_id", match.get("id"));
-        assertThat(evenement).containsEntry("owner_id", caller.toString());
-        assertThat(evenement).containsEntry("total", "30000");
-        assertThat(evenement).containsEntry("sur_place", "true");
+        assertThat(donnees().evenements()).hasSize(1);
+        Document evenement = donnees().evenements().getFirst();
+        JsonNode data = DonneesMongo.payload(evenement).get("data");
+        assertThat(evenement).containsEntry("eventType", "match.created");
+        assertThat(evenement).containsEntry("aggregateId", match.get("_id"));
+        assertThat(data.get("ownerId").asString()).isEqualTo(caller.toString());
+        assertThat(data.get("totalAmount").asString()).isEqualTo("30000");
+        assertThat(data.get("acceptsOnSitePayment").asString()).isEqualTo("true");
     }
 
     @Test
@@ -208,7 +205,7 @@ class MatchCreationTests {
 
     @Test
     void echec_apres_reservation_500_sans_match_ni_evenement() throws Exception {
-        // un montant négatif viole la contrainte CHECK : l'enregistrement échoue après la réservation
+        // un montant négatif est refusé par le validateur JSON Schema : l'enregistrement échoue après la réservation
         venue.reservation = new VenueClient.VenueReservation(UUID.randomUUID(),
                 Instant.parse("2026-10-20T18:00:00Z"), -1L, "MAD", false);
 
@@ -221,7 +218,11 @@ class MatchCreationTests {
         assertThat(nombre("outbox_event")).isZero();
     }
 
-    private long nombre(String table) {
-        return jdbc.sql("SELECT count(*) FROM " + table).query(Long.class).single();
+    private DonneesMongo donnees() {
+        return new DonneesMongo(mongo);
+    }
+
+    private long nombre(String collection) {
+        return "matches".equals(collection) ? donnees().nombreMatchs() : donnees().nombreEvenements();
     }
 }

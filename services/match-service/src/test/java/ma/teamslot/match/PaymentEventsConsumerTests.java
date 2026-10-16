@@ -2,7 +2,6 @@ package ma.teamslot.match;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -13,7 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.kafka.KafkaContainer;
@@ -21,6 +21,7 @@ import org.testcontainers.kafka.KafkaContainer;
 /** SCRUM-62 : payment.completed ou payment.on_site_accepted confirme le match, une seule fois. */
 @SpringBootTest(properties = "teamslot.match.consumers.enabled=true")
 @ActiveProfiles("test")
+@Import(MongoDeTest.class)
 class PaymentEventsConsumerTests {
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -33,13 +34,16 @@ class PaymentEventsConsumerTests {
     }
 
     @Autowired KafkaTemplate<String, String> kafkaTemplate;
-    @Autowired JdbcClient jdbc;
+    @Autowired MongoTemplate mongo;
 
-    /** Pas de DELETE FROM matches : participants (SCRUM-60) y fait reference ; chaque test a ses propres matchs. */
+    /** Les matchs restent : chaque test a ses propres matchs. */
     @BeforeEach
     void preparer() {
-        jdbc.sql("DELETE FROM outbox_event").update();
-        jdbc.sql("DELETE FROM processed_event").update();
+        donnees().viderEvenements();
+    }
+
+    private DonneesMongo donnees() {
+        return new DonneesMongo(mongo);
     }
 
     @Test
@@ -51,8 +55,8 @@ class PaymentEventsConsumerTests {
         attendre(() -> "CONFIRMED".equals(statut(matchId)));
         assertThat(statut(matchId)).isEqualTo("CONFIRMED");
         assertThat(version(matchId)).isEqualTo(1L);
-        assertThat(jdbc.sql("SELECT event_type FROM outbox_event WHERE aggregate_id = :m")
-                .param("m", matchId).query(String.class).single()).isEqualTo("match.confirmed");
+        assertThat(donnees().evenementsDe(matchId)).singleElement()
+                .satisfies(e -> assertThat(e.getString("eventType")).isEqualTo("match.confirmed"));
     }
 
     @Test
@@ -79,8 +83,7 @@ class PaymentEventsConsumerTests {
         // Une seule partition : quand le temoin est confirme, les trois messages precedents ont ete traites.
         attendre(() -> "CONFIRMED".equals(statut(temoin)));
         assertThat(version(matchId)).isEqualTo(1L);
-        assertThat(jdbc.sql("SELECT count(*) FROM outbox_event WHERE aggregate_id = :m")
-                .param("m", matchId).query(Long.class).single()).isEqualTo(1L);
+        assertThat(donnees().evenementsDe(matchId)).hasSize(1);
     }
 
     @Test
@@ -92,24 +95,11 @@ class PaymentEventsConsumerTests {
 
         attendre(() -> "CONFIRMED".equals(statut(matchId)));
         assertThat(statut(matchId)).isEqualTo("CONFIRMED");
-        assertThat(jdbc.sql("SELECT count(*) FROM outbox_event WHERE aggregate_id = :m")
-                .param("m", inconnu).query(Long.class).single()).isZero();
+        assertThat(donnees().evenementsDe(inconnu)).isEmpty();
     }
 
     private UUID matchEnAttenteDePaiement() {
-        UUID id = UUID.randomUUID();
-        UUID owner = UUID.randomUUID();
-        jdbc.sql("""
-                INSERT INTO matches (id, kind, status, visibility, owner_id, payer_id, venue_id,
-                                     slot_id, starts_at, total_amount_cents, currency)
-                VALUES (:id, 'FRIENDLY', 'PENDING_PAYMENT', 'PRIVATE', :owner, :owner, :venue,
-                        :slot, :debut, 30000, 'MAD')
-                """)
-                .param("id", id).param("owner", owner)
-                .param("venue", UUID.randomUUID()).param("slot", UUID.randomUUID())
-                .param("debut", OffsetDateTime.parse("2026-10-20T18:00:00Z"))
-                .update();
-        return id;
+        return donnees().creerMatch(UUID.randomUUID(), "PENDING_PAYMENT");
     }
 
     /** Evenement de paiement (docs/events.md), avec les champs que match ne lit pas. */
@@ -126,13 +116,11 @@ class PaymentEventsConsumerTests {
     }
 
     private String statut(UUID matchId) {
-        return jdbc.sql("SELECT status FROM matches WHERE id = :id").param("id", matchId)
-                .query(String.class).single();
+        return donnees().match(matchId).getString("status");
     }
 
     private long version(UUID matchId) {
-        return jdbc.sql("SELECT version FROM matches WHERE id = :id").param("id", matchId)
-                .query(Long.class).single();
+        return ((Number) donnees().match(matchId).get("version")).longValue();
     }
 
     /** Attend qu'une condition soit vraie, 30 secondes au maximum. */
