@@ -133,9 +133,18 @@ cotes=$(printf '%s' "$corps" | grep -o '"side":"[AB]"' | wc -l | tr -d ' ')
 if [ "$cotes" = 3 ]; then reussi "3 joueurs répartis (organisateur, ami, Yassir)"; else echoue "3 côtés attendus, $cotes trouvés"; fi
 
 echo "== 8. Annulation d'un match payé (SCRUM-76) =="
-appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour" "$orga"
-creneau2=$(printf '%s' "$corps" | tr '{' '\n' | grep '"available":true' | head -n 1 | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-if [ -z "$creneau2" ]; then echoue "aucun second créneau libre le $jour : arrêt"; fin; fi
+# Les passages précédents occupent des créneaux : on cherche à nouveau sur J+1 à J+7.
+creneau2=""
+j=1
+while [ "$j" -le 7 ] && [ -z "$creneau2" ]; do
+  jour2=$(date -u -d "@$(( $(date +%s) + 86400 * j ))" +%Y-%m-%d)
+  appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour2" "$orga"
+  if [ "$code" = 200 ]; then
+    creneau2=$(printf '%s' "$corps" | tr '{' '\n' | grep '"available":true' | head -n 1 | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+  fi
+  j=$((j + 1))
+done
+if [ -n "$creneau2" ]; then reussi "second créneau libre trouvé le $jour2"; else echoue "aucun second créneau libre sur 7 jours : arrêt"; fin; fi
 appel POST /api/v1/matches "$orga" "{\"slotId\":\"$creneau2\"}"
 attendu 201 "second match"
 match2=$(champ "$corps" id)
@@ -165,7 +174,7 @@ if [ "$rembourse" = oui ]; then reussi "paiement remboursé (match.cancelled -> 
 i=0
 libre=non
 while [ "$i" -lt 30 ] && [ "$libre" = non ]; do
-  appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour" "$orga"
+  appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour2" "$orga"
   if printf '%s' "$corps" | tr '{' '\n' | grep "\"id\":\"$creneau2\"" | grep -q '"available":true'; then
     libre=oui
   else
