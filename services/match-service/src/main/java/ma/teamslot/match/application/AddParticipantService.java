@@ -3,7 +3,7 @@ package ma.teamslot.match.application;
 import java.util.UUID;
 import ma.teamslot.match.domain.InvalidParticipantException;
 import ma.teamslot.match.domain.Participant;
-import ma.teamslot.match.events.Outbox;
+import ma.teamslot.events.Outbox;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import ma.teamslot.match.domain.Participant;
 import ma.teamslot.match.domain.TeamSplit;
 import ma.teamslot.match.domain.TeamSplitStrategy;
-import ma.teamslot.match.events.Outbox;
+import ma.teamslot.events.Outbox;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
