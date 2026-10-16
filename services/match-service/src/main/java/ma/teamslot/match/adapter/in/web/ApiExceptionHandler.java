@@ -7,6 +7,7 @@ import ma.teamslot.match.application.NotAParticipantException;
 import ma.teamslot.match.application.NotEnoughPlayersException;
 import ma.teamslot.match.application.UnknownStrategyException;
 import ma.teamslot.match.application.MatchClosedException;
+import ma.teamslot.match.application.MatchNotCancellableException;
 import ma.teamslot.match.application.MatchNotFoundException;
 import ma.teamslot.match.application.NotMatchOrganizerException;
 import ma.teamslot.match.application.ParticipantAlreadyAddedException;
@@ -73,6 +74,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             case ORGANISATEUR -> "L'organisateur fait déjà partie du match.";
         };
         return problem(HttpStatus.CONFLICT, "participant-already-added", "Déjà participant", detail);
+    }
+
+    @ExceptionHandler(MatchNotCancellableException.class)
+    ProblemDetail nonAnnulable(MatchNotCancellableException ex) {
+        return problem(HttpStatus.CONFLICT, "match-not-cancellable", "Match non annulable",
+                "Un match joué, terminé ou déjà annulé ne peut pas être annulé.");
     }
 
     @ExceptionHandler(MatchClosedException.class)

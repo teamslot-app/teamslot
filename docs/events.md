@@ -144,7 +144,7 @@ sequenceDiagram
 ## 5. Points à confirmer en relecture
 
 1. **Consommateurs par topic.** La conception donne les consommateurs par service producteur ; leur répartition topic par topic ci-dessus est déduite des parcours. Chaque responsable de service vérifie sa ligne.
-2. **Libération du créneau à l'annulation.** Tranché (SCRUM-25) : venue-service consomme `match.cancelled` et libère le créneau, sans appel synchrone de match vers venue ; il publie ensuite `slot.released`. `match.cancelled` n'est pas dans les topics du Sprint 1 : son topic et son `.dlt` doivent être ajoutés à `create-topics.sh` avant la première publication.
+2. **Libération du créneau à l'annulation.** Tranché (SCRUM-25) : venue-service consomme `match.cancelled` et libère le créneau, sans appel synchrone de match vers venue ; il publie ensuite `slot.released`. Fait dans SCRUM-76 : topics `match.cancelled` et `payment.refunded` (et leurs `.dlt`) ajoutés à `create-topics.sh` ; payment-service consomme aussi `match.cancelled` et rembourse un paiement en ligne (COMPLETED), une seule fois par événement. `reason` vaut `ORGANIZER_CANCELLED` (code fixe, jamais de texte libre).
 3. **Montants.** L'exemple de la conception écrit `300` ; ce catalogue suit la convention des contrats d'API (centimes : `30000`).
 
 ## 6. Historique des changements

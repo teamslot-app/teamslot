@@ -49,6 +49,21 @@ public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents
         return avec(PaymentMode.ON_SITE, PaymentStatus.ON_SITE_ACCEPTED);
     }
 
+    /**
+     * SCRUM-76 : remboursement après annulation du match. Seul un paiement en ligne effectué (COMPLETED)
+     * est remboursé ; le montant reste celui enregistré, jamais une valeur reçue.
+     */
+    public boolean remboursable() {
+        return status == PaymentStatus.COMPLETED;
+    }
+
+    public Payment rembourser() {
+        if (!remboursable()) {
+            throw new IllegalStateException("Seul un paiement en ligne effectue (COMPLETED) est rembourse : " + status);
+        }
+        return avec(mode, PaymentStatus.REFUNDED);
+    }
+
     /** Lecture du paiement : seul le payeur. */
     public void verifierLecture(UUID appelant) {
         if (!payerId.equals(appelant)) {

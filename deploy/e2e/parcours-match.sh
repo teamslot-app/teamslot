@@ -132,5 +132,48 @@ attendu 200 "l'ami voit la liste"
 cotes=$(printf '%s' "$corps" | grep -o '"side":"[AB]"' | wc -l | tr -d ' ')
 if [ "$cotes" = 3 ]; then reussi "3 joueurs répartis (organisateur, ami, Yassir)"; else echoue "3 côtés attendus, $cotes trouvés"; fi
 
-echo "    match testé : $match"
+echo "== 8. Annulation d'un match payé (SCRUM-76) =="
+appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour" "$orga"
+creneau2=$(printf '%s' "$corps" | tr '{' '\n' | grep '"available":true' | head -n 1 | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+if [ -z "$creneau2" ]; then echoue "aucun second créneau libre le $jour : arrêt"; fin; fi
+appel POST /api/v1/matches "$orga" "{\"slotId\":\"$creneau2\"}"
+attendu 201 "second match"
+match2=$(champ "$corps" id)
+i=0
+code=000
+while [ "$i" -lt 30 ] && [ "$code" != 200 ]; do
+  appel GET "/api/v1/payments/$match2" "$orga"
+  [ "$code" = 200 ] || sleep 2
+  i=$((i + 1))
+done
+appel POST "/api/v1/payments/$match2/online" "$orga"
+attendu 200 "paiement en ligne du second match"
+appel POST "/api/v1/matches/$match2/cancel" "$ami"
+attendu 403 "un non-organisateur ne peut pas annuler"
+appel POST "/api/v1/matches/$match2/cancel" "$orga"
+attendu 204 "annulation par l'organisateur"
+appel POST "/api/v1/matches/$match2/cancel" "$orga"
+attendu 409 "un match déjà annulé ne peut pas l'être deux fois"
+i=0
+rembourse=non
+while [ "$i" -lt 30 ] && [ "$rembourse" = non ]; do
+  appel GET "/api/v1/payments/$match2" "$orga"
+  case "$corps" in *'"status":"REFUNDED"'*) rembourse=oui ;; *) sleep 2 ;; esac
+  i=$((i + 1))
+done
+if [ "$rembourse" = oui ]; then reussi "paiement remboursé (match.cancelled -> payment-service)"; else echoue "paiement pas REFUNDED après 60 s"; fi
+i=0
+libre=non
+while [ "$i" -lt 30 ] && [ "$libre" = non ]; do
+  appel GET "/api/v1/venues/$TERRAIN/slots?date=$jour" "$orga"
+  if printf '%s' "$corps" | tr '{' '\n' | grep "\"id\":\"$creneau2\"" | grep -q '"available":true'; then
+    libre=oui
+  else
+    sleep 2
+  fi
+  i=$((i + 1))
+done
+if [ "$libre" = oui ]; then reussi "créneau de nouveau libre (match.cancelled -> venue-service)"; else echoue "créneau toujours réservé après 60 s"; fi
+
+echo "    matchs testés : $match (joué), $match2 (annulé)"
 fin

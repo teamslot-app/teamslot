@@ -15,6 +15,9 @@ TOPICS=(
   match.teams_split
   payment.completed
   payment.on_site_accepted
+  # SCRUM-76 : annulation d'un match (venue libère le créneau, payment rembourse)
+  match.cancelled
+  payment.refunded
 )
 
 for topic in "${TOPICS[@]}"; do
