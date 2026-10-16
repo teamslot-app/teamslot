@@ -10,6 +10,9 @@ import ma.teamslot.events.Outbox;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -41,8 +44,31 @@ class EventsAutoConfigurationTest {
             assertThat(ctx).hasSingleBean(OutboxRelay.class);
             assertThat(ctx).hasSingleBean(EventReader.class);
             assertThat(ctx).hasSingleBean(IdempotentProcessor.class);
+            assertThat(ctx.getBean(IdempotentProcessor.class)).isInstanceOf(JdbcIdempotentProcessor.class);
             assertThat(ctx).hasSingleBean(DefaultErrorHandler.class);
+            // JDBC présent : choisi automatiquement, rien de MongoDB n'est créé
+            assertThat(ctx).doesNotHaveBean(MongoOutboxRelay.class);
+            assertThat(ctx).doesNotHaveBean(MongoTransactionManager.class);
         });
+    }
+
+    @Test
+    void le_stockage_mongodb_remplace_tout_le_stockage_jdbc() {
+        contexte.withPropertyValues("teamslot.events.store=mongodb")
+                .withBean(MongoTemplate.class, () -> mock(MongoTemplate.class, RETURNS_DEEP_STUBS))
+                .withBean(MongoDatabaseFactory.class, () -> mock(MongoDatabaseFactory.class))
+                .run(ctx -> {
+                    assertThat(ctx).hasSingleBean(Outbox.class);
+                    assertThat(ctx.getBean(Outbox.class)).isInstanceOf(MongoOutbox.class);
+                    assertThat(ctx).hasSingleBean(IdempotentProcessor.class);
+                    assertThat(ctx.getBean(IdempotentProcessor.class)).isInstanceOf(MongoIdempotentProcessor.class);
+                    assertThat(ctx).hasSingleBean(MongoOutboxRelay.class);
+                    assertThat(ctx).hasSingleBean(MongoTransactionManager.class);
+                    assertThat(ctx).doesNotHaveBean(OutboxRelay.class);
+                    // Communs aux deux stockages
+                    assertThat(ctx).hasSingleBean(EventReader.class);
+                    assertThat(ctx).hasSingleBean(DefaultErrorHandler.class);
+                });
     }
 
     @Test

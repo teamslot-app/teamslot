@@ -64,11 +64,33 @@ public void surMatchCree(String message) {
 
 `V2__outbox.sql` est déjà appliquée en staging : elle n'est **jamais** modifiée (test d'empreinte `MigrationOutboxTest` dans `libs/events`). Une évolution de l'outbox = une nouvelle migration.
 
+## Service MongoDB (SCRUM-111, ADR-017)
+
+`libs/events` choisit le stockage tout seul (`ChoixDuStockage`) :
+
+| Le service a… | Stockage | Implémentations |
+|---|---|---|
+| JDBC (`spring-boot-starter-data-jpa` ou `-jdbc`) | PostgreSQL : tables `outbox_event`, `processed_event` (`V2__outbox.sql`) | `JdbcOutbox`, `OutboxRelay`, `JdbcIdempotentProcessor` |
+| Spring Data MongoDB, sans JDBC (match-service) | MongoDB : collections `outbox_event`, `processed_event` | `MongoOutbox`, `MongoOutboxRelay`, `MongoIdempotentProcessor` |
+
+La propriété `teamslot.events.store=jdbc|mongodb` force le choix (utile seulement dans les tests de `libs/events`, qui ont les deux sur le classpath). Les dépendances JDBC et MongoDB de `libs/events` sont **optionnelles** : le service apporte la sienne.
+
+Pour le service, **rien ne change** : il injecte toujours `Outbox`, `EventReader` et `IdempotentProcessor`. L'enveloppe et les topics sont identiques.
+
+À savoir côté MongoDB :
+- **Replica set obligatoire** : les transactions MongoDB n'existent que sur un replica set (SCRUM-115 ; dans les tests, `new MongoDBContainer("mongo:7.0").withReplicaSet()` : depuis Testcontainers 2, le replica set n'est plus activé par défaut).
+- `libs/events` déclare le `MongoTransactionManager` (Spring Boot ne le crée pas) : sans lui, `@Transactional` ne fait rien avec MongoDB.
+- `outbox.record` refuse d'écrire hors **transaction MongoDB** (`IllegalTransactionStateException`), comme la version JDBC.
+- Ordre : chaque document a une `position` (`ObjectId` créé par le service, croissant dans un même pod). Pas de compteur partagé : il provoquerait des conflits d'écriture entre deux transactions. Même règle qu'en PostgreSQL : **un seul pod par service**.
+- Idempotence : `processed_event._id` = `eventId`. Le document est inséré **avant** le traitement : dans une transaction MongoDB, une clé en double annule toute la transaction.
+- Index créé au démarrage : `outbox_event {publishedAt: 1, position: 1}`.
+- Pas de Flyway avec MongoDB : `V2__outbox.sql` est ignorée.
+
 ## Tester
 
-Les tests utilisent Testcontainers (PostgreSQL 16, Kafka `apache/kafka:4.1.0`) : **Docker Desktop doit être lancé**.
+Les tests utilisent Testcontainers (PostgreSQL 16, MongoDB 7.0 en replica set, Kafka `apache/kafka:4.1.0`) : **Docker Desktop doit être lancé**.
 Le comportement commun est testé une seule fois, dans `libs/events` : `./mvnw -pl libs/events -am verify`.
-Exemples pour les tests d'un service : `JdbcOutboxTests` (publication), `OutboxRelayTests` (relais), `KafkaConsommateurTests` (consommateur, doublon, `.dlt`).
+Exemples pour les tests d'un service : `JdbcOutboxTests` (publication), `OutboxRelayTests` (relais), `KafkaConsommateurTests` (consommateur, doublon, `.dlt`) ; en MongoDB : `MongoOutboxTests`, `MongoOutboxRelayTests`, `MongoIdempotentProcessorTests`.
 
 ## Prévu au Sprint 2
 
