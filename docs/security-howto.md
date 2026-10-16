@@ -37,3 +37,11 @@ Copier le package `security` (adapter la ligne `package`), les deux dépendances
 
 `csrf.disable()` dans `SecuriteConfig` est **volontaire**. Une attaque CSRF utilise les **cookies de session** d'un navigateur ; nos services n'ont ni session ni cookie : le jeton voyage dans l'en-tête `Authorization`, qu'un autre site ne peut pas ajouter. Réactiver CSRF ferait échouer toutes les requêtes `POST` légitimes.
 Alerte SonarCloud `java:S4502` acceptée avec cette justification (SCRUM-87). **À revoir** si un service utilise un jour des cookies de session.
+
+## Le claim « role »
+
+Le jeton ne porte que `sub` pour l'instant. Le claim `role` arrive avec SCRUM-74 : tant qu'il n'est pas là, ne pas en déduire de droits depuis un autre champ ni depuis un en-tête.
+
+## Plus tard : libs/security
+
+Ce package sera déplacé dans `libs/security` (ADR-015, lot 3) ; les services n'auront plus à le copier.
