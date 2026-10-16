@@ -1,0 +1,62 @@
+# SCRUM-99 : copie l'image de chaque Deployment (avec le tag écrit par la CI) dans le Job smoke-test.
+# Fichier séparé : le bot de la CI réécrit kustomization.yaml (kustomize edit set image).
+- source:
+    kind: Deployment
+    name: gateway
+    fieldPath: spec.template.spec.containers.[name=gateway].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_GATEWAY].value
+- source:
+    kind: Deployment
+    name: identity-service
+    fieldPath: spec.template.spec.containers.[name=identity-service].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_IDENTITY].value
+- source:
+    kind: Deployment
+    name: venue-service
+    fieldPath: spec.template.spec.containers.[name=venue-service].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_VENUE].value
+- source:
+    kind: Deployment
+    name: match-service
+    fieldPath: spec.template.spec.containers.[name=match-service].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_MATCH].value
+- source:
+    kind: Deployment
+    name: payment-service
+    fieldPath: spec.template.spec.containers.[name=payment-service].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_PAYMENT].value
+- source:
+    kind: Deployment
+    name: service-template
+    fieldPath: spec.template.spec.containers.[name=service-template].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_TEMPLATE].value

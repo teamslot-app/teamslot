@@ -11,6 +11,7 @@ resources:
   - identity-service.yaml
   - kafka.yaml
   - kafka-topics-job.yaml
+  - smoke-test.yaml
 configMapGenerator:
   - name: postgres-init
     files:
@@ -18,3 +19,6 @@ configMapGenerator:
   - name: kafka-topics
     files:
       - create-topics.sh
+  - name: smoke-test
+    files:
+      - smoke-test.sh
