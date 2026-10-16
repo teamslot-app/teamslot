@@ -3,12 +3,23 @@ on:
   pull_request:
     paths:
       - 'services/payment-service/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
       - '.github/workflows/java-service.yml'
       - '.github/workflows/payment-service.yml'
   push:
     branches: [main]
+    # Build Maven unique (ADR-015) : un changement des modules ou du parent reconstruit et redéploie le service
     paths:
       - 'services/payment-service/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,4 +31,5 @@ jobs:
       service: services/payment-service
       name: payment-service
       sonar_project_key: teamslot-app_payment-service
+      racine: true
     secrets: inherit

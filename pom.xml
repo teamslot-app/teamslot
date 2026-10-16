@@ -23,6 +23,7 @@
 	<modules>
 		<module>libs/events</module>
 		<module>services/service-template</module>
+		<module>services/payment-service</module>
 	</modules>
 
 	<properties>
