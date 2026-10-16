@@ -51,6 +51,7 @@ updates:
         update-types: ["version-update:semver-major"]
       # Tag "3.9-eclipse-temurin-21" : contient la version de Java, image de build seulement
       - dependency-name: "maven"
+        update-types: ["version-update:semver-major"]
 
   # Actions utilisées par la CI (.github/workflows)
   - package-ecosystem: "github-actions"
