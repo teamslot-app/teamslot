@@ -3,16 +3,14 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<groupId>ma.teamslot</groupId>
+		<artifactId>teamslot-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../../pom.xml</relativePath>
 	</parent>
-	<groupId>ma.teamslot</groupId>
 	<artifactId>match-service</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
     <name>match-service</name>
-    <description>Service modèle TeamSlot (architecture hexagonale)</description>
+    <description>Matchs TeamSlot (architecture hexagonale)</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -26,12 +24,14 @@
 		<tag/>
 		<url/>
 	</scm>
-	<properties>
-        <tomcat.version>11.0.25</tomcat.version>
-        <jackson-bom.version>3.1.7</jackson-bom.version>
-		<java.version>21</java.version>
-	</properties>
+	<!-- java.version, Tomcat, Jackson, lz4-java (CVE-2026-106451) et JaCoCo : fournis par teamslot-parent (ADR-015) -->
 	<dependencies>
+		<!-- Outbox, relais, idempotence, .dlt et V2__outbox.sql (ADR-015, module du build) -->
+		<dependency>
+			<groupId>ma.teamslot</groupId>
+			<artifactId>events</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
@@ -40,12 +40,6 @@
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
-		</dependency>
-		<!-- CVE lz4-java corrigée en 1.11.4 : on remplace la version amenée par spring-boot-starter-kafka -->
-		<dependency>
-			<groupId>at.yawk.lz4</groupId>
-			<artifactId>lz4-java</artifactId>
-			<version>1.11.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -134,26 +128,6 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
-			   			<plugin>
-   				<groupId>org.jacoco</groupId>
-   				<artifactId>jacoco-maven-plugin</artifactId>
-   				<version>0.8.13</version>
-   				<executions>
-   					<execution>
-   						<id>prepare-agent</id>
-   						<goals>
-   							<goal>prepare-agent</goal>
-   						</goals>
-   					</execution>
-   					<execution>
-   						<id>report</id>
-   						<phase>verify</phase>
-   						<goals>
-   							<goal>report</goal>
-   						</goals>
-   					</execution>
-   				</executions>
-   			</plugin>
 		</plugins>
 	</build>
 

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.VenueClient.VenueReservation;
 import ma.teamslot.match.domain.Match;
-import ma.teamslot.match.events.Outbox;
+import ma.teamslot.events.Outbox;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

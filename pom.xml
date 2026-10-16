@@ -24,6 +24,7 @@
 		<module>libs/events</module>
 		<module>services/service-template</module>
 		<module>services/payment-service</module>
+		<module>services/match-service</module>
 	</modules>
 
 	<properties>

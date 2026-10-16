@@ -2,9 +2,9 @@ package ma.teamslot.match.adapter.in.kafka;
 
 import java.util.Set;
 import ma.teamslot.match.application.ConfirmMatchService;
-import ma.teamslot.match.events.EventEnvelope;
-import ma.teamslot.match.events.EventReader;
-import ma.teamslot.match.events.IdempotentProcessor;
+import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.EventReader;
+import ma.teamslot.events.IdempotentProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
