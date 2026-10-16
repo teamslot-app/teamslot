@@ -7,16 +7,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.sql.Types;
-import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.function.Predicate;
+import org.bson.Document;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -25,49 +26,32 @@ import org.springframework.test.web.servlet.ResultActions;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(MongoDeTest.class)
 class TeamSplitTests {
 
-    private static final String EVENEMENT = "SELECT count(*) FROM outbox_event WHERE event_type = 'match.teams_split'";
-
     @Autowired MockMvc mvc;
-    @Autowired JdbcClient jdbc;
+    @Autowired MongoTemplate mongo;
 
     private UUID organisateur;
     private UUID matchId;
 
     @BeforeEach
     void preparer() {
-        jdbc.sql("DELETE FROM participants").update();
-        jdbc.sql("DELETE FROM outbox_event").update();
-        jdbc.sql("DELETE FROM matches").update();
+        donnees().vider();
         organisateur = UUID.randomUUID();
         matchId = creerMatch("CONFIRMED");
     }
 
+    private DonneesMongo donnees() {
+        return new DonneesMongo(mongo);
+    }
+
     private UUID creerMatch(String statut) {
-        UUID id = UUID.randomUUID();
-        jdbc.sql("""
-                INSERT INTO matches (id, kind, status, visibility, owner_id, payer_id, venue_id,
-                                     slot_id, starts_at, total_amount_cents, currency)
-                VALUES (:id, 'FRIENDLY', :statut, 'PRIVATE', :owner, :owner, :venue,
-                        :slot, :debut, 30000, 'MAD')
-                """)
-                .param("id", id).param("statut", statut).param("owner", organisateur)
-                .param("venue", UUID.randomUUID()).param("slot", UUID.randomUUID())
-                .param("debut", OffsetDateTime.parse("2026-10-20T18:00:00Z"))
-                .update();
-        return id;
+        return donnees().creerMatch(organisateur, statut);
     }
 
     private void inserer(UUID match, UUID compte, String surnom, String statut) {
-        jdbc.sql("""
-                INSERT INTO participants (id, match_id, user_id, guest_name, status, added_by)
-                VALUES (:id, :match, :compte, :surnom, :statut, :ajoutePar)
-                """)
-                .param("id", UUID.randomUUID()).param("match", match)
-                .param("compte", compte, Types.OTHER).param("surnom", surnom, Types.VARCHAR)
-                .param("statut", statut).param("ajoutePar", organisateur)
-                .update();
+        donnees().ajouterParticipant(match, compte, surnom, statut, organisateur);
     }
 
     private UUID ajouterCompte(UUID match, String statut) {
@@ -85,8 +69,29 @@ class TeamSplitTests {
         return mvc.perform(get("/api/v1/matches/" + match + "/participants").with(appelant(qui)));
     }
 
-    private long nombre(String sql) {
-        return jdbc.sql(sql).query(Long.class).single();
+    /** Nombre de participants (tous matchs confondus) qui vérifient la condition. */
+    private long participants(Predicate<Document> condition) {
+        return donnees().nombreParticipants(condition);
+    }
+
+    private static Predicate<Document> tous() {
+        return p -> true;
+    }
+
+    private static Predicate<Document> avecCote() {
+        return p -> p.get("side") != null;
+    }
+
+    private static Predicate<Document> sansCote() {
+        return p -> p.get("side") == null;
+    }
+
+    private static Predicate<Document> compte(UUID compte) {
+        return p -> compte.toString().equals(p.getString("userId"));
+    }
+
+    private long evenementsTeamsSplit() {
+        return donnees().evenements().stream().filter(e -> "match.teams_split".equals(e.getString("eventType"))).count();
     }
 
     // Répartition
@@ -109,18 +114,16 @@ class TeamSplitTests {
                 .andExpect(jsonPath("$.sideB[*].side", Matchers.everyItem(Matchers.is("B"))));
 
         // 4 tirés : l'organisateur, un INVITED, un CONFIRMED, Yassir. REQUESTED et DECLINED restent sans côté.
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side IS NOT NULL")).isEqualTo(4);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side = 'A'")).isEqualTo(2);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE user_id = '" + demande + "' AND side IS NULL"))
-                .isEqualTo(1);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE user_id = '" + organisateur
-                + "' AND status = 'CONFIRMED'")).isEqualTo(1);
+        assertThat(participants(avecCote())).isEqualTo(4);
+        assertThat(participants(p -> "A".equals(p.get("side")))).isEqualTo(2);
+        assertThat(participants(compte(demande).and(sansCote()))).isEqualTo(1);
+        assertThat(participants(compte(organisateur).and(p -> "CONFIRMED".equals(p.get("status"))))).isEqualTo(1);
 
-        assertThat(nombre(EVENEMENT)).isEqualTo(1);
-        assertThat(jdbc.sql("SELECT payload->'data'->>'strategy' FROM outbox_event").query(String.class).single())
-                .isEqualTo("random");
-        String data = jdbc.sql("SELECT payload->'data' FROM outbox_event").query(String.class).single();
-        assertThat(data).contains("guest:Yassir").contains("user:" + organisateur)
+        assertThat(evenementsTeamsSplit()).isEqualTo(1);
+        assertThat(donnees().evenements()).hasSize(1);
+        var data = DonneesMongo.payload(donnees().evenements().getFirst()).get("data");
+        assertThat(data.get("strategy").asString()).isEqualTo("random");
+        assertThat(data.toString()).contains("guest:Yassir").contains("user:" + organisateur)
                 .doesNotContain(demande.toString());
     }
 
@@ -131,16 +134,16 @@ class TeamSplitTests {
         repartir(organisateur, matchId, "random").andExpect(status().isOk());
 
         ajouterCompte(matchId, "CONFIRMED"); // ami ajouté après le premier tirage
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side IS NULL")).isEqualTo(1);
+        assertThat(participants(sansCote())).isEqualTo(1);
 
         repartir(organisateur, matchId, "random")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sideA.length()").value(2))
                 .andExpect(jsonPath("$.sideB.length()").value(2));
 
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side IS NOT NULL")).isEqualTo(4);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE user_id = '" + organisateur + "'")).isEqualTo(1);
-        assertThat(nombre(EVENEMENT)).isEqualTo(2);
+        assertThat(participants(avecCote())).isEqualTo(4);
+        assertThat(participants(compte(organisateur))).isEqualTo(1);
+        assertThat(evenementsTeamsSplit()).isEqualTo(2);
     }
 
     @Test
@@ -149,9 +152,9 @@ class TeamSplitTests {
 
         repartir(UUID.randomUUID(), matchId, "random").andExpect(status().isForbidden());
 
-        assertThat(nombre("SELECT count(*) FROM participants")).isEqualTo(1);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side IS NOT NULL")).isZero();
-        assertThat(nombre(EVENEMENT)).isZero();
+        assertThat(participants(tous())).isEqualTo(1);
+        assertThat(participants(avecCote())).isZero();
+        assertThat(evenementsTeamsSplit()).isZero();
     }
 
     @Test
@@ -167,17 +170,17 @@ class TeamSplitTests {
 
         repartir(organisateur, enAttente, "random").andExpect(status().isConflict());
 
-        assertThat(nombre("SELECT count(*) FROM participants")).isEqualTo(2);
-        assertThat(nombre("SELECT count(*) FROM participants WHERE side IS NOT NULL")).isZero();
-        assertThat(nombre(EVENEMENT)).isZero();
+        assertThat(participants(tous())).isEqualTo(2);
+        assertThat(participants(avecCote())).isZero();
+        assertThat(evenementsTeamsSplit()).isZero();
     }
 
     @Test
     void organisateur_seul_409_et_son_inscription_est_annulee() throws Exception {
         repartir(organisateur, matchId, "random").andExpect(status().isConflict());
 
-        assertThat(nombre("SELECT count(*) FROM participants")).isZero();
-        assertThat(nombre(EVENEMENT)).isZero();
+        assertThat(participants(tous())).isZero();
+        assertThat(evenementsTeamsSplit()).isZero();
     }
 
     @Test
@@ -188,8 +191,8 @@ class TeamSplitTests {
         mvc.perform(post("/api/v1/matches/" + matchId + "/split").with(appelant(organisateur)))
                 .andExpect(status().isBadRequest());
 
-        assertThat(nombre("SELECT count(*) FROM participants")).isEqualTo(1);
-        assertThat(nombre(EVENEMENT)).isZero();
+        assertThat(participants(tous())).isEqualTo(1);
+        assertThat(evenementsTeamsSplit()).isZero();
     }
 
     // Liste des participants

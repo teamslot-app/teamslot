@@ -6,10 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import org.bson.Document;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,40 +16,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import tools.jackson.databind.JsonNode;
 
 /** SCRUM-60 : POST /api/v1/matches/{id}/participants, un test par critere d'acceptation. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(MongoDeTest.class)
 class ParticipantTests {
 
     @Autowired MockMvc mvc;
-    @Autowired JdbcClient jdbc;
+    @Autowired MongoTemplate mongo;
 
     private UUID organisateur;
     private UUID matchId;
 
     @BeforeEach
     void preparer() {
-        jdbc.sql("DELETE FROM participants").update();
-        jdbc.sql("DELETE FROM outbox_event").update();
-        jdbc.sql("DELETE FROM matches").update();
+        donnees().vider();
         organisateur = UUID.randomUUID();
-        matchId = UUID.randomUUID();
-        jdbc.sql("""
-                INSERT INTO matches (id, kind, status, visibility, owner_id, payer_id, venue_id,
-                                     slot_id, starts_at, total_amount_cents, currency)
-                VALUES (:id, 'FRIENDLY', 'PENDING_PAYMENT', 'PRIVATE', :owner, :owner, :venue,
-                        :slot, :debut, 30000, 'MAD')
-                """)
-                .param("id", matchId).param("owner", organisateur)
-                .param("venue", UUID.randomUUID()).param("slot", UUID.randomUUID())
-                .param("debut", OffsetDateTime.parse("2026-10-20T18:00:00Z"))
-                .update();
+        matchId = donnees().creerMatch(organisateur, "PENDING_PAYMENT");
     }
 
     private ResultActions ajouter(UUID qui, UUID match, String corps) throws Exception {
@@ -73,20 +63,19 @@ class ParticipantTests {
                 .andExpect(jsonPath("$.guestName").doesNotExist())
                 .andExpect(jsonPath("$.status").value("INVITED"));
 
-        Map<String, Object> ligne = jdbc.sql("SELECT user_id, guest_name, status, added_by FROM participants")
-                .query().singleRow();
-        assertThat(ligne).containsEntry("user_id", ami).containsEntry("status", "INVITED")
-                .containsEntry("added_by", organisateur);
-        assertThat(ligne.get("guest_name")).isNull();
+        assertThat(donnees().participants()).hasSize(1);
+        Document participant = donnees().participants().getFirst();
+        assertThat(participant).containsEntry("userId", ami.toString()).containsEntry("status", "INVITED")
+                .containsEntry("addedBy", organisateur.toString());
+        assertThat(participant.get("guestName")).isNull();
 
-        Map<String, Object> evenement = jdbc.sql("""
-                SELECT aggregate_id, event_type, payload->'data'->>'userId' AS user_id,
-                       payload->'data'->>'participantId' AS participant_id
-                FROM outbox_event
-                """).query().singleRow();
-        assertThat(evenement).containsEntry("event_type", "match.participant_added")
-                .containsEntry("aggregate_id", matchId).containsEntry("user_id", ami.toString());
-        assertThat(evenement.get("participant_id")).isNotNull();
+        assertThat(donnees().evenements()).hasSize(1);
+        Document evenement = donnees().evenements().getFirst();
+        JsonNode data = DonneesMongo.payload(evenement).get("data");
+        assertThat(evenement).containsEntry("eventType", "match.participant_added")
+                .containsEntry("aggregateId", matchId.toString());
+        assertThat(data.get("userId").asString()).isEqualTo(ami.toString());
+        assertThat(data.get("participantId")).isNotNull();
     }
 
     @Test
@@ -97,10 +86,11 @@ class ParticipantTests {
                 .andExpect(jsonPath("$.userId").doesNotExist())
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
 
-        assertThat(jdbc.sql("SELECT guest_name FROM participants").query(String.class).single())
-                .isEqualTo("Yassir");
-        assertThat(jdbc.sql("SELECT payload->'data'->>'guestName' FROM outbox_event")
-                .query(String.class).single()).isEqualTo("Yassir");
+        assertThat(donnees().participants()).singleElement()
+                .satisfies(p -> assertThat(p.getString("guestName")).isEqualTo("Yassir"));
+        assertThat(donnees().evenements()).singleElement()
+                .satisfies(e -> assertThat(DonneesMongo.payload(e).get("data").get("guestName").asString())
+                        .isEqualTo("Yassir"));
     }
 
     @Test
@@ -204,8 +194,10 @@ class ParticipantTests {
                 .andExpect(jsonPath("$.phone").doesNotExist())
                 .andExpect(jsonPath("$.email").doesNotExist());
 
-        String evenement = jdbc.sql("SELECT payload::text FROM outbox_event").query(String.class).single();
+        assertThat(donnees().evenements()).hasSize(1);
+        String evenement = donnees().evenements().getFirst().getString("payload");
         assertThat(evenement).doesNotContain("0612345678").doesNotContain("yassir@mail.ma");
+        assertThat(donnees().match(matchId).toJson()).doesNotContain("0612345678").doesNotContain("yassir@mail.ma");
     }
 
     @Test
@@ -216,22 +208,25 @@ class ParticipantTests {
     }
 
     @Test
-    void la_table_n_a_aucune_colonne_pour_un_numero_ou_un_e_mail() {
-        List<String> colonnes = jdbc.sql("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'participants' ORDER BY column_name
-                """).query(String.class).list();
+    void un_participant_n_a_aucun_champ_pour_un_numero_ou_un_e_mail() throws Exception {
+        ajouter(organisateur, matchId, "{\"guestName\":\"Yassir\",\"phone\":\"0612345678\"}")
+                .andExpect(status().isCreated());
 
-        // side (SCRUM-61, V5) : côté A ou B du tirage au sort, aucune donnée personnelle.
-        assertThat(colonnes).containsExactly("added_by", "created_at", "guest_name", "id",
-                "match_id", "side", "status", "user_id");
+        // side (SCRUM-61) : côté A ou B du tirage au sort ; guestKey : surnom sans espaces ni casse (unicité).
+        // Le match est le document parent : plus de champ match_id dans le participant.
+        assertThat(donnees().participants().getFirst().keySet()).containsExactlyInAnyOrder("addedBy", "createdAt",
+                "guestKey", "guestName", "id", "side", "status", "userId");
     }
 
     private void changerStatut(String statut) {
-        jdbc.sql("UPDATE matches SET status = :s WHERE id = :id").param("s", statut).param("id", matchId).update();
+        donnees().changerStatut(matchId, statut);
     }
 
-    private long nombre(String table) {
-        return jdbc.sql("SELECT count(*) FROM " + table).query(Long.class).single();
+    private DonneesMongo donnees() {
+        return new DonneesMongo(mongo);
+    }
+
+    private long nombre(String collection) {
+        return "participants".equals(collection) ? donnees().nombreParticipants() : donnees().nombreEvenements();
     }
 }

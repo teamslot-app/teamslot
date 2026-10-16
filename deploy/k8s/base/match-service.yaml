@@ -26,18 +26,13 @@ spec:
             - name: http
               containerPort: 8082
           env:
-            - name: DB_URL
-              value: "jdbc:postgresql://postgres:5432/match"
-            - name: DB_USER
+            # SCRUM-112 (ADR-017) : base MongoDB match, utilisateur match_user (readWrite sur match seulement).
+            # URI complète (mot de passe, replicaSet=rs0, authSource=match) dans le SealedSecret mongodb-auth.
+            - name: MONGODB_URI
               valueFrom:
                 secretKeyRef:
-                  name: match-db
-                  key: DB_USER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: match-db
-                  key: DB_PASSWORD
+                  name: mongodb-auth
+                  key: match-uri
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka:9092"
             - name: JWT_JWK_SET_URI
