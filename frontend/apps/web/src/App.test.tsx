@@ -47,7 +47,7 @@ describe('connexion', () => {
 
     await connecter(u)
 
-    expect(await screen.findByText('Connecté.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Terrains' })).toBeTruthy()
     const requete = reseau.mock.calls[0][0] as Request
     expect(cheminDe(requete)).toBe('/api/v1/auth/login')
     expect(requete.headers.get('Authorization')).toBeNull()
@@ -103,7 +103,7 @@ describe('connexion', () => {
     expect((bouton as HTMLButtonElement).disabled).toBe(true)
     expect(reseau).toHaveBeenCalledTimes(1)
     terminer(reponse(PAIRE))
-    expect(await screen.findByText('Connecté.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Terrains' })).toBeTruthy()
   })
 
   it('le mot de passe n’est jamais journalisé', async () => {
@@ -151,7 +151,7 @@ describe('inscription', () => {
 
     await remplir(u)
 
-    expect(await screen.findByText('Connecté.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Terrains' })).toBeTruthy()
     expect(reseau.mock.calls.map(([e]) => cheminDe(e))).toEqual([
       '/api/v1/auth/register',
       '/api/v1/auth/login',
@@ -169,7 +169,7 @@ describe('accès et déconnexion', () => {
     session.ouvrir({ accessToken: 'jeton-acces', refreshToken: 'jeton-refresh' })
     const u = userEvent.setup()
     rendre('/')
-    expect(await screen.findByText('Connecté.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Terrains' })).toBeTruthy()
 
     await u.click(screen.getByRole('button', { name: 'Se déconnecter' }))
 
