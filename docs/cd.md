@@ -1,6 +1,40 @@
 # Déploiement continu (CD)
 
-Ce document décrit ce qui se passe après la fusion d'une PR sur `main`. Le schéma complet du pipeline, le statut GitHub et le retour arrière seront ajoutés par SCRUM-113.
+Ce document décrit ce qui se passe après la fusion d'une PR sur `main` : signature des images (SCRUM-104) et test de fumée (SCRUM-99). Le schéma complet du pipeline, le statut GitHub et le retour arrière seront ajoutés par SCRUM-113.
+
+## Signature des images (SCRUM-104)
+
+### Ce qui se passe
+
+Dans `.github/workflows/java-service.yml` (toutes les images Java : gateway, identity, venue, match, payment, service-template) :
+
+1. le job `image` construit l'image, la scanne avec Trivy, la publie sur GHCR, puis la **signe avec cosign en mode sans clé** : GitHub donne au job une identité OIDC, et Sigstore délivre un certificat de quelques minutes à cette identité. Aucune clé privée n'est stockée dans le dépôt ni dans les secrets. La permission `id-token: write` n'est donnée **qu'à ce job** ;
+2. on signe **l'empreinte** (`@sha256:…`), jamais un tag : un tag peut être déplacé vers une autre image, une empreinte non ;
+3. le job `deploy-staging` **vérifie la signature** avant d'écrire quoi que ce soit dans `deploy/k8s/overlays/staging`. L'identité exigée est celle du workflow `java-service.yml` de la branche `main` de ce dépôt. Si l'image n'est pas signée, ou si elle est signée par une autre identité, le job échoue et rien n'est déployé ;
+4. le bot écrit ensuite l'image sous la forme `tag@empreinte` (tag = SHA du commit, pour la lisibilité). Kubernetes tire donc exactement l'image qui vient d'être vérifiée.
+
+À savoir : la signature est enregistrée dans le journal public de Sigstore (Rekor). Elle y mentionne le dépôt et le workflow, qui sont déjà publics.
+
+### Vérifier une image à la main
+
+L'empreinte d'une image déployée se lit dans `deploy/k8s/overlays/staging/kustomization.yaml` (champ `digest`), ou dans les logs du Job `smoke-test`. Avec Docker Desktop, sans rien installer :
+
+```bash
+docker run --rm ghcr.io/sigstore/cosign/cosign:v3.0.6 verify \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity https://github.com/teamslot-app/teamslot/.github/workflows/java-service.yml@refs/heads/main \
+  ghcr.io/teamslot-app/payment-service@sha256:<empreinte>
+```
+
+- Signature valide : cosign affiche « The cosign claims were validated » et les détails du certificat (JSON), puis renvoie le code 0.
+- Image non signée (par exemple une image publiée avant SCRUM-104) : erreur « no signatures found », code différent de 0.
+- Identité différente : erreur sur l'identité du certificat, code différent de 0.
+
+Si la vérification échoue alors que l'image vient bien de notre CI, lancer une fois la même commande avec `--certificate-identity-regexp '.*'` à la place de `--certificate-identity …`, pour lire l'identité exacte dans le certificat. Puis remettre l'identité stricte : `'.*'` accepte n'importe quel signataire et ne doit jamais rester dans le workflow.
+
+### Suite prévue
+
+Refuser dans le cluster les images non signées (politique d'admission, par exemple Kyverno) : ticket séparé, Sprint 3. Le front (SCRUM-114) a son propre workflow : il faudra y ajouter les mêmes étapes.
 
 ## Test de fumée après chaque déploiement (SCRUM-99)
 
