@@ -1,6 +1,6 @@
 # Déploiement continu (CD)
 
-Ce document décrit ce qui se passe après la fusion d'une PR sur `main` : signature des images (SCRUM-104) et test de fumée (SCRUM-99). Le schéma complet du pipeline, le statut GitHub et le retour arrière seront ajoutés par SCRUM-113.
+Ce document décrit ce qui se passe après la fusion d'une PR sur `main` : signature des images (SCRUM-104), SBOM (SCRUM-105) et test de fumée (SCRUM-99). Le schéma complet du pipeline, le statut GitHub et le retour arrière seront ajoutés par SCRUM-113.
 
 ## Signature des images (SCRUM-104)
 
@@ -35,6 +35,39 @@ Si la vérification échoue alors que l'image vient bien de notre CI, lancer une
 ### Suite prévue
 
 Refuser dans le cluster les images non signées (politique d'admission, par exemple Kyverno) : ticket séparé, Sprint 3. Le front (SCRUM-114) a son propre workflow : il faudra y ajouter les mêmes étapes.
+
+## SBOM de chaque image (SCRUM-105)
+
+### Ce qui se passe
+
+Dans le job `image` de `java-service.yml`, juste après la signature :
+
+1. Trivy produit la **SBOM** de l'image au format CycloneDX (`sbom.cdx.json`) : la liste de tous ses composants, paquets Alpine et jars Java, avec leur version ;
+2. `cosign attest` attache cette SBOM à **l'empreinte** de l'image, signée par la même identité que l'image (le workflow `java-service.yml` de `main`) ;
+3. une copie est gardée **90 jours** comme artefact du run (`sbom-<service>-<commit>`, en bas de la page du run, rubrique « Artifacts ») ;
+4. `deploy-staging` refuse de déployer une image **sans SBOM signée** (`cosign verify-attestation`).
+
+### Quelle image déployée contient une bibliothèque ?
+
+Quand une faille est publiée (par exemple lz4-java, CVE-2026-106451), depuis la racine du dépôt à jour (`git pull`), Docker Desktop lancé :
+
+```bash
+deploy/sbom/chercher-composant.sh lz4-java
+```
+
+Le script lit les empreintes déployées dans `deploy/k8s/overlays/staging/kustomization.yaml`, vérifie la SBOM signée de chacune et affiche, par service, `CONTIENT` avec la version (`pkg:maven/at.yawk.lz4/lz4-java@1.11.4`) ou `absent`. Aucune image n'est reconstruite ni téléchargée. Une image publiée avant SCRUM-105 n'a pas de SBOM : relancer son workflow sur `main` (« Run workflow ») pour en produire une.
+
+### Lire la SBOM complète d'une image
+
+```bash
+docker run --rm ghcr.io/sigstore/cosign/cosign:v3.0.6 verify-attestation --type cyclonedx \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity https://github.com/teamslot-app/teamslot/.github/workflows/java-service.yml@refs/heads/main \
+  ghcr.io/teamslot-app/payment-service@sha256:<empreinte> > attestation.json
+sed -n 's/.*"payload":"\([^"]*\)".*/\1/p' attestation.json | head -n 1 | base64 -d > sbom-payment.json
+```
+
+`sbom-payment.json` contient la SBOM (champ `predicate`). On peut aussi télécharger l'artefact du run.
 
 ## Test de fumée après chaque déploiement (SCRUM-99)
 
