@@ -26,9 +26,10 @@ images:
 - name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: 95d4864e1d02f7d6e2c175cb32f430b50fb0b7e8
-- name: ghcr.io/teamslot-app/venue-service
+- digest: sha256:43118c7fbe9508107d3ef2d9b7f3713949c295b8da812b14d4745fe0af1625fd
+  name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: 475db0a274a263f8cda709474e53d37f7d2200f2
+  newTag: 7994cf3bc5605fc56721049135a0b2999ff2af95
 # SCRUM-99 : copie les tags d'image déployés dans le Job smoke-test (affichés dans ses logs)
 replacements:
 - path: smoke-test-versions.yaml
