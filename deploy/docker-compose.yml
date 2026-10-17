@@ -109,7 +109,7 @@ services:
       MYSQL_USER: identity_user
       MYSQL_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?à définir dans deploy/.env}
-      command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF"]
+    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF"]
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
