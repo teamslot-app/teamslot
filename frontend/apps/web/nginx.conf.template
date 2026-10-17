@@ -1,0 +1,27 @@
+# Modèle nginx : l'image nginx-unprivileged remplace ${API_UPSTREAM} au démarrage (20-envsubst-on-templates.sh)
+# et écrit le résultat dans /etc/nginx/conf.d/default.conf.
+#   docker-compose : API_UPSTREAM=http://gateway:8080
+#   Kubernetes     : API_UPSTREAM=http://gateway (le Service écoute sur le port 80)
+server {
+  listen 8080;
+  server_name _;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # SCRUM-114 : en-têtes de sécurité. « always » les envoie aussi sur les erreurs (404, 502...).
+  add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'" always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Frame-Options "DENY" always;
+  add_header Referrer-Policy "no-referrer" always;
+
+  location /api/ {
+    proxy_pass ${API_UPSTREAM};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # Rien de ce qui vient de l'API ne doit être mis en cache par le navigateur sans que le serveur le décide
+  }
+
+  location / {
+    try_files $uri /index.html;
+  }
+}
