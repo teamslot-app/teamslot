@@ -38,6 +38,6 @@ Les comptes sont dans la base `identity` de MySQL 8.4 (utilisateur `identity_use
 
 - **Schéma** : migrations Flyway dans `services/identity-service/src/main/resources/db/migration` (syntaxe MySQL). Les UUID sont en `BINARY(16)`, les dates en `DATETIME(6)` et toujours en UTC.
 - **Local** : `docker compose up -d mysql` (dans `deploy/`), puis `docker compose exec mysql mysql -uidentity_user -p identity` (mot de passe demandé, jamais dans la commande).
-- **Staging** : les mots de passe sont dans les SealedSecrets `mysql-auth` (clés `root-password` et `identity-password`) et `redis-auth` (clé `password`). Connexion : `kubectl exec -it -n staging mysql-0 -- sh -c 'mysql -uidentity_user -p"$MYSQL_PASSWORD" identity'`.
+- **Staging** : les mots de passe sont dans les SealedSecrets `mysql-auth` (clés `root-password` et `identity-password`) et `redis-auth` (clé `password`). Connexion : `kubectl exec -it -n staging mysql-0 -- sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -uidentity_user identity'`.
 - **Tests** : Testcontainers MySQL 8.4, plus de H2.
 - **Reprise** : la base MySQL est neuve, les comptes de démo et de test sont à recréer après le déploiement. L'ancienne base PostgreSQL `identity` et son utilisateur seront supprimés plus tard.
