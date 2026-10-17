@@ -97,11 +97,11 @@ services:
       context: ..
       dockerfile: services/identity-service/Dockerfile
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/identity
+      DB_URL: jdbc:mysql://mysql:3306/identity
       DB_USER: identity_user
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
 
   venue-service:
