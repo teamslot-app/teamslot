@@ -95,7 +95,7 @@ describe('réservation', () => {
 
     await u.click(bouton())
 
-    expect((await screen.findByRole('status')).textContent).toMatch(/Créneau réservé/)
+    expect(await screen.findByRole('heading', { name: 'Ton match' })).toBeTruthy()
     expect(corps).toEqual([{ slotId: 's1', equipmentIds: [CHASUBLES.id] }])
     expect(JSON.stringify(corps)).not.toMatch(/amount|price|total|prix/i)
     expect(screen.queryByRole('button', { name: 'Réserver ce créneau' })).toBeNull()
