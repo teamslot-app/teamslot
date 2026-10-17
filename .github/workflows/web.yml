@@ -1,0 +1,260 @@
+name: web
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/web.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/apps/web/package-lock.json
+            frontend/packages/shared/package-lock.json
+
+      # Le web importe le client généré de packages/shared (alias @teamslot/shared) : ses dépendances aussi.
+      - name: Dépendances du client partagé
+        working-directory: frontend/packages/shared
+        run: npm ci
+
+      - name: Dépendances du web
+        working-directory: frontend/apps/web
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend/apps/web
+        run: npm run lint
+
+      - name: Tests
+        working-directory: frontend/apps/web
+        run: npm test
+
+      - name: Build
+        working-directory: frontend/apps/web
+        run: npm run build
+
+  # Sur une PR : construire et scanner l'image sans la publier (faille vue avant la fusion)
+  image-scan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      IMAGE: pr-scan/web:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image (PR, sans publication)
+        run: docker build -f frontend/apps/web/Dockerfile -t "$IMAGE" frontend
+
+      - name: Scanner l'image avec Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+  image:
+    needs: build-test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      # Jeton OIDC pour signer avec cosign sans clé. Seulement dans ce job.
+      id-token: write
+    outputs:
+      digest: ${{ steps.empreinte.outputs.digest }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/web:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # Le label relie le paquet GHCR au dépôt public (visibilité du paquet).
+      - name: Construire l'image (sans la publier)
+        run: >
+          docker build
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          -f frontend/apps/web/Dockerfile
+          -t "$IMAGE"
+          frontend
+
+      - name: Scanner l'image avec Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Connexion à GHCR
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publier l'image
+        run: |
+          docker push "$IMAGE"
+          echo "Image publiée : $IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      # On signe l'empreinte (@sha256:...), jamais un tag (un tag peut être déplacé).
+      - name: Empreinte de l'image publiée
+        id: empreinte
+        run: |
+          REF=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE")
+          DIGEST="${REF#*@}"
+          case "$DIGEST" in
+            sha256:*) ;;
+            *) echo "::error::Empreinte introuvable pour $IMAGE"; exit 1 ;;
+          esac
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Empreinte : $REF" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Installer cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.0.6'
+
+      - name: Signer l'image (cosign sans clé)
+        env:
+          IMAGE_SIGNEE: ghcr.io/${{ github.repository_owner }}/web@${{ steps.empreinte.outputs.digest }}
+        run: |
+          cosign sign --yes "$IMAGE_SIGNEE"
+          echo "Image signée : $IMAGE_SIGNEE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Produire la SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Attacher la SBOM à l'image (attestation cosign)
+        env:
+          IMAGE_SIGNEE: ghcr.io/${{ github.repository_owner }}/web@${{ steps.empreinte.outputs.digest }}
+        run: |
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$IMAGE_SIGNEE"
+          COMPOSANTS=$(python3 -c "import json; print(len(json.load(open('sbom.cdx.json')).get('components', [])))")
+          echo "SBOM attachée : $IMAGE_SIGNEE ($COMPOSANTS composants)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Conserver la SBOM comme artefact du workflow
+        uses: actions/upload-artifact@v5
+        with:
+          name: sbom-web-${{ github.sha }}
+          path: sbom.cdx.json
+          retention-days: 90
+
+  deploy-staging:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # lire l'image et sa signature sur GHCR
+      packages: read
+    # Même groupe que les services Java : un seul commit du robot à la fois sur l'overlay de staging
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    steps:
+      - name: Jeton temporaire du robot (1 heure, écriture du contenu seulement)
+        id: bot
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.CI_BOT_APP_ID }}
+          private-key: ${{ secrets.CI_BOT_PRIVATE_KEY }}
+          # Moindre privilège (ADR-004) : le jeton ne peut qu'écrire du contenu dans ce dépôt.
+          permission-contents: write
+
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ steps.bot.outputs.token }}
+
+      - name: Installer cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.0.6'
+
+      - name: Connexion à GHCR (lecture)
+        run: echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # On ne déploie que l'empreinte signée par CE workflow (web.yml, branche main de ce dépôt).
+      # Attention : pour les services Java l'identité est java-service.yml (workflow appelé).
+      - name: Vérifier la signature avant le déploiement
+        env:
+          IMAGE_A_VERIFIER: ghcr.io/${{ github.repository_owner }}/web@${{ needs.image.outputs.digest }}
+          IDENTITE: https://github.com/teamslot-app/teamslot/.github/workflows/web.yml@refs/heads/main
+          EMETTEUR: https://token.actions.githubusercontent.com
+        run: |
+          case "$IMAGE_A_VERIFIER" in
+            *@sha256:*) ;;
+            *) echo "::error::Empreinte de l'image absente : déploiement refusé"; exit 1 ;;
+          esac
+          cosign verify --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" \
+            "$IMAGE_A_VERIFIER" > /dev/null
+          echo "Signature vérifiée : $IMAGE_A_VERIFIER" >> "$GITHUB_STEP_SUMMARY"
+          cosign verify-attestation --type cyclonedx \
+            --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" \
+            "$IMAGE_A_VERIFIER" > /dev/null
+          echo "SBOM vérifiée : $IMAGE_A_VERIFIER" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mettre à jour le tag en staging
+        working-directory: deploy/k8s/overlays/staging
+        env:
+          OWNER: ${{ github.repository_owner }}
+          SHA: ${{ github.sha }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          IMG="ghcr.io/${OWNER}/web"
+          # Tag (SHA du commit) + empreinte vérifiée : Kubernetes tire exactement l'image vérifiée.
+          kustomize edit set image "$IMG=$IMG:${SHA}@${DIGEST}"
+          cat kustomization.yaml
+
+      - name: Commit et push sur main
+        env:
+          SHA: ${{ github.sha }}
+          FICHIER: deploy/k8s/overlays/staging/kustomization.yaml
+        run: |
+          set -euo pipefail
+          git config user.name "teamslot-ci-bot[bot]"
+          git config user.email "teamslot-ci-bot[bot]@users.noreply.github.com"
+          git add "$FICHIER"
+          if git diff --cached --quiet; then
+            echo "Tag déjà à jour, rien à faire."
+            exit 0
+          fi
+          # Garde-fou (ADR-004) : le bot contourne la protection de main, il ne doit modifier que ce fichier.
+          modifies=$(git diff --cached --name-only)
+          if [ "$modifies" != "$FICHIER" ]; then
+            echo "::error::Le bot ne doit modifier que $FICHIER. Fichiers prêts : $modifies"
+            exit 1
+          fi
+          git commit -m "chore(deploy): staging web -> ${SHA}"
+          for i in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Staging : web -> ${SHA}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Push refusé, nouvel essai dans 5 s ($i/3)"
+            sleep 5
+          done
+          echo "::error::Impossible de pousser le nouveau tag après 3 essais"
+          exit 1
