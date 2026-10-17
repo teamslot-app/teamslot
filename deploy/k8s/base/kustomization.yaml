@@ -8,6 +8,8 @@ resources:
   - match-service.yaml
   - payment-service.yaml
   - venue-service.yaml
+  - web.yaml
+  - ingress-web.yaml
   - identity-service.yaml
   - kafka.yaml
   - kafka-topics-job.yaml
