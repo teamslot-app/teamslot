@@ -10,6 +10,7 @@ COPY services/service-template/pom.xml services/service-template/
 COPY services/payment-service/pom.xml services/payment-service/
 COPY services/match-service/pom.xml services/match-service/
 COPY services/venue-service/pom.xml services/venue-service/
+COPY services/identity-service/pom.xml services/identity-service/
 # Sources : seulement le service et les modules dont il dépend
 COPY libs/events/src libs/events/src
 COPY services/payment-service/src services/payment-service/src
