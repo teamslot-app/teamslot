@@ -195,3 +195,14 @@ kubectl wait --for=condition=complete --timeout=600s job/postsync-test-smoke -n 
 kubectl logs job/postsync-test-smoke -n staging
 kubectl delete -n staging -f postsync-test-smoke.yaml
 ```
+
+## Image du front (SCRUM-114)
+
+Le front a son propre workflow, `.github/workflows/web.yml` (ce n'est pas une application Maven : il n'appelle pas `java-service.yml`) :
+
+- **PR** : `npm ci`, lint, tests et build (`build-test`), puis construction de l'image et scan Trivy sans publication (`image-scan`).
+- **`main`** : l'image `ghcr.io/teamslot-app/web` est publiée, signée (cosign sans clé) avec sa SBOM, puis `deploy-staging` vérifie la signature et écrit `tag@empreinte` dans `deploy/k8s/overlays/staging/kustomization.yaml`, avec le même garde-fou que les services Java.
+- L'identité de signature exigée est celle de ce workflow : `.../workflows/web.yml@refs/heads/main` (et non `java-service.yml`).
+- Le groupe de concurrence `deploy-staging` est partagé avec les services Java : un seul commit du robot à la fois sur l'overlay.
+- Les jobs `image` et `deploy-staging` sont une copie de ceux de `java-service.yml` ; les extraire dans un workflow réutilisable est prévu séparément.
+- Le conteneur nginx se configure avec `API_UPSTREAM` (docker-compose : `http://gateway:8080` ; Kubernetes : `http://gateway`) et se lance en lecture seule avec des volumes inscriptibles (uid/gid 101) sur `/tmp`, `/var/cache/nginx` et `/etc/nginx/conf.d`.
