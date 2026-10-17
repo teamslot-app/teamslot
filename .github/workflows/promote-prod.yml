@@ -1,0 +1,143 @@
+name: promote-prod
+# SCRUM-106 : promotion vers la production par PR relue (ADR-004).
+# Lancé À LA MAIN. Le robot de promotion (teamslot-promote-bot) ouvre une PR : il ne pousse jamais sur main
+# et n'est pas dans la liste de contournement du ruleset, donc GitHub l'interdit de lui-même.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: promote-prod
+  cancel-in-progress: false
+jobs:
+  promouvoir:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    env:
+      STAGING: deploy/k8s/overlays/staging/kustomization.yaml
+      PROD_DIR: deploy/k8s/overlays/prod
+      EMETTEUR: https://token.actions.githubusercontent.com
+    steps:
+      # Jeton de l'App dédiée à la promotion (pas celui du robot de staging, qui contourne la protection de main).
+      - name: Jeton temporaire du robot de promotion (1 heure)
+        id: bot
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.PROMOTE_BOT_APP_ID }}
+          private-key: ${{ secrets.PROMOTE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ steps.bot.outputs.token }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Tests du script de promotion
+        run: node --test deploy/promote/promouvoir.test.mjs
+
+      - name: Quelles images promouvoir ?
+        id: plan
+        run: |
+          node deploy/promote/promouvoir.mjs "$STAGING" "$PROD_DIR/kustomization.yaml" > plan.tsv
+          N=$(wc -l < plan.tsv)
+          echo "a_promouvoir=$N" >> "$GITHUB_OUTPUT"
+          if [ "$N" -eq 0 ]; then
+            echo "Rien à promouvoir : la prod est déjà à jour avec staging." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Installer cosign
+        if: steps.plan.outputs.a_promouvoir != '0'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.0.6'
+
+      - name: Connexion à GHCR (lecture)
+        if: steps.plan.outputs.a_promouvoir != '0'
+        env:
+          JETON_LECTURE: ${{ github.token }}
+          ACTEUR: ${{ github.actor }}
+        run: echo "$JETON_LECTURE" | docker login ghcr.io -u "$ACTEUR" --password-stdin
+
+      # La prod reçoit exactement les octets déjà déployés et vérifiés en staging (tag@empreinte) :
+      # on revérifie la signature et la SBOM avant d'ouvrir la PR.
+      - name: Vérifier la signature et la SBOM de chaque image
+        if: steps.plan.outputs.a_promouvoir != '0'
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r nom _ digest; do
+            # Le front a son propre workflow ; les services Java passent par java-service.yml.
+            case "$nom" in
+              */web) FLUX=web.yml ;;
+              *) FLUX=java-service.yml ;;
+            esac
+            IDENTITE="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/${FLUX}@refs/heads/main"
+            REF="${nom}@${digest}"
+            cosign verify --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" "$REF" > /dev/null
+            cosign verify-attestation --type cyclonedx \
+              --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" "$REF" > /dev/null
+            echo "Signature et SBOM vérifiées : $REF" >> "$GITHUB_STEP_SUMMARY"
+          done < plan.tsv
+
+      - name: Écrire les versions dans l'overlay de prod
+        if: steps.plan.outputs.a_promouvoir != '0'
+        working-directory: deploy/k8s/overlays/prod
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r nom tag digest; do
+            # Même commande que le robot de staging : tag lisible + empreinte vérifiée.
+            kustomize edit set image "${nom}=${nom}:${tag}@${digest}"
+          done < "$GITHUB_WORKSPACE/plan.tsv"
+          cat kustomization.yaml
+
+      - name: Garde-fou, seul l'overlay de prod doit changer
+        if: steps.plan.outputs.a_promouvoir != '0'
+        run: |
+          set -euo pipefail
+          MODIFIES=$(git diff --name-only)
+          if [ "$MODIFIES" != "deploy/k8s/overlays/prod/kustomization.yaml" ]; then
+            echo "::error::La promotion ne doit modifier que l'overlay de prod. Fichiers modifiés : $MODIFIES"
+            exit 1
+          fi
+
+      - name: Ouvrir la PR de promotion
+        if: steps.plan.outputs.a_promouvoir != '0'
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          ACTEUR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          BRANCHE="promote/prod-$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name "teamslot-promote-bot[bot]"
+          git config user.email "teamslot-promote-bot[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCHE"
+          git add deploy/k8s/overlays/prod/kustomization.yaml
+          git commit -m "chore(deploy): promotion vers la production"
+          git push origin "HEAD:refs/heads/$BRANCHE"
+          {
+            echo "Promotion vers la production (SCRUM-106), lancée par @${ACTEUR}."
+            echo
+            echo "| Image | Tag | Empreinte |"
+            echo "|---|---|---|"
+            while IFS=$'\t' read -r nom tag digest; do
+              echo "| ${nom##*/} | ${tag:0:12} | ${digest:0:19}… |"
+            done < plan.tsv
+            echo
+            echo "Ce sont les tag@empreinte déjà déployés et vérifiés en staging ; la signature cosign et la SBOM ont été revérifiées par ce workflow avant l'ouverture de la PR."
+            echo
+            echo "À cocher avant d'approuver :"
+            echo "- [ ] Test de fumée de staging vert (statut deploy/staging sur le dernier commit du robot de staging) ?"
+            echo "- [ ] Ce sont bien les versions à mettre en production ?"
+            echo
+            echo "Règle : ne pas approuver une promotion qu'on a soi-même lancée (@${ACTEUR})."
+          } > corps.md
+          URL=$(gh pr create --base main --head "$BRANCHE" --title "chore(deploy): promotion vers la production" --body-file corps.md)
+          echo "PR de promotion ouverte : $URL" >> "$GITHUB_STEP_SUMMARY"

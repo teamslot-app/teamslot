@@ -19,6 +19,8 @@ Les images publiées sur GHCR sont **publiques**.
 - le commit porte un message reconnaissable (`chore(deploy): …`) et ne relance pas la CI, pour éviter les boucles ;
 - la promotion vers l'overlay de production passe toujours par une pull request relue.
 
+**Promotion vers la production (SCRUM-106) :** un workflow manuel (`promote-prod.yml`) ouvre cette pull request avec un robot dédié (`teamslot-promote-bot`), qui n'a aucun droit de contournement de la protection de `main` : GitHub lui interdit de pousser sur `main`. Il promeut le `tag@empreinte` déjà déployé en staging, après avoir revérifié sa signature et sa SBOM.
+
 ## Conséquences
 + Tout est gratuit et bien documenté.
 + Le code est déjà sur GitHub : pas d'outil supplémentaire à relier.

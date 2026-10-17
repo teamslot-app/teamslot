@@ -1,0 +1,23 @@
+# SCRUM-106 : application Argo CD de la production. Elle suit main : la fusion d'une PR de promotion
+# (promote-prod.yml) déclenche le déploiement (GitOps), il n'y a pas d'autre chemin.
+# NE PAS APPLIQUER tant que l'overlay prod hérite de toute la base (bases de données, Kafka, tous les services) :
+# Argo CD les créerait dans le namespace prod. Voir docs/cd.md, « Promotion vers la production ».
+# Contrairement à staging, aucune annotation de notification (le statut GitHub deploy/staging ne concerne que staging).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teamslot-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/teamslot-app/teamslot.git
+    targetRevision: main
+    path: deploy/k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
