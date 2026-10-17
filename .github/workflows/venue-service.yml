@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
   packages: write
+  # SCRUM-104 : plafond nécessaire pour que java-service.yml signe avec cosign sans clé.
+  # Un workflow appelé ne peut pas dépasser les permissions de l'appelant ; dans java-service.yml,
+  # seul le job « image » demande id-token: write.
+  id-token: write
 jobs:
   ci:
     uses: ./.github/workflows/java-service.yml
