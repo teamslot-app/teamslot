@@ -7,6 +7,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,7 +22,7 @@ class VersionEndpointTests {
 
     @Test
     void versionEndpointReturnsVersion() throws Exception {
-        mockMvc.perform(get("/api/v1/template/version"))
+        mockMvc.perform(get("/api/v1/template/version").with(jwt()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.version").exists());
     }
