@@ -10,8 +10,6 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
-import ma.teamslot.identity.adapter.out.persistence.RefreshTokenEntity;
-import ma.teamslot.identity.adapter.out.persistence.RefreshTokenRepository;
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
 import ma.teamslot.identity.adapter.out.persistence.UserRepository;
 import ma.teamslot.identity.domain.PlatformRole;
@@ -26,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository users;
-    private final RefreshTokenRepository refreshTokens;
+    private final RefreshTokenStore refreshTokens;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokens;
     private final Duration refreshTokenTtl;
@@ -34,7 +32,7 @@ public class AuthService {
     /** Empreinte factice : vérifiée quand le téléphone est inconnu, pour que la réponse prenne le même temps. */
     private final String dummyHash;
 
-    public AuthService(UserRepository users, RefreshTokenRepository refreshTokens,
+    public AuthService(UserRepository users, RefreshTokenStore refreshTokens,
                        PasswordEncoder passwordEncoder, TokenService tokens,
                        @Value("${teamslot.jwt.refresh-token-ttl-days:30}") long refreshTokenTtlDays) {
         this.users = users;
@@ -75,32 +73,25 @@ public class AuthService {
     }
 
     /**
-     * Rotation : le jeton présenté est révoqué et remplacé.
+     * Rotation : le jeton présenté est consommé et remplacé.
      * S'il avait déjà été utilisé, quelqu'un l'a peut-être volé : tous les jetons de l'utilisateur sont révoqués.
-     * noRollbackFor : la révocation doit être enregistrée même si on renvoie une erreur.
+     * Un jeton expiré ou inconnu n'existe plus dans Redis : même réponse, 401.
      */
-    @Transactional(noRollbackFor = AuthErrors.InvalidRefreshToken.class)
     public TokenPair refresh(String rawRefreshToken) {
-        RefreshTokenEntity stored = refreshTokens.findByTokenHash(sha256(rawRefreshToken))
-                .orElseThrow(AuthErrors.InvalidRefreshToken::new);
-        if (stored.isRevoked()) {
-            refreshTokens.revokeAllForUser(stored.getUserId());
-            throw new AuthErrors.InvalidRefreshToken();
+        String hash = sha256(rawRefreshToken);
+        Optional<UUID> userId = refreshTokens.consume(hash, refreshTokenTtl);
+        if (userId.isPresent()) {
+            return issueTokens(userId.get());
         }
-        if (stored.isExpired(Instant.now())) {
-            throw new AuthErrors.InvalidRefreshToken();
-        }
-        stored.revoke();
-        return issueTokens(stored.getUserId());
+        refreshTokens.findUsed(hash).ifPresent(refreshTokens::revokeAllForUser);
+        throw new AuthErrors.InvalidRefreshToken();
     }
 
     private TokenPair issueTokens(UUID userId) {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String rawRefreshToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        Instant now = Instant.now();
-        refreshTokens.save(new RefreshTokenEntity(UUID.randomUUID(), userId, sha256(rawRefreshToken),
-                now.plus(refreshTokenTtl), now));
+        refreshTokens.save(sha256(rawRefreshToken), userId, refreshTokenTtl);
         return new TokenPair(tokens.createAccessToken(userId), rawRefreshToken, tokens.accessTokenTtlSeconds());
     }
 

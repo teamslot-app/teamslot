@@ -20,14 +20,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * SCRUM-57 — critères d'acceptation : inscription, connexion, renouvellement, JWKS.
- * Appels HTTP réels sur un port aléatoire, base H2 du profil de test.
+ * Appels HTTP réels sur un port aléatoire, MySQL et Redis (Testcontainers).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class AuthApiTests {
+
+    @DynamicPropertySource
+    static void redis(DynamicPropertyRegistry registry) {
+        RedisTestContainer.register(registry);
+    }
 
     static final String PASSWORD = "MotDePasse-Solide-42";
 

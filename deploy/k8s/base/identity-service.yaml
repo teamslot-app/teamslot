@@ -26,6 +26,13 @@ spec:
             - name: http
               containerPort: 8083
           env:
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-auth
+                  key: password
             - name: DB_URL
               value: "jdbc:mysql://mysql:3306/identity"
             - name: DB_USER
