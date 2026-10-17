@@ -11,6 +11,8 @@ resources:
 - sealed-secrets/venue-db.yaml
 - sealed-secrets/payment-db.yaml
 - sealed-secrets/mongodb-auth.yaml
+- sealed-secrets/mysql-auth.yaml
+- sealed-secrets/redis-auth.yaml
 images:
 - digest: sha256:7099bfc20c0e9aa45a6b7b534e82949032dd4107d927f47eaad9265d91d2c59d
   name: ghcr.io/teamslot-app/gateway
