@@ -3,6 +3,8 @@ apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
   name: mysql-auth
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
   namespace: staging
 spec:
   encryptedData:
