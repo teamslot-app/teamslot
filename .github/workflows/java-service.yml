@@ -169,6 +169,32 @@ jobs:
           cosign sign --yes "$IMAGE_SIGNEE"
           echo "Image signée : $IMAGE_SIGNEE" >> "$GITHUB_STEP_SUMMARY"
 
+      # SCRUM-105 : SBOM (liste de tous les composants de l'image : paquets Alpine + jars Java)
+      - name: Produire la SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      # La SBOM est attachée à l'empreinte et signée par la même identité que l'image :
+      # on la retrouve à partir de l'empreinte, et on sait qu'elle vient de notre CI.
+      - name: Attacher la SBOM à l'image (attestation cosign)
+        env:
+          IMAGE_SIGNEE: ghcr.io/${{ github.repository_owner }}/${{ inputs.name }}@${{ steps.empreinte.outputs.digest }}
+        run: |
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$IMAGE_SIGNEE"
+          COMPOSANTS=$(python3 -c "import json; print(len(json.load(open('sbom.cdx.json')).get('components', [])))")
+          echo "SBOM attachée : $IMAGE_SIGNEE ($COMPOSANTS composants)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Copie de secours, téléchargeable depuis la page du run (90 jours)
+      - name: Conserver la SBOM comme artefact du workflow
+        uses: actions/upload-artifact@v5
+        with:
+          name: sbom-${{ inputs.name }}-${{ github.sha }}
+          path: sbom.cdx.json
+          retention-days: 90
+
   deploy-staging:
     needs: image
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -218,6 +244,11 @@ jobs:
           cosign verify --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" \
             "$IMAGE_A_VERIFIER" > /dev/null
           echo "Signature vérifiée : $IMAGE_A_VERIFIER" >> "$GITHUB_STEP_SUMMARY"
+          # SCRUM-105 : pas de déploiement sans SBOM signée par la même identité
+          cosign verify-attestation --type cyclonedx \
+            --certificate-oidc-issuer "$EMETTEUR" --certificate-identity "$IDENTITE" \
+            "$IMAGE_A_VERIFIER" > /dev/null
+          echo "SBOM vérifiée : $IMAGE_A_VERIFIER" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Mettre à jour le tag en staging
         working-directory: deploy/k8s/overlays/staging
