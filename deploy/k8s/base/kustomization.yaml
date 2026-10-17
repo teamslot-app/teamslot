@@ -14,6 +14,8 @@ resources:
   - smoke-test.yaml
   - mongodb.yaml
   - mongodb-init-job.yaml
+  - mysql.yaml
+  - redis.yaml
 configMapGenerator:
   - name: postgres-init
     files:

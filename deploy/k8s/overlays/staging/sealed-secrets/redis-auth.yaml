@@ -1,0 +1,13 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: redis-auth
+  namespace: staging
+spec:
+  encryptedData:
+    password: AgAasYffLtVy9RKqAD6UTBLvmUd4RSBoHjgQQnwoUeBMWws2+vYDcZyMwRIg89gMdwl5W0N7QZcHxsUR11IPDUzQNBnMHo35hC5+knPnpakfXbcgMMDFR9gp+oQ2ed34V7sU9EiI6mBvyfUA5ikoZYmCcagc4GEKN74sdA2jRKX22k1+RQM8MMTR+SQkSYAmq4Nxsu8hnhDsYf/MnenyMJMwt/DT6mYt/Wq5V9fkGAI/Aen8JSpL0BdYSpLj9oQ5HeoOsO5SvOFBxgFsBW59Cl2hIkbx+jNhxOQ1LLbNmANRoLhA/AjV5vPz5+42bk0ZZBb0g5Exu/DpEvq9nbBsKFJzjrvyuT/rIqBxMRLy2UEpwAdOUFfR6vcWEhtyZjcUuoC3z/fngMvqbYje6FQkDULzczUXbAgELXHeTibuMJevKtNQ0bJl1nBfdJE0zDf4s3CGbw6Cvat3O4TvYf4ottQ9Kayc+FjQ6U2dYUzaxFVsqSXB28cTHzOYyfg+U66TxYPmIH5ZdqHmD+wX1S4iqBhSNMVqtD/ZWdljMMuG6gL3YITBhNhWckP7j6d2LV9CkBhE8MSeCIXWXYjotNM/OiWbkmT2YYlBHKyFoDl0RNAin6V0fo25aZZdfrsseQsoJwPcd++4Qw8IVnNMZ/3+qIri2QTPnlAau3eoUO4YK8ju3yfb3NFdFOZEFYvr4W+QXw3etNZ4ogV62HtqJeDpi9pUvGX8tfGeAWWkm+kpprbJ
+  template:
+    metadata:
+      name: redis-auth
+      namespace: staging
