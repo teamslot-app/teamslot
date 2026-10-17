@@ -10,6 +10,7 @@ COPY services/service-template/pom.xml services/service-template/
 COPY services/identity-service/pom.xml services/identity-service/
 COPY services/payment-service/pom.xml services/payment-service/
 COPY services/match-service/pom.xml services/match-service/
+COPY services/venue-service/pom.xml services/venue-service/
 # Sources : seulement le service (identity n'utilise pas libs/events)
 COPY services/identity-service/src services/identity-service/src
 # Cache BuildKit des dépendances Maven : réutilisé d'un build à l'autre, jamais copié dans l'image
