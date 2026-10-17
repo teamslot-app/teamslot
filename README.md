@@ -124,7 +124,18 @@ La passerelle crée `X-Correlation-Id` (UUID) s'il est absent, le transmet aux s
 
 Le service modèle implémentera le format d'erreur et les logs JSON (SCRUM-25) ; les services créés à partir du modèle en hériteront.
 
+## Déploiement continu
+
+```
+PR relue + CI verte → main → image (Trivy, signature, SBOM) → GHCR
+   → commit du bot dans deploy/k8s/overlays/staging → Argo CD → test de fumée
+   → statut « deploy/staging » sur le commit GitHub
+```
+
+Détails, voir un déploiement et revenir en arrière : `docs/cd.md`.
+
 ## Documentation
+- `docs/cd.md` — déploiement continu (pipeline, statut GitHub, retour arrière)
 - `docs/adr/` — décisions d'architecture
 - `docs/api/` — contrats OpenAPI
 - `docs/events.md` — catalogue des événements Kafka

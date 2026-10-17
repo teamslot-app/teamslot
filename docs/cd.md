@@ -1,6 +1,82 @@
 # Déploiement continu (CD)
 
-Ce document décrit ce qui se passe après la fusion d'une PR sur `main` : signature des images (SCRUM-104), SBOM (SCRUM-105) et test de fumée (SCRUM-99). Le schéma complet du pipeline, le statut GitHub et le retour arrière seront ajoutés par SCRUM-113.
+Ce document décrit ce qui se passe entre une PR et le staging : le pipeline complet, le statut de déploiement sur GitHub et le retour arrière (SCRUM-113), la signature des images (SCRUM-104), la SBOM (SCRUM-105) et le test de fumée (SCRUM-99).
+
+## Le pipeline en un coup d'œil
+
+```mermaid
+flowchart LR
+  PR["PR + relecture<br/>CI : tests, Sonar,<br/>Trivy, gitleaks, ci-gate"] -->|Squash and merge| MAIN["main"]
+  MAIN --> CI["java-service.yml<br/>build-test → image"]
+  CI -->|"Trivy, publication,<br/>signature + SBOM"| GHCR[("GHCR<br/>image@sha256")]
+  CI --> DEP["deploy-staging<br/>vérifie signature + SBOM"]
+  DEP -->|"commit du bot<br/>tag@empreinte"| OVL["deploy/k8s/overlays/staging"]
+  OVL -->|GitOps| ARGO["Argo CD<br/>teamslot-staging"]
+  GHCR -.->|image tirée| ARGO
+  ARGO --> SMOKE["hook PostSync<br/>test de fumée"]
+  SMOKE -->|Argo CD Notifications| STATUS["statut GitHub<br/>deploy/staging"]
+```
+
+1. **PR** : relue par une autre personne ; la CI (tests, SonarCloud, Trivy, gitleaks) doit être verte (`ci-gate`).
+2. **Fusion sur `main`** : le workflow du service (`<service>.yml`, qui appelle `java-service.yml`) construit et teste.
+3. **Job `image`** : image construite, scannée par Trivy, publiée sur GHCR, **signée** (cosign) et accompagnée de sa **SBOM** signée.
+4. **Job `deploy-staging`** : vérifie la signature et la SBOM, puis le bot écrit `tag@empreinte` dans `deploy/k8s/overlays/staging/kustomization.yaml` (commit `chore(deploy): staging <service> -> <commit>`).
+5. **Argo CD** voit ce commit et synchronise le namespace `staging`.
+6. **Test de fumée** (hook `PostSync`) : santé et refus sans jeton.
+7. **Statut GitHub** `deploy/staging` sur le commit du bot : en cours, réussi ou échoué.
+
+## Voir un déploiement (SCRUM-113)
+
+- **Sur GitHub** : dans l'historique de `main` (onglet « Commits »), le commit `chore(deploy): staging <service> -> <commit>` porte une icône : point jaune (synchronisation en cours), coche verte (déployé, test de fumée réussi) ou croix rouge (échec). Cliquer dessus affiche le statut `deploy/staging`.
+- Le message du commit du bot donne le commit du service déployé.
+- **Détail** : Argo CD (application `teamslot-staging`, accès Tailscale, voir `docs/cluster.md`) et `kubectl logs job/smoke-test -n staging`.
+- **Pas de statut** sur un commit du bot : le cluster était éteint (Argo CD n'a pas encore synchronisé), ou la notification n'est pas configurée (voir « Mise en place » ci-dessous).
+
+## Revenir en arrière
+
+Le staging suit `main` (GitOps) : on revient en arrière **par Git**, jamais à la main dans le cluster (Argo CD annulerait la modification, `selfHeal`).
+
+```bash
+git checkout main && git pull
+git log --oneline -10                 # repérer le commit fautif (celui du service, pas celui du bot)
+git checkout -b fix/revert-<commit>
+git revert <commit>
+git push -u origin fix/revert-<commit>
+```
+
+PR, relecture, fusion : la CI republie l'image de la version précédente, le bot met à jour le staging, Argo CD redéploie et relance le test de fumée. Si seul le déploiement est en cause (le code est bon), on peut aussi faire un `git revert` du commit du bot `chore(deploy)` : le tag précédent revient directement, sans reconstruire d'image.
+
+## Mise en place du statut GitHub (SCRUM-113)
+
+Argo CD Notifications (inclus dans Argo CD) écrit le statut avec une **application GitHub** dédiée :
+
+- **teamslot-argocd-status** : seule permission « Commit statuses : Read and write », installée uniquement sur `teamslot-app/teamslot`. Elle ne peut ni lire ni modifier le code ;
+- sa **clé privée** est dans le secret `argocd-notifications-secret` (namespace `argocd`), **scellé** : `deploy/argocd/notifications-secret-sealed.yaml`. Jamais en clair dans le dépôt, ni dans un message ;
+- la configuration (`deploy/argocd/notifications-cm.yaml`) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
+
+Étapes (une seule fois) :
+
+1. Un propriétaire de l'organisation crée l'application GitHub (permission ci-dessus, sans webhook), l'installe sur le dépôt et génère une clé privée (`.pem`), gardée hors du dépôt.
+2. Il remplace `A_REMPLACER_APP_ID` et `A_REMPLACER_INSTALLATION_ID` dans `notifications-cm.yaml` (ces identifiants ne sont pas secrets).
+3. Il scelle la clé, sans jamais l'écrire dans un fichier du dépôt :
+
+```bash
+kubectl create secret generic argocd-notifications-secret -n argocd \
+  --from-file=github-privateKey=chemin/vers/cle.pem --dry-run=client -o yaml \
+  | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/notifications-secret-sealed.yaml
+```
+
+4. Amira relit puis applique dans `argocd`. Le secret vide créé à l'installation d'Argo CD doit être supprimé avant (sinon Sealed Secrets refuse de le remplacer) :
+
+```bash
+kubectl delete secret argocd-notifications-secret -n argocd
+kubectl apply -n argocd -f deploy/argocd/notifications-secret-sealed.yaml
+kubectl apply -n argocd -f deploy/argocd/notifications-cm.yaml
+kubectl apply -n argocd -f deploy/argocd/staging.yaml
+```
+
+Rien n'est créé au niveau du cluster (pas de ClusterRole) : une ConfigMap, un SealedSecret et l'annotation de l'application, tous dans `argocd`. Si Argo CD a été installé avec Helm, la configuration va plutôt dans les valeurs du chart (`notifications.cm`), sinon un `helm upgrade` l'effacerait.
+
 
 ## Signature des images (SCRUM-104)
 

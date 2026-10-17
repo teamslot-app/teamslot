@@ -3,6 +3,12 @@ kind: Application
 metadata:
   name: teamslot-staging
   namespace: argocd
+  # SCRUM-113 : statut « deploy/staging » sur le commit GitHub (deploy/argocd/notifications-cm.yaml)
+  annotations:
+    notifications.argoproj.io/subscribe.on-sync-running.github: ""
+    notifications.argoproj.io/subscribe.on-deployed.github: ""
+    notifications.argoproj.io/subscribe.on-sync-failed.github: ""
+    notifications.argoproj.io/subscribe.on-health-degraded.github: ""
 spec:
   project: default
   source:
