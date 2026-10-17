@@ -19,9 +19,10 @@ images:
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
   newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
-- name: ghcr.io/teamslot-app/match-service
+- digest: sha256:7541fa6d7e78239b4533e0f511de9e51899e6945804a68ae604a149f9eec19cd
+  name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
-  newTag: 95d4864e1d02f7d6e2c175cb32f430b50fb0b7e8
+  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
 - name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
   newTag: 95d4864e1d02f7d6e2c175cb32f430b50fb0b7e8
