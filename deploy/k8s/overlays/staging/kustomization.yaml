@@ -16,7 +16,7 @@ images:
   newTag: 54e73e66a07cb82ddb00f6393497fa9a1f0f44b5
 - name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
-  newTag: 944595e9d5985cdebeebf6fe980046a445eb6a71
+  newTag: 95d4864e1d02f7d6e2c175cb32f430b50fb0b7e8
 - name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
   newTag: 475db0a274a263f8cda709474e53d37f7d2200f2
