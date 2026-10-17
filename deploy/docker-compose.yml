@@ -5,7 +5,6 @@ services:
       POSTGRES_USER: pgadmin
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?à définir dans deploy/.env}
       TEMPLATE_DB_PASSWORD: ${DB_PASSWORD:?à définir dans deploy/.env}
-      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
       VENUE_DB_PASSWORD: ${VENUE_DB_PASSWORD:?à définir dans deploy/.env}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?à définir dans deploy/.env}
     ports:

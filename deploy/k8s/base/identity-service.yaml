@@ -27,17 +27,14 @@ spec:
               containerPort: 8083
           env:
             - name: DB_URL
-              value: "jdbc:postgresql://postgres:5432/identity"
+              value: "jdbc:mysql://mysql:3306/identity"
             - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: identity-db
-                  key: DB_USER
+              value: identity_user
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: identity-db
-                  key: DB_PASSWORD
+                  name: mysql-auth
+                  key: identity-password
             - name: JWT_PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
