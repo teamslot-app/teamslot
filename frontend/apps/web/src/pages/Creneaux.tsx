@@ -62,7 +62,12 @@ export default function Creneaux() {
               {formatHeure(creneau.start)} – {formatHeure(creneau.end)}
               {creneau.price && <> · {formatMontant(creneau.price)}</>}{' '}
               {creneau.available ? (
-                <Link to={`/terrains/${terrain.id}/creneaux/${creneau.id}`}>Réserver</Link>
+                <Link
+                  to={`/terrains/${terrain.id}/creneaux/${creneau.id}`}
+                  state={{ start: creneau.start, end: creneau.end }}
+                >
+                  Réserver
+                </Link>
               ) : (
                 <span>Indisponible</span>
               )}
