@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { VenueComponents } from '@teamslot/shared'
 import { api } from '../api'
 import { formatHeure, formatMontant } from '../format'
@@ -28,6 +28,7 @@ export default function Reservation() {
   const { venueId, slotId } = useParams()
   const terrain = terrainParId(venueId)
   const { state } = useLocation()
+  const navigate = useNavigate()
   const horaire = state as { start?: string; end?: string } | null
   const [choix, setChoix] = useState<string[]>([])
   const [prix, setPrix] = useState<Prix | null>(null)
@@ -76,7 +77,14 @@ export default function Reservation() {
       const { data, error, response } = await api.match.POST('/api/v1/matches', {
         body: { slotId, equipmentIds: equipmentIds.length > 0 ? equipmentIds : undefined },
       })
-      setEtat(data ? { type: 'ok' } : { type: 'erreur', message: messageReservation(response.status, error) })
+      if (data) {
+        setEtat({ type: 'ok' })
+        navigate(`/matchs/${data.id}`, {
+          state: { match: data, venueId: terrain.id, start: horaire?.start, end: horaire?.end },
+        })
+      } else {
+        setEtat({ type: 'erreur', message: messageReservation(response.status, error) })
+      }
     } catch {
       setEtat({ type: 'erreur', message: INDISPONIBLE })
     }
