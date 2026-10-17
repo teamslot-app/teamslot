@@ -11,9 +11,10 @@ resources:
 - sealed-secrets/payment-db.yaml
 - sealed-secrets/mongodb-auth.yaml
 images:
-- name: ghcr.io/teamslot-app/gateway
+- digest: sha256:7099bfc20c0e9aa45a6b7b534e82949032dd4107d927f47eaad9265d91d2c59d
+  name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
-  newTag: 54e73e66a07cb82ddb00f6393497fa9a1f0f44b5
+  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
 - name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
   newTag: 95d4864e1d02f7d6e2c175cb32f430b50fb0b7e8
