@@ -95,6 +95,7 @@ Déduites des règles métier (conception 6.2) et de la matrice des droits (conc
 | Un membre simple invite, retire un membre ou se déclare capitaine | E | Rôles d'équipe vérifiés côté serveur : seul le capitaine ou le vice-capitaine agit | S12 |
 | Un joueur modifie son propre rôle via `PATCH /users/me` | E | DTO dédiés : les champs sensibles ne sont jamais liés à la requête | Test automatisé |
 | Un invité sans compte vote ou se connecte | S | Un invité n'est qu'un surnom : aucune authentification, aucun vote | Test automatisé |
+| Accès au staging depuis le réseau local du PC d'Amira : port 8080 (Ingress `/api`), API Kubernetes (`--api-port 0.0.0.0:6550`) et port-forwards en `--address 0.0.0.0` | S, I, E | Accès prévu par Tailscale seulement ; à faire : lier ces ports à l'adresse Tailscale. Passerelle : JWT vérifié, routes internes refusées | Scan ZAP baseline (SCRUM-72) |
 
 ## 5. Plan de tests de sécurité (S1 à S14)
 
@@ -125,6 +126,7 @@ Ces tests sont définis dans le plan de tests de sécurité du dossier de projet
 | OTP à l'inscription | Recommandé, non obligatoire au démarrage | À trancher en Sprint Planning |
 | Paiement en ligne | Simulé : aucune donnée de carte n'est traitée ni stockée | Jusqu'à l'ajout d'un vrai fournisseur (ADR à écrire) |
 | Un seul broker Kafka et un seul cluster local | Acceptable pour un projet pédagogique ; disponibilité limitée | — |
+| Scan ZAP sans authentification | Baseline passif sur les routes publiques et les réponses 401 (SCRUM-72) ; scan authentifié avec un compte de test dédié au staging, en backlog | Sprint 3 |
 
 ## 7. Comment ce modèle reste vivant
 

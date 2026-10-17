@@ -1,0 +1,5 @@
+# Règles du scan OWASP ZAP baseline (SCRUM-72), passées à zap-baseline.py avec -c.
+# Une ligne par règle : <id de la règle>	<IGNORE|WARN|FAIL>	<justification d'une ligne, obligatoire>
+# Séparateur : TABULATION. Une règle IGNORE = faux positif accepté : elle ne fait jamais échouer le job.
+# Chaque ajout passe par une PR relue (comme les acceptations Sonar). Liste des id : https://www.zaproxy.org/docs/alerts/
+# Aucun faux positif accepté pour l'instant.

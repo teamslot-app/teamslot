@@ -1,0 +1,21 @@
+# SCRUM-72 : entrée HTTP du staging pour le scan OWASP ZAP (et l'équipe), via Traefik (k3s).
+# Seulement /api, vers la passerelle : elle vérifie les JWT et refuse les routes internes
+# (/api/v1/slot-reservations). Les services, Kafka et les bases restent en ClusterIP.
+# Dans l'overlay staging uniquement : la prod n'en hérite pas.
+# Joignable sur le port 8080 du PC d'Amira (k3d -p "8080:80@loadbalancer"), via Tailscale.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  name: http

@@ -1,0 +1,92 @@
+name: zap-staging
+# SCRUM-72 : scan OWASP ZAP « baseline » (passif) du staging.
+# Déclenché chaque soir et à la main, jamais sur une PR : impossible à lancer depuis un fork,
+# et les secrets Tailscale ne sont disponibles que sur la branche par défaut.
+on:
+  schedule:
+    # Tous les jours à 19 h 47 UTC (20 h 47 au Maroc) : à caler sur les créneaux d'allumage de docs/cluster.md
+    - cron: '47 19 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zap-staging
+  cancel-in-progress: false
+env:
+  # Cible fixe : le staging uniquement (PC d'Amira, adresse Tailscale, Ingress /api). Jamais la production.
+  CIBLE: http://100.89.116.27:8080/api/v1/template/version
+  # Image ZAP épinglée par version ET par empreinte (SCRUM-84)
+  IMAGE_ZAP: ghcr.io/zaproxy/zaproxy:2.16.1@sha256:7840969c7c9fead565bf9734b12f49f6886db90b1d35b1f74d79710bbd081dab
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      # Le runner rejoint le réseau Tailscale avec l'étiquette tag:ci. L'ACL n'autorise tag:ci
+      # que vers le PC d'Amira, port 8080. Client OAuth créé par Amira, valeurs dans les secrets GitHub.
+      - name: Rejoindre le réseau Tailscale (tag:ci)
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      # Le staging tourne sur un PC qui n'est pas toujours allumé : s'il ne répond pas,
+      # on le signale sans faire échouer le job (pas une faille, juste pas de scan ce soir).
+      - name: Le staging répond-il ?
+        id: joignable
+        run: |
+          CODE=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$CIBLE" || true)
+          if [ "$CODE" = "000" ]; then
+            echo "::warning::Staging injoignable ($CIBLE) : PC d'Amira éteint ou cluster arrêté. Scan non effectué."
+            echo "Staging injoignable : scan non effectué." >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Staging joignable (HTTP $CODE)"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Scan passif : ZAP visite la cible et analyse les réponses, sans envoyer d'attaque.
+      # -I : un avertissement (WARN) ne fait pas échouer ZAP ; l'échec est décidé à l'étape suivante.
+      - name: Scan ZAP baseline (passif)
+        if: steps.joignable.outputs.ok == 'true'
+        run: |
+          mkdir -p zap && cp .zap/rules.tsv zap/ && chmod 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" "$IMAGE_ZAP" \
+            zap-baseline.py -t "$CIBLE" -c rules.tsv -m 2 -I \
+            -r rapport.html -J rapport.json -w rapport.md
+
+      # Une alerte de niveau élevé (riskcode 3) non acceptée dans .zap/rules.tsv fait échouer le job.
+      - name: Alertes de niveau élevé
+        if: steps.joignable.outputs.ok == 'true'
+        run: |
+          cat zap/rapport.md >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import json, sys
+          ignorees = set()
+          for ligne in open(".zap/rules.tsv", encoding="utf-8"):
+              if ligne.strip() and not ligne.startswith("#"):
+                  champs = ligne.rstrip("\n").split("\t")
+                  if len(champs) >= 2 and champs[1].strip() == "IGNORE":
+                      ignorees.add(champs[0].strip())
+          rapport = json.load(open("zap/rapport.json", encoding="utf-8"))
+          hautes = [a for site in rapport.get("site", []) for a in site.get("alerts", [])
+                    if str(a.get("riskcode")) == "3" and str(a.get("pluginid")) not in ignorees]
+          for a in hautes:
+              print(f"::error::ZAP, alerte élevée : {a.get('name')} (règle {a.get('pluginid')})")
+          print(f"{len(hautes)} alerte(s) de niveau élevé non acceptée(s).")
+          sys.exit(1 if hautes else 0)
+          PY
+
+      - name: Conserver le rapport
+        if: always() && steps.joignable.outputs.ok == 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: zap-rapport-${{ github.run_number }}
+          path: |
+            zap/rapport.html
+            zap/rapport.json
+            zap/rapport.md
+          retention-days: 30
