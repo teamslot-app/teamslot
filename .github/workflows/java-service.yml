@@ -189,7 +189,7 @@ jobs:
 
       # Copie de secours, téléchargeable depuis la page du run (90 jours)
       - name: Conserver la SBOM comme artefact du workflow
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ inputs.name }}-${{ github.sha }}
           path: sbom.cdx.json
