@@ -206,3 +206,18 @@ Le front a son propre workflow, `.github/workflows/web.yml` (ce n'est pas une ap
 - Le groupe de concurrence `deploy-staging` est partagé avec les services Java : un seul commit du robot à la fois sur l'overlay.
 - Les jobs `image` et `deploy-staging` sont une copie de ceux de `java-service.yml` ; les extraire dans un workflow réutilisable est prévu séparément.
 - Le conteneur nginx se configure avec `API_UPSTREAM` (docker-compose : `http://gateway:8080` ; Kubernetes : `http://gateway`) et se lance en lecture seule avec des volumes inscriptibles (uid/gid 101) sur `/tmp`, `/var/cache/nginx` et `/etc/nginx/conf.d`.
+
+## Promotion vers la production (SCRUM-106)
+
+La production ne reçoit une version qu'après une **PR relue** (ADR-004) : le robot ne pousse jamais sur `main` pour la prod.
+
+1. Staging est vert (statut `deploy/staging` sur le dernier commit du robot, voir « Voir un déploiement »).
+2. Onglet Actions, `promote-prod`, « Run workflow » (sur `main`).
+3. Le workflow lit les images **déjà listées** dans `deploy/k8s/overlays/prod/kustomization.yaml`, prend leur `tag@empreinte` dans l'overlay de staging, **revérifie la signature et la SBOM** (cosign), écrit les versions dans l'overlay de prod et ouvre une PR sur une branche `promote/prod-<date>`.
+4. Une autre personne que celle qui a lancé le workflow relit et approuve (la description rappelle qui l'a lancé), puis fusionne. L'application Argo CD `teamslot-prod` (`deploy/argocd/prod.yaml`) déploie.
+
+Le robot de promotion est une GitHub App **distincte** de celui de staging (`teamslot-promote-bot` : Contents et Pull requests en Read and write, installée seulement sur ce dépôt, **absente** de la liste de contournement du ruleset de `main`). Variable `PROMOTE_BOT_APP_ID`, secret `PROMOTE_BOT_PRIVATE_KEY`. Une PR ouverte avec le `GITHUB_TOKEN` ne déclencherait pas la CI : c'est pourquoi on utilise le jeton de l'App.
+
+Les images promues sont celles de l'overlay de prod : ajouter un service en prod, c'est l'y ajouter (avec un tag de départ) dans une PR relue. Le script (`deploy/promote/promouvoir.mjs`, testé avec `node --test deploy/promote/promouvoir.test.mjs`) refuse un format de tag ou d'empreinte inattendu, une image absente de staging, ou une image de staging sans empreinte.
+
+**Limite connue** : l'overlay de prod hérite de `../../base`, donc de toutes les ressources (bases de données, Kafka, tous les services). `deploy/argocd/prod.yaml` n'est **pas appliqué** (seule la personne qui gère le cluster applique les fichiers d'`argocd/`) tant que la prod n'a pas été réduite à ce qu'elle doit contenir (ADR-005 : la vraie production est prévue sur AWS en fin de projet).
