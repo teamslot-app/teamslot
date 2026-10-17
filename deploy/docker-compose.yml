@@ -94,7 +94,9 @@ services:
       - payment-service
 
   identity-service:
-    build: ../services/identity-service
+    build:
+      context: ..
+      dockerfile: services/identity-service/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/identity
       DB_USER: identity_user
@@ -104,7 +106,9 @@ services:
         condition: service_healthy
 
   venue-service:
-    build: ../services/venue-service
+    build:
+      context: ..
+      dockerfile: services/venue-service/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/venue
       DB_USER: venue_user
