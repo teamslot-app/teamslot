@@ -3,14 +3,14 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-        <groupId>ma.teamslot</groupId>
-        <artifactId>teamslot-parent</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
-    </parent>
+		<groupId>ma.teamslot</groupId>
+		<artifactId>teamslot-parent</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../../pom.xml</relativePath>
+	</parent>
 	<artifactId>venue-service</artifactId>
-    <name>venue-service</name>
-    <description>Terrains, équipements et créneaux</description>
+	<name>venue-service</name>
+	<description>Terrains, équipements et créneaux</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -28,12 +28,12 @@
 		<sonar.coverage.exclusions>**/*Application.java</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
-        <!-- Outbox, relais, idempotence, .dlt et V2__outbox.sql (ADR-015, module du build) -->
-        <dependency>
-            <groupId>ma.teamslot</groupId>
-            <artifactId>events</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+		<!-- Outbox, relais, idempotence, .dlt et V2__outbox.sql (ADR-015, module du build) -->
+		<dependency>
+			<groupId>ma.teamslot</groupId>
+			<artifactId>events</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-kafka</artifactId>
@@ -48,11 +48,11 @@
 			<artifactId>testcontainers-kafka</artifactId>
 			<scope>test</scope>
 		</dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers-postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-postgresql</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
