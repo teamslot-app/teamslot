@@ -12,7 +12,7 @@ import ma.teamslot.venue.adapter.out.persistence.VenueRepository;
 import ma.teamslot.venue.application.ReservationView.EquipmentView;
 import ma.teamslot.venue.domain.Money;
 import ma.teamslot.venue.domain.PriceCalculator;
-import ma.teamslot.venue.events.Outbox;
+import ma.teamslot.events.Outbox;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;

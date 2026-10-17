@@ -25,6 +25,7 @@
 		<module>services/service-template</module>
 		<module>services/payment-service</module>
 		<module>services/match-service</module>
+        <module>services/venue-service</module>
 	</modules>
 
 	<properties>
