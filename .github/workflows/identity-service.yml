@@ -3,16 +3,31 @@ on:
   pull_request:
     paths:
       - 'services/identity-service/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
       - '.github/workflows/java-service.yml'
       - '.github/workflows/identity-service.yml'
   push:
     branches: [main]
+    # Build Maven unique (ADR-015) : un changement des modules ou du parent reconstruit et redéploie le service
     paths:
       - 'services/identity-service/**'
+      - 'libs/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'mvnw'
+      - '.dockerignore'
   workflow_dispatch:
 permissions:
   contents: read
   packages: write
+  # SCRUM-104 : plafond nécessaire pour que java-service.yml signe avec cosign sans clé.
+  # Un workflow appelé ne peut pas dépasser les permissions de l'appelant ; dans java-service.yml,
+  # seul le job « image » demande id-token: write.
+  id-token: write
 jobs:
   ci:
     uses: ./.github/workflows/java-service.yml
@@ -20,4 +35,5 @@ jobs:
       service: services/identity-service
       name: identity-service
       sonar_project_key: teamslot-app_identity-service
+      racine: true
     secrets: inherit

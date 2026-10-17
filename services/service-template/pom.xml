@@ -26,11 +26,20 @@
 	</scm>
 	<dependencies>
 		<!-- Outbox, relais, idempotence, .dlt et V2__outbox.sql (ADR-015, module du build) -->
-		<dependency>
-			<groupId>ma.teamslot</groupId>
-			<artifactId>events</artifactId>
-			<version>${project.version}</version>
-		</dependency>
+        <dependency>
+                        <groupId>ma.teamslot</groupId>
+                        <artifactId>events</artifactId>
+                        <version>${project.version}</version>
+                </dependency>
+                <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+                </dependency>
+                <dependency>
+                        <groupId>org.springframework.security</groupId>
+                        <artifactId>spring-security-test</artifactId>
+                        <scope>test</scope>
+                </dependency>
         <dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>testcontainers-postgresql</artifactId>

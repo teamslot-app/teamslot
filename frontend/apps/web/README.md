@@ -73,3 +73,16 @@ export default defineConfig([
 ])
 
 ```
+
+## Jetons et session (SCRUM-94)
+
+Les jetons (accès et rafraîchissement) sont gardés **en mémoire seulement** (`src/auth/session.ts`) : ni `localStorage`, ni cookie. Un script injecté dans la page (XSS) ne pourrait donc pas les lire dans le stockage du navigateur. **Conséquence : recharger la page demande de se reconnecter.**
+
+Un appel authentifié qui reçoit 401 tente **un seul** rafraîchissement (`POST /api/v1/auth/refresh`), puis est rejoué ; si le rafraîchissement échoue, la session est fermée et l'utilisateur revient à l'écran de connexion. Les routes `/api/v1/auth/*` ne déclenchent jamais ce mécanisme. Les erreurs de connexion donnent toujours le même message (« Téléphone ou mot de passe incorrect ») : il ne dit pas si le compte existe.
+
+## Développer en local
+
+1. À la racine du dépôt, lancer toute l'application : `docker compose -f deploy/docker-compose.yml up -d --build` (la passerelle écoute sur le port 8080).
+2. Ici : `npm run dev`. Le serveur de Vite renvoie `/api` vers `http://localhost:8080`.
+3. Le client d'API vient de `frontend/packages/shared` (généré depuis `docs/api`, voir SCRUM-69) ; `@teamslot/shared` est un alias dans `vite.config.ts` et `tsconfig.app.json`.
+4. L'image Docker se construit depuis `frontend/` : `docker build -f apps/web/Dockerfile frontend`.

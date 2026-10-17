@@ -38,6 +38,8 @@ spec:
                 secretKeyRef:
                   name: service-template-db
                   key: DB_PASSWORD
+            - name: JWT_JWK_SET_URI
+              value: "http://identity-service/.well-known/jwks.json"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

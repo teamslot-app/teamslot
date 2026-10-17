@@ -1,0 +1,4 @@
+# Les node_modules de Windows ne doivent jamais entrer dans une image Linux.
+**/node_modules
+**/dist
+**/.vite
