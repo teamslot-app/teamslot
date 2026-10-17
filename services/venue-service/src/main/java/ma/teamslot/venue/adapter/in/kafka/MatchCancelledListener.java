@@ -1,9 +1,9 @@
 package ma.teamslot.venue.adapter.in.kafka;
 
 import ma.teamslot.venue.application.ReleaseService;
-import ma.teamslot.venue.events.EventEnvelope;
-import ma.teamslot.venue.events.EventReader;
-import ma.teamslot.venue.events.IdempotentProcessor;
+import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.EventReader;
+import ma.teamslot.events.IdempotentProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
