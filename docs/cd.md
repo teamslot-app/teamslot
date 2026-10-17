@@ -48,17 +48,19 @@ PR, relecture, fusion : la CI republie l'image de la version précédente, le bo
 
 ## Mise en place du statut GitHub (SCRUM-113)
 
-Argo CD Notifications (inclus dans Argo CD) écrit le statut avec une **application GitHub** dédiée :
+Argo CD Notifications (inclus dans Argo CD, installé avec Helm) écrit le statut avec une **application GitHub** dédiée :
 
-- **teamslot-argocd-status** : seule permission « Commit statuses : Read and write », installée uniquement sur `teamslot-app/teamslot`. Elle ne peut ni lire ni modifier le code ;
+- **teamslot-argocd-status** (App ID 5357712) : seule permission « Commit statuses : Read and write », installée uniquement sur `teamslot-app/teamslot`. Elle ne peut ni lire ni modifier le code ;
 - sa **clé privée** est dans le secret `argocd-notifications-secret` (namespace `argocd`), **scellé** : `deploy/argocd/notifications-secret-sealed.yaml`. Jamais en clair dans le dépôt, ni dans un message ;
-- la configuration (`deploy/argocd/notifications-cm.yaml`) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
+- la configuration (`deploy/argocd/notifications-values.yaml`, valeurs du chart Helm `argo-cd`) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
+
+Qui fait quoi : Sara (SCRUM-113) prépare les fichiers, l'application GitHub et le secret scellé ; Amira, responsable du cluster, relit puis applique dans `argocd` (accès de Sara limité, séparation des rôles).
 
 Étapes (une seule fois) :
 
-1. Un propriétaire de l'organisation crée l'application GitHub (permission ci-dessus, sans webhook), l'installe sur le dépôt et génère une clé privée (`.pem`), gardée hors du dépôt.
-2. Il remplace `A_REMPLACER_APP_ID` et `A_REMPLACER_INSTALLATION_ID` dans `notifications-cm.yaml` (ces identifiants ne sont pas secrets).
-3. Il scelle la clé, sans jamais l'écrire dans un fichier du dépôt :
+1. Créer l'application GitHub (permission ci-dessus, sans webhook), l'installer sur le dépôt et générer une clé privée (`.pem`), gardée hors du dépôt.
+2. Mettre l'`installationID` (172397563) dans `notifications-values.yaml` (ces identifiants ne sont pas secrets).
+3. Sceller la clé avec le certificat **public** du cluster, sans jamais l'écrire dans un fichier du dépôt :
 
 ```bash
 kubectl create secret generic argocd-notifications-secret -n argocd \
@@ -66,17 +68,18 @@ kubectl create secret generic argocd-notifications-secret -n argocd \
   | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/notifications-secret-sealed.yaml
 ```
 
-4. Amira relit puis applique dans `argocd`. Le secret vide créé à l'installation d'Argo CD doit être supprimé avant (sinon Sealed Secrets refuse de le remplacer) :
+4. Amira relit, puis applique. D'abord Helm (`<release>` et `<version>` : `helm list -n argocd` ; `--reuse-values` garde tous les réglages actuels ; `secret.create: false` retire le secret vide créé par Helm), puis le secret scellé et l'abonnement :
 
 ```bash
-kubectl delete secret argocd-notifications-secret -n argocd
+helm upgrade <release> argo/argo-cd -n argocd --version <version> \
+  --reuse-values -f deploy/argocd/notifications-values.yaml
 kubectl apply -n argocd -f deploy/argocd/notifications-secret-sealed.yaml
-kubectl apply -n argocd -f deploy/argocd/notifications-cm.yaml
 kubectl apply -n argocd -f deploy/argocd/staging.yaml
 ```
 
-Rien n'est créé au niveau du cluster (pas de ClusterRole) : une ConfigMap, un SealedSecret et l'annotation de l'application, tous dans `argocd`. Si Argo CD a été installé avec Helm, la configuration va plutôt dans les valeurs du chart (`notifications.cm`), sinon un `helm upgrade` l'effacerait.
+5. Vérifier : `kubectl get secret argocd-notifications-secret -n argocd` existe, `kubectl logs deploy/<release>-notifications-controller -n argocd --tail=50` sans erreur d'authentification GitHub, puis le prochain commit du bot porte le statut `deploy/staging`.
 
+Rien n'est créé au niveau du cluster (pas de ClusterRole) : des valeurs Helm, un SealedSecret et l'annotation de l'application, tous dans `argocd`.
 
 ## Signature des images (SCRUM-104)
 
