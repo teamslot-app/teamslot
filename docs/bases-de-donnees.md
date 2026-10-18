@@ -34,7 +34,7 @@ Depuis SCRUM-112, match-service n'utilise plus PostgreSQL : ses données sont da
 - **Test E2E du parcours** : `deploy/e2e/parcours-match.sh`. Dans le cluster : `kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 --command -- sh -s < deploy/e2e/parcours-match.sh`. Depuis un poste : `API=http://<passerelle> sh deploy/e2e/parcours-match.sh`.
 
 ## identity-service : MySQL et Redis (ADR-017, SCRUM-108, SCRUM-109)
-Les comptes sont dans la base `identity` de MySQL 8.4 (utilisateur `identity_user`). Les refresh tokens passeront dans Redis avec SCRUM-110.
+Les comptes sont dans la base `identity` de MySQL 8.4 (utilisateur `identity_user`). Les refresh tokens sont dans Redis (SCRUM-110) : clés `refresh:<hash>` avec TTL, la table MySQL `refresh_token` n'existe plus (supprimée par V2).
 
 - **Schéma** : migrations Flyway dans `services/identity-service/src/main/resources/db/migration` (syntaxe MySQL). Les UUID sont en `BINARY(16)`, les dates en `DATETIME(6)` et toujours en UTC.
 - **Local** : `docker compose up -d mysql` (dans `deploy/`), puis `docker compose exec mysql mysql -uidentity_user -p identity` (mot de passe demandé, jamais dans la commande).

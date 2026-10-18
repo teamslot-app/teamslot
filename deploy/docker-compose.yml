@@ -100,8 +100,12 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/identity
       DB_USER: identity_user
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?à définir dans deploy/.env}
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   venue-service:
