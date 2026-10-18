@@ -17,6 +17,13 @@ public class SlotEntity {
 
   protected SlotEntity() {}
 
+  public SlotEntity(UUID id, UUID venueId, Instant startAt, Instant endAt) {
+    this.id = id;
+    this.venueId = venueId;
+    this.startAt = startAt;
+    this.endAt = endAt;
+  }
+
   public UUID getId() {
     return id;
   }
