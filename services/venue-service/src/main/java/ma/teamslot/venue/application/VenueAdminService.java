@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import ma.teamslot.events.Outbox;
 import ma.teamslot.venue.adapter.out.persistence.SlotEntity;
 import ma.teamslot.venue.adapter.out.persistence.SlotRepository;
 import ma.teamslot.venue.adapter.out.persistence.VenueEntity;
@@ -30,13 +31,15 @@ public class VenueAdminService {
   private final SlotRepository slots;
   private final JdbcTemplate jdbc;
   private final Clock clock;
+  private final Outbox outbox;
 
   public VenueAdminService(
-      VenueRepository venues, SlotRepository slots, JdbcTemplate jdbc, Clock clock) {
+      VenueRepository venues, SlotRepository slots, JdbcTemplate jdbc, Clock clock, Outbox outbox) {
     this.venues = venues;
     this.slots = slots;
     this.jdbc = jdbc;
     this.clock = clock;
+    this.outbox = outbox;
   }
 
   @Transactional
@@ -66,7 +69,18 @@ public class VenueAdminService {
           equipment.name().strip(),
           equipment.priceCents());
     }
-    // EVENT_VENUE_CREATED : l'appel outbox.record(...) est ajouté à l'étape suivante
+    // même transaction que la création : l'événement ne part que si le terrain est enregistré
+    outbox.record(
+        venue.getId(),
+        "venue.created",
+        new VenueCreatedData(
+            venue.getId(),
+            callerId,
+            venue.getName(),
+            venue.getLatitude(),
+            venue.getLongitude(),
+            new Money(venue.getPricePerHourCents(), venue.getCurrency()),
+            venue.isAcceptsOnSitePayment()));
     return new VenueView(
         venue.getId(),
         venue.getName(),
