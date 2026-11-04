@@ -10,6 +10,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import ma.teamslot.identity.domain.PlatformRole;
 
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -52,11 +53,12 @@ public class TokenService {
     }
 
     /** Jeton d'accès : sub = identifiant de l'utilisateur, iss, iat, exp. */
-    public String createAccessToken(UUID userId) {
+    public String createAccessToken(UUID userId, PlatformRole role) {
         Instant now = Instant.now();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(userId.toString())
                 .issuer(issuer)
+                .claim("role", role.name())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(now.plusSeconds(accessTokenTtlSeconds)))
                 .build();
