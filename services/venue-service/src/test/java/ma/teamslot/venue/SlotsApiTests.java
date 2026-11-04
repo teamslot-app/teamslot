@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +86,7 @@ class SlotsApiTests {
         "INSERT INTO equipment (id, venue_id, name, price_cents) VALUES (?::uuid, ?::uuid, 'Plots', 500)",
         OTHER_EQUIPMENT, OTHER_VENUE);
 
-    // 5 créneaux d'1 h le 12/10/2026 : 17:00Z à 22:00Z = 18 h à 23 h à Marrakech (UTC+1)
+    // 5 créneaux d'1 h le 12/10/2026, de 17:00Z à 22:00Z : dans la journée du 12 à Marrakech, en UTC+0 comme en UTC+1
     for (int hour = 17; hour <= 21; hour++) {
       insertSlot(slotId(hour - 16), VENUE, "2026-10-12 " + hour + ":00+00", "2026-10-12 " + (hour + 1) + ":00+00");
     }
@@ -136,9 +140,13 @@ class SlotsApiTests {
 
   @Test
   void lateSlotBelongsToTheLocalDay() throws Exception {
-    // 22:00Z = 23 h le 14 à Marrakech ; 23:00Z = 00 h le 15
-    insertSlot(slotId(10), VENUE, "2026-10-14 22:00+00", "2026-10-14 23:00+00");
-    insertSlot(slotId(11), VENUE, "2026-10-14 23:00+00", "2026-10-15 00:00+00");
+    // 23 h le 14 et 00 h le 15, heure de Marrakech. Les instants sont calculés avec le fuseau, jamais écrits en dur :
+    // le Maroc est passé de UTC+1 à UTC+0 le 20/09/2026 (tzdata 2026c), le décalage dépend donc de la JVM.
+    ZoneId marrakech = ZoneId.of("Africa/Casablanca");
+    Instant vingtTroisHeures = LocalDateTime.of(2026, 10, 14, 23, 0).atZone(marrakech).toInstant();
+    Instant minuit = LocalDateTime.of(2026, 10, 15, 0, 0).atZone(marrakech).toInstant();
+    insertSlot(slotId(10), VENUE, vingtTroisHeures.toString(), minuit.toString());
+    insertSlot(slotId(11), VENUE, minuit.toString(), minuit.plus(Duration.ofHours(1)).toString());
 
     mvc.perform(get(SLOTS).param("date", "2026-10-14"))
         .andExpect(status().isOk())
