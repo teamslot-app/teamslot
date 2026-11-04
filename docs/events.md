@@ -71,7 +71,7 @@ La colonne **S1** marque les événements nécessaires aux stories du Sprint 1 (
 
 | Topic | Clé | Consommateurs | Champs de `data` | S1 |
 |---|---|---|---|---|
-| `venue.created` | venueId | search, match | venueId, ownerId, name, latitude, longitude, pricePerHour, acceptsOnSitePayment | |
+| `venue.created` | venueId | search, match, payment | venueId, ownerId, name, latitude, longitude, pricePerHour, acceptsOnSitePayment | |
 | `venue.updated` | venueId | search, match | venueId, champs modifiés | |
 | `slot.reserved` | venueId | search, match | venueId, slotId, matchId, start, end, totalAmount, currency | ✓ |
 | `slot.released` | venueId | search, match | venueId, slotId, matchId, reason | ✓ |
