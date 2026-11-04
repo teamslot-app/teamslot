@@ -69,7 +69,7 @@ public class AuthService {
         if (user.isEmpty() || !passwordMatches) {
             throw new AuthErrors.InvalidCredentials();
         }
-        return issueTokens(user.get().getId());
+        return issueTokens(user.get().getId(), user.get().getPlatformRole());
     }
 
     /**
@@ -81,18 +81,19 @@ public class AuthService {
         String hash = sha256(rawRefreshToken);
         Optional<UUID> userId = refreshTokens.consume(hash, refreshTokenTtl);
         if (userId.isPresent()) {
-            return issueTokens(userId.get());
+            UserEntity owner = users.findById(userId.get()).orElseThrow(AuthErrors.InvalidRefreshToken::new);
+            return issueTokens(owner.getId(), owner.getPlatformRole());
         }
         refreshTokens.findUsed(hash).ifPresent(refreshTokens::revokeAllForUser);
         throw new AuthErrors.InvalidRefreshToken();
     }
 
-    private TokenPair issueTokens(UUID userId) {
+    private TokenPair issueTokens(UUID userId, PlatformRole role) {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String rawRefreshToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         refreshTokens.save(sha256(rawRefreshToken), userId, refreshTokenTtl);
-        return new TokenPair(tokens.createAccessToken(userId), rawRefreshToken, tokens.accessTokenTtlSeconds());
+        return new TokenPair(tokens.createAccessToken(userId, role), rawRefreshToken, tokens.accessTokenTtlSeconds());
     }
 
     static String sha256(String value) {
