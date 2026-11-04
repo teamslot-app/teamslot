@@ -46,6 +46,13 @@
 				<artifactId>lz4-java</artifactId>
 				<version>1.11.4</version>
 			</dependency>
+			<!-- CVE-2026-108106 et CVE-2026-93451 (HIGH) : snappy-java arrive par kafka-clients ; version corrigee forcee (Trivy).
+				 A retirer quand Spring Boot embarque snappy-java 1.1.10.9 ou plus. -->
+			<dependency>
+				<groupId>org.xerial.snappy</groupId>
+				<artifactId>snappy-java</artifactId>
+				<version>1.1.10.9</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
