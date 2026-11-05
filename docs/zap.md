@@ -6,7 +6,7 @@ Le workflow `.github/workflows/zap-staging.yml` lance un scan ZAP **baseline** (
 
 1. le runner GitHub rejoint le réseau Tailscale avec l'étiquette `tag:ci` (client OAuth créé par Amira, secrets `TS_OAUTH_CLIENT_ID` et `TS_OAUTH_SECRET`). L'ACL Tailscale n'autorise `tag:ci` que vers le PC d'Amira, port 8080 ;
 2. si le staging ne répond pas (PC éteint), le job affiche un avertissement et s'arrête **sans échouer** ;
-3. ZAP visite la cible `http://100.89.116.27:8080/api/v1/template/version` (Ingress `/api` vers la passerelle) et analyse les réponses, **sans envoyer d'attaque** ;
+3. ZAP fait deux scans, **sans envoyer d'attaque** : le **front** `http://100.89.116.27:8080/` (Ingress `/`, SCRUM-114 : pages HTML et en-têtes de nginx) et la **passerelle** `http://100.89.116.27:8080/api/v1/template/version` (Ingress `/api` : réponses JSON et 401) ;
 4. une alerte de niveau **élevé** (High) non acceptée dans `.zap/rules.tsv` fait **échouer** le job ;
 5. le rapport (HTML, JSON, Markdown) est gardé 30 jours en artefact du run, et le résumé s'affiche dans le Summary.
 
@@ -20,7 +20,7 @@ Le workflow `.github/workflows/zap-staging.yml` lance un scan ZAP **baseline** (
 
 ## Lire le rapport
 
-Page du run, rubrique **Artifacts**, `zap-rapport-<n>`, puis ouvrir `rapport.html`. Chaque alerte donne la règle (id), le niveau (High, Medium, Low, Informational), l'URL et une explication.
+Page du run, rubrique **Artifacts**, `zap-rapport-<n>`, puis ouvrir `rapport-web.html` (front) et `rapport-api.html` (passerelle). Chaque alerte donne la règle (id), le niveau (High, Medium, Low, Informational), l'URL et une explication.
 
 ## Accepter un faux positif
 
@@ -34,5 +34,6 @@ Puis PR relue, comme une acceptation Sonar. Une ligne sans justification est ref
 
 ## Limites connues
 
-- Une API JSON offre peu de liens à suivre : le scan baseline couvre surtout les en-têtes et les réponses de la passerelle. Piste pour plus tard : un scan d'API passif à partir des contrats `docs/api/*.yaml`.
+- Le front est une application React : le robot d'exploration classique de ZAP ne lance pas le JavaScript, donc il voit surtout la page d'accueil et ses ressources. Piste : l'« AJAX spider » (navigateur intégré à ZAP), plus lent.
+- Une API JSON offre peu de liens à suivre : le scan de la passerelle couvre surtout les en-têtes et les réponses. Piste pour plus tard : un scan d'API passif à partir des contrats `docs/api/*.yaml`.
 - 🔒 Le cluster expose le port 8080 sur **toutes** les interfaces du PC d'Amira (`k3d … -p "8080:80@loadbalancer"`), donc aussi sur son réseau local, pas seulement sur Tailscale. Piste : lier le port à l'adresse Tailscale à la création du cluster. Point ajouté au modèle de menaces.
