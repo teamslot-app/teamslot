@@ -49,13 +49,16 @@ class MatchCreatedConsumerTests {
 
         Attente.jusqua(() -> nombrePaiements() == 1);
         Map<String, Object> p = jdbc.sql("""
-                SELECT match_id, payer_id, total_amount_cents, currency, accepts_on_site_payment, status, mode
+                SELECT match_id, payer_id, total_amount_cents, currency, accepts_on_site_payment, status, mode,
+                       venue_id
                 FROM payments
                 """).query().singleRow();
         assertThat(p).containsEntry("match_id", matchId).containsEntry("payer_id", payeur)
                 .containsEntry("total_amount_cents", 30000L).containsEntry("currency", "MAD")
                 .containsEntry("accepts_on_site_payment", true).containsEntry("status", "PENDING");
         assertThat(p.get("mode")).isNull();
+        // SCRUM-75 : le terrain du match est retenu, pour savoir quel gérant pourra confirmer l'encaissement
+        assertThat(p.get("venue_id")).isNotNull();
     }
 
     @Test

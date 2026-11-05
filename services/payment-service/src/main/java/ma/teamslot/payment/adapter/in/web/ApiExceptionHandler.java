@@ -2,9 +2,11 @@ package ma.teamslot.payment.adapter.in.web;
 
 import java.net.URI;
 import ma.teamslot.payment.application.CallerNotAuthenticatedException;
+import ma.teamslot.payment.application.NotVenueManagerException;
 import ma.teamslot.payment.application.PaymentNotFoundException;
 import ma.teamslot.payment.domain.NotPayerException;
 import ma.teamslot.payment.domain.OnSitePaymentNotAcceptedException;
+import ma.teamslot.payment.domain.PaymentNotOnSiteAcceptedException;
 import ma.teamslot.payment.domain.PaymentNotPendingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,18 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail pasPayeur(NotPayerException ex) {
         return problem(HttpStatus.FORBIDDEN, "not-payer", "Action réservée au responsable du paiement",
                 "Seul le responsable du paiement peut faire cette action.");
+    }
+
+    @ExceptionHandler(NotVenueManagerException.class)
+    ProblemDetail pasGerant(NotVenueManagerException ex) {
+        return problem(HttpStatus.FORBIDDEN, "not-venue-manager", "Action réservée au gérant du terrain",
+                "Seul le gérant du terrain de ce match peut confirmer l'encaissement.");
+    }
+
+    @ExceptionHandler(PaymentNotOnSiteAcceptedException.class)
+    ProblemDetail pasEncaissable(PaymentNotOnSiteAcceptedException ex) {
+        return problem(HttpStatus.CONFLICT, "payment-not-on-site-accepted", "Encaissement impossible",
+                "Seul un paiement sur place accepté et pas encore encaissé peut être encaissé.");
     }
 
     @ExceptionHandler(PaymentNotPendingException.class)

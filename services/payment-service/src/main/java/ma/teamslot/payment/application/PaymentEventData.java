@@ -16,6 +16,10 @@ public final class PaymentEventData {
     public record Refunded(UUID matchId, UUID paymentId, long amount, String currency) {
     }
 
+    /** payment.collected_on_site : matchId, paymentId, collectedBy, collectedAt (SCRUM-75). */
+    public record CollectedOnSite(UUID matchId, UUID paymentId, UUID collectedBy, String collectedAt) {
+    }
+
     public record OnSiteAccepted(UUID matchId, UUID paymentId, UUID payerId, long totalAmount,
                                  String currency) {
     }
