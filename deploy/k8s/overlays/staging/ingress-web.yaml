@@ -1,0 +1,23 @@
+# SCRUM-114 : entrée HTTP du front (/) en staging, via Traefik (k3s), sur le même port 8080 que l'Ingress /api (SCRUM-72).
+# Dans l'overlay staging uniquement, comme ingress-api.yaml : la prod n'en hérite pas.
+# Traefik choisit la règle la plus spécifique : /api va directement à la passerelle (ingress-api.yaml),
+# tout le reste va au front. nginx (API_UPSTREAM) ne relaie /api que si on atteint le Service web
+# directement (docker-compose, port-forward).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http

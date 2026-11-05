@@ -18,6 +18,10 @@ TOPICS=(
   # SCRUM-76 : annulation d'un match (venue libère le créneau, payment rembourse)
   match.cancelled
   payment.refunded
+  # SCRUM-74 : un gérant publie un terrain
+  venue.created
+  # SCRUM-75 : le gérant confirme l'encaissement sur place
+  payment.collected_on_site
 )
 
 for topic in "${TOPICS[@]}"; do

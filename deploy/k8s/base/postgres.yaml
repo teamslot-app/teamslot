@@ -52,11 +52,6 @@ spec:
                 secretKeyRef:
                   name: service-template-db
                   key: DB_PASSWORD
-            - name: IDENTITY_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: identity-db
-                  key: DB_PASSWORD
             - name: VENUE_DB_PASSWORD
               valueFrom:
                 secretKeyRef:

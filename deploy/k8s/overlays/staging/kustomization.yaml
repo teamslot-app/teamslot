@@ -3,38 +3,45 @@ kind: Kustomization
 namespace: staging
 resources:
 - ../../base
+- ingress-api.yaml
+- ingress-web.yaml
 - sealed-secrets/postgres-admin.yaml
 - sealed-secrets/service-template-db.yaml
-- sealed-secrets/identity-db.yaml
 - sealed-secrets/identity-jwt.yaml
 - sealed-secrets/venue-db.yaml
 - sealed-secrets/payment-db.yaml
 - sealed-secrets/mongodb-auth.yaml
+- sealed-secrets/mysql-auth.yaml
+- sealed-secrets/redis-auth.yaml
 images:
 - digest: sha256:7099bfc20c0e9aa45a6b7b534e82949032dd4107d927f47eaad9265d91d2c59d
   name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
   newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
-- digest: sha256:4b05ce9f458f63711472dbb8fc685e4053dfe68df049ff7a86a0b53cf3c33a46
+- digest: sha256:91ea070358bb899351ebd2fd58e229a9fcf9595d14dbd3996b3a5758c59436e3
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
-  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
+  newTag: 5e69025d2efcd7ee664b56567d5526f48ab972fd
 - digest: sha256:7541fa6d7e78239b4533e0f511de9e51899e6945804a68ae604a149f9eec19cd
   name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
   newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
-- digest: sha256:883aef5142f52524afaff0d9e502d85c41250ecf12844d0cc9345479a076d296
+- digest: sha256:7db9fefa07dbd4d0c05884fa6834fd6a289fa623f0360fdf2681f6ec6544b610
   name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
-  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
+  newTag: 596efdf4850b4d316397a3c8ca7aec422b61c2f2
 - digest: sha256:d754a634ddd252934a51b20f89ab1f089f9b78d859f047f323f9f3309c8e6138
   name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
-- digest: sha256:43118c7fbe9508107d3ef2d9b7f3713949c295b8da812b14d4745fe0af1625fd
+- digest: sha256:1e5b2afac9e7941381c393da70f8433a65d80dd6d78dfad8a8d7bb9de4578b64
   name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: 7994cf3bc5605fc56721049135a0b2999ff2af95
+  newTag: 56780eec20b6d2aaba6b42654861c99b5971086a
+- digest: sha256:649c47c8ac506d0991504ecb4efd81ebf1c8e684ba66863c5b2f8c5d985ca513
+  name: ghcr.io/teamslot-app/web
+  newName: ghcr.io/teamslot-app/web
+  newTag: 09f16e28bfe86d2746b3c6679b03b1f207e7bac7
 # SCRUM-99 : copie les tags d'image déployés dans le Job smoke-test (affichés dans ses logs)
 replacements:
 - path: smoke-test-versions.yaml

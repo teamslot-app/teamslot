@@ -14,7 +14,9 @@ WORKDIR /repo/frontend/apps/web
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Modèle rempli au démarrage par 20-envsubst-on-templates.sh (API_UPSTREAM) : le même image marche en compose et en cluster
+COPY apps/web/nginx.conf.template /etc/nginx/templates/default.conf.template
+ENV API_UPSTREAM=http://gateway:8080
 COPY --from=build /repo/frontend/apps/web/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080

@@ -1,5 +1,6 @@
 package ma.teamslot.payment.domain;
 
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -9,7 +10,8 @@ import java.util.regex.Pattern;
  * le montant et le droit au paiement sur place viennent de l'evenement, jamais du client.
  */
 public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents, String currency,
-                      boolean acceptsOnSitePayment, PaymentMode mode, PaymentStatus status) {
+                      boolean acceptsOnSitePayment, PaymentMode mode, PaymentStatus status,
+                      UUID venueId, UUID collectedBy, Instant collectedAt) {
 
     private static final Pattern DEVISE = Pattern.compile("[A-Z]{3}");
 
@@ -29,9 +31,9 @@ public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents
 
     /** Paiement en attente, cree a partir de match.created. */
     public static Payment enAttente(UUID matchId, UUID payerId, long totalAmountCents, String currency,
-                                    boolean acceptsOnSitePayment) {
+                                    boolean acceptsOnSitePayment, UUID venueId) {
         return new Payment(UUID.randomUUID(), matchId, payerId, totalAmountCents, currency,
-                acceptsOnSitePayment, null, PaymentStatus.PENDING);
+                acceptsOnSitePayment, null, PaymentStatus.PENDING, venueId, null, null);
     }
 
     /** Paiement en ligne (simule) : seul le payeur, une seule fois. */
@@ -64,6 +66,20 @@ public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents
         return avec(mode, PaymentStatus.REFUNDED);
     }
 
+    /**
+     * SCRUM-75 : le gérant du terrain confirme l'encaissement sur place. Le droit (gérant de CE terrain)
+     * est vérifié avant l'appel ; ici, seul un paiement ON_SITE_ACCEPTED passe à COLLECTED (sinon 409).
+     * Le montant n'est jamais modifié : c'est celui enregistré à la réception de match.created.
+     */
+    public Payment encaisserSurPlace(UUID gerant, Instant maintenant) {
+        Objects.requireNonNull(gerant, "gerant");
+        if (status != PaymentStatus.ON_SITE_ACCEPTED) {
+            throw new PaymentNotOnSiteAcceptedException(status);
+        }
+        return new Payment(id, matchId, payerId, totalAmountCents, currency, acceptsOnSitePayment,
+                mode, PaymentStatus.COLLECTED, venueId, gerant, maintenant);
+    }
+
     /** Lecture du paiement : seul le payeur. */
     public void verifierLecture(UUID appelant) {
         if (!payerId.equals(appelant)) {
@@ -80,6 +96,6 @@ public record Payment(UUID id, UUID matchId, UUID payerId, long totalAmountCents
 
     private Payment avec(PaymentMode nouveauMode, PaymentStatus nouveauStatut) {
         return new Payment(id, matchId, payerId, totalAmountCents, currency, acceptsOnSitePayment,
-                nouveauMode, nouveauStatut);
+                nouveauMode, nouveauStatut, venueId, collectedBy, collectedAt);
     }
 }

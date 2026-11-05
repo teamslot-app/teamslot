@@ -20,8 +20,9 @@ public class CreatePendingPaymentService {
 
     /** A appeler dans la transaction du consommateur idempotent. */
     public void surMatchCree(UUID matchId, UUID payerId, long totalAmountCents, String currency,
-                             boolean acceptsOnSitePayment) {
-        Payment payment = Payment.enAttente(matchId, payerId, totalAmountCents, currency, acceptsOnSitePayment);
+                             boolean acceptsOnSitePayment, UUID venueId) {
+        Payment payment = Payment.enAttente(matchId, payerId, totalAmountCents, currency, acceptsOnSitePayment,
+                venueId);
         if (!payments.creerSiAbsent(payment)) {
             LOG.info("Paiement deja present pour le match {}, rien a faire", matchId);
         }

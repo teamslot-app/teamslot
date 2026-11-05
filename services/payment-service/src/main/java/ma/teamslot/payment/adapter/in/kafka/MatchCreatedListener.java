@@ -32,7 +32,8 @@ public class MatchCreatedListener {
         lecteur.lire(message, TOPIC, MatchCreatedData.class).ifPresent(recu -> {
             MatchCreatedData data = recu.data();
             processeur.traiterUneFois(recu.eventId(), () -> service.surMatchCree(data.matchId(),
-                    data.payerId(), data.totalAmount(), data.currency(), data.acceptsOnSitePayment()));
+                    data.payerId(), data.totalAmount(), data.currency(), data.acceptsOnSitePayment(),
+                    data.venueId()));
         });
     }
 }

@@ -1,9 +1,12 @@
 package ma.teamslot.venue.adapter.in.web;
 
 import java.net.URI;
+import ma.teamslot.venue.application.ForbiddenException;
+import ma.teamslot.venue.application.InvalidRequestException;
 import ma.teamslot.venue.application.NotFoundException;
 import ma.teamslot.venue.application.SlotAlreadyReservedException;
 import ma.teamslot.venue.application.SlotAlreadyStartedException;
+import ma.teamslot.venue.application.SlotOverlapException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,6 +24,21 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(NotFoundException.class)
   ProblemDetail notFound(NotFoundException ex) {
     return problem(HttpStatus.NOT_FOUND, "not-found", "Ressource introuvable", ex.getMessage());
+  }
+
+  @ExceptionHandler(ForbiddenException.class)
+  ProblemDetail forbidden(ForbiddenException ex) {
+    return problem(HttpStatus.FORBIDDEN, "forbidden", "Accès refusé", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidRequestException.class)
+  ProblemDetail invalidRequest(InvalidRequestException ex) {
+    return problem(HttpStatus.BAD_REQUEST, "invalid-request", "Requête invalide", ex.getMessage());
+  }
+
+  @ExceptionHandler(SlotOverlapException.class)
+  ProblemDetail slotOverlap(SlotOverlapException ex) {
+    return problem(HttpStatus.CONFLICT, "slot-overlap", "Créneau en conflit", ex.getMessage());
   }
 
   @ExceptionHandler(SlotAlreadyReservedException.class)

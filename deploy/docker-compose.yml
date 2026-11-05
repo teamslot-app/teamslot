@@ -5,7 +5,6 @@ services:
       POSTGRES_USER: pgadmin
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?à définir dans deploy/.env}
       TEMPLATE_DB_PASSWORD: ${DB_PASSWORD:?à définir dans deploy/.env}
-      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
       VENUE_DB_PASSWORD: ${VENUE_DB_PASSWORD:?à définir dans deploy/.env}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?à définir dans deploy/.env}
     ports:
@@ -98,11 +97,15 @@ services:
       context: ..
       dockerfile: services/identity-service/Dockerfile
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/identity
+      DB_URL: jdbc:mysql://mysql:3306/identity
       DB_USER: identity_user
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?à définir dans deploy/.env}
     depends_on:
-      postgres:
+      mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   venue-service:
@@ -175,7 +178,42 @@ services:
       interval: 5s
       retries: 20
 
+  mysql:
+    image: mysql:8.4 # SCRUM-84 : à épingler par empreinte sha256
+    environment:
+      MYSQL_DATABASE: identity
+      MYSQL_USER: identity_user
+      MYSQL_PASSWORD: ${IDENTITY_DB_PASSWORD:?à définir dans deploy/.env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?à définir dans deploy/.env}
+    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF"]
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine # SCRUM-84 : à épingler par empreinte sha256
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?à définir dans deploy/.env}", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?à définir dans deploy/.env}
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   kafka-data:
   pgdata:
   mongodata:
+  mysqldata:
+  redisdata:

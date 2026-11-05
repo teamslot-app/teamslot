@@ -8,12 +8,15 @@ resources:
   - match-service.yaml
   - payment-service.yaml
   - venue-service.yaml
+  - web.yaml
   - identity-service.yaml
   - kafka.yaml
   - kafka-topics-job.yaml
   - smoke-test.yaml
   - mongodb.yaml
   - mongodb-init-job.yaml
+  - mysql.yaml
+  - redis.yaml
 configMapGenerator:
   - name: postgres-init
     files:
