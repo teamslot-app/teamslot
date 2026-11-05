@@ -2,6 +2,7 @@ package ma.teamslot.payment.adapter.in.web;
 
 import java.util.UUID;
 import ma.teamslot.payment.application.CallerNotAuthenticatedException;
+import ma.teamslot.payment.application.CollectOnSiteService;
 import ma.teamslot.payment.application.PayService;
 import ma.teamslot.payment.domain.Payment;
 import ma.teamslot.payment.domain.PaymentMode;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * docs/api/payment.yaml : payOnline, payOnSite, getPayment.
+ * docs/api/payment.yaml : payOnline, payOnSite, confirmCollected, getPayment.
  * Aucun corps de requete : le montant n'est jamais fourni par le client.
  * L'appelant est le "sub" du jeton verifie par SecuriteConfig (ADR-013).
  */
@@ -24,9 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final PayService service;
+    private final CollectOnSiteService encaissement;
 
-    public PaymentController(PayService service) {
+    public PaymentController(PayService service, CollectOnSiteService encaissement) {
         this.service = service;
+        this.encaissement = encaissement;
     }
 
     @PostMapping("/online")
@@ -37,6 +40,12 @@ public class PaymentController {
     @PostMapping("/on-site")
     public PaymentResponse choisirSurPlace(@PathVariable UUID matchId, @AuthenticationPrincipal Jwt jeton) {
         return PaymentResponse.from(service.choisirSurPlace(appelant(jeton), matchId));
+    }
+
+    /** SCRUM-75 : le gérant du terrain confirme l'encaissement sur place. Rôle lu dans le jeton vérifié. */
+    @PostMapping("/collected")
+    public PaymentResponse confirmerEncaissement(@PathVariable UUID matchId, @AuthenticationPrincipal Jwt jeton) {
+        return PaymentResponse.from(encaissement.encaisser(appelant(jeton), jeton.getClaimAsString("role"), matchId));
     }
 
     @GetMapping
@@ -52,7 +61,7 @@ public class PaymentController {
         }
     }
 
-    /** collectedBy et collectedAt : encaissement sur place, plus tard (payment.collected_on_site). */
+    /** collectedBy et collectedAt : renseignés après l'encaissement sur place (SCRUM-75). */
     public record PaymentResponse(UUID id, UUID matchId, UUID payerId, PaymentMode mode, Money totalAmount,
                                   PaymentStatus status, UUID collectedBy, String collectedAt) {
 
@@ -61,7 +70,8 @@ public class PaymentController {
 
         static PaymentResponse from(Payment p) {
             return new PaymentResponse(p.id(), p.matchId(), p.payerId(), p.mode(),
-                    new Money(p.totalAmountCents(), p.currency()), p.status(), null, null);
+                    new Money(p.totalAmountCents(), p.currency()), p.status(), p.collectedBy(),
+                    p.collectedAt() == null ? null : p.collectedAt().toString());
         }
     }
 }
