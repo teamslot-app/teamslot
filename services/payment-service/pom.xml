@@ -120,6 +120,14 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- CVE-2026-108106 et CVE-2026-93451 (HIGH) : snappy-java arrive par kafka-clients ; version corrigee forcee (Trivy, PR #158).
+		     Meme correctif que venue-service. A retirer quand Spring Boot embarque snappy-java 1.1.10.9 ou plus. -->
+		<dependency>
+			<groupId>org.xerial.snappy</groupId>
+			<artifactId>snappy-java</artifactId>
+			<version>1.1.10.9</version>
+			<scope>runtime</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
