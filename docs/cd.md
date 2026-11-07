@@ -51,7 +51,7 @@ PR, relecture, fusion : la CI republie l'image de la version précédente, le bo
 Argo CD Notifications (inclus dans Argo CD, installé avec Helm) écrit le statut avec une **application GitHub** dédiée :
 
 - **teamslot-argocd-status** (App ID 5357712) : seule permission « Commit statuses : Read and write », installée uniquement sur `teamslot-app/teamslot`. Elle ne peut ni lire ni modifier le code ;
-- sa **clé privée** est dans le secret `argocd-notifications-secret` (namespace `argocd`), **scellé** : `deploy/argocd/notifications-secret-sealed.yaml`. Jamais en clair dans le dépôt, ni dans un message ;
+- sa **clé privée** est dans le secret `argocd-notifications-secret` (namespace `argocd`), **scellé** : `deploy/argocd/sealed-secrets/notifications-secret.yaml`. Jamais en clair dans le dépôt, ni dans un message ;
 - la configuration (`deploy/argocd/notifications-values.yaml`, valeurs du chart Helm `argo-cd`) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
 
 Qui fait quoi : Sara (SCRUM-113) prépare les fichiers, l'application GitHub et le secret scellé ; Amira, responsable du cluster, relit puis applique dans `argocd` (accès de Sara limité, séparation des rôles).
@@ -65,7 +65,7 @@ Qui fait quoi : Sara (SCRUM-113) prépare les fichiers, l'application GitHub et 
 ```bash
 kubectl create secret generic argocd-notifications-secret -n argocd \
   --from-file=github-privateKey=chemin/vers/cle.pem --dry-run=client -o yaml \
-  | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/notifications-secret-sealed.yaml
+  | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/sealed-secrets/notifications-secret.yaml
 ```
 
 4. Amira relit, puis applique. D'abord Helm (`<release>` et `<version>` : `helm list -n argocd` ; `--reuse-values` garde tous les réglages actuels ; `secret.create: false` retire le secret vide créé par Helm), puis le secret scellé et l'abonnement :
@@ -73,7 +73,7 @@ kubectl create secret generic argocd-notifications-secret -n argocd \
 ```bash
 helm upgrade <release> argo/argo-cd -n argocd --version <version> \
   --reuse-values -f deploy/argocd/notifications-values.yaml
-kubectl apply -n argocd -f deploy/argocd/notifications-secret-sealed.yaml
+kubectl apply -n argocd -f deploy/argocd/sealed-secrets/notifications-secret.yaml
 kubectl apply -n argocd -f deploy/argocd/staging.yaml
 ```
 

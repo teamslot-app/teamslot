@@ -4,7 +4,7 @@
 # (namespace argocd) avec « helm upgrade … --reuse-values -f deploy/argocd/notifications-values.yaml »
 # (commande exacte : docs/cd.md, « Mise en place du statut GitHub »).
 # Ne contient AUCUN secret : la clé privée de l'application GitHub est dans argocd-notifications-secret,
-# secret scellé (deploy/argocd/notifications-secret-sealed.yaml), référencée par $github-privateKey.
+# secret scellé (deploy/argocd/sealed-secrets/notifications-secret.yaml), référencée par $github-privateKey.
 notifications:
   enabled: true
   # Le secret n'est plus créé par Helm : c'est le SealedSecret qui le fournit
