@@ -5,4 +5,5 @@ useDefault = true
 
 [[allowlists]]
 description = "SealedSecret : valeurs chiffrées avec la clé publique du cluster. La CI vérifie que ces dossiers ne contiennent que des SealedSecret (SCRUM-86)."
-paths = ['''^deploy/k8s/overlays/[^/]+/sealed-secrets/[^/]+\.ya?ml$''']
+# deploy/argocd/sealed-secrets/ : secret des notifications Argo CD (SCRUM-113), même contrôle par la CI.
+paths = ['''^deploy/(k8s/overlays/[^/]+|argocd)/sealed-secrets/[^/]+\.ya?ml$''']
