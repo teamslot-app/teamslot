@@ -5,7 +5,7 @@
 Le workflow `.github/workflows/zap-staging.yml` lance un scan ZAP **baseline** (passif) contre le staging, **chaque soir** (19 h 47 UTC) et à la main (onglet Actions, `zap-staging`, « Run workflow ») :
 
 1. le runner GitHub rejoint le réseau Tailscale avec l'étiquette `tag:ci` (client OAuth créé par Amira, secrets `TS_OAUTH_CLIENT_ID` et `TS_OAUTH_SECRET`). L'ACL Tailscale n'autorise `tag:ci` que vers le PC d'Amira, port 8080 ;
-2. si le staging ne répond pas (PC éteint), le job affiche un avertissement et s'arrête **sans échouer** ;
+2. le job vérifie que le staging répond (présence de la cible dans le réseau, tunnel, puis jusqu'à 6 essais HTTP espacés de 10 s) ; s'il ne répond pas (PC éteint), il affiche un avertissement et s'arrête **sans échouer**. Les logs ne montrent aucune adresse IP publique ;
 3. ZAP fait deux scans, **sans envoyer d'attaque** : le **front** `http://100.89.116.27:8080/` (Ingress `/`, SCRUM-114 : pages HTML et en-têtes de nginx) et la **passerelle** `http://100.89.116.27:8080/api/v1/template/version` (Ingress `/api` : réponses JSON et 401) ;
 4. une alerte de niveau **élevé** (High) non acceptée dans `.zap/rules.tsv` fait **échouer** le job ;
 5. le rapport (HTML, JSON, Markdown) est gardé 30 jours en artefact du run, et le résumé s'affiche dans le Summary.
@@ -17,6 +17,10 @@ Le workflow `.github/workflows/zap-staging.yml` lance un scan ZAP **baseline** (
 - **Passif seulement** : un scan actif (qui envoie des attaques et crée des données) n'est pas prévu dans ce sprint ; s'il est ajouté, il reste limité au staging.
 - **Pas d'authentification pour l'instant** : le scan voit les routes publiques et les réponses 401 des routes protégées. S'il s'authentifie plus tard : compte de test dédié au staging, sans droits gérant, identifiants dans les secrets GitHub, jeton jamais dans les logs ni dans le rapport.
 - **Image ZAP épinglée** par version et par empreinte (`2.16.1@sha256:…`).
+
+## Avant de lancer un scan à la main
+
+Prévenir Amira : son PC et Docker Desktop doivent être allumés, et **pas sur un Wi-Fi public**. Pendant le scan, ZAP interroge le port 8080 de son PC ; ce port étant lié à toutes les interfaces (voir « Limites connues »), il est aussi visible du réseau local où se trouve le PC. Le scan programmé du soir suppose les mêmes conditions (voir `docs/cluster.md`) ; GitHub peut le retarder de plusieurs heures.
 
 ## Lire le rapport
 
@@ -31,6 +35,21 @@ Ajouter une ligne dans `.zap/rules.tsv`, **séparée par des tabulations**, avec
 ```
 
 Puis PR relue, comme une acceptation Sonar. Une ligne sans justification est refusée en relecture.
+
+## Premier scan réel (08/11)
+
+Aucune alerte High (job vert). Les alertes sont les mêmes sur le front et la passerelle (le robot remonte jusqu'à la racine du site) :
+
+| Alerte | Niveau | Cause |
+|---|---|---|
+| CSP : directive sans repli (`form-action`) | Medium | La CSP de nginx (front) ne définit pas `form-action` |
+| Isolation insuffisante contre Spectre (COOP, COEP, CORP) | Low | En-têtes `Cross-Origin-*-Policy` absents |
+| En-tête `Permissions-Policy` absent | Low | nginx (front) |
+| Version du serveur dans l'en-tête `Server` (`nginx/1.31.7`) | Low | `server_tokens` actif |
+| ZAP n'est pas à jour (2.17.0 disponible) | Low | Image épinglée en 2.16.1 |
+| Commentaires suspects, application moderne, contenu en cache | Informational | Faux positif (code React minifié), robot classique, cache par défaut |
+
+Corrections à planifier (en-têtes nginx du front, mise à jour de l'image ZAP) : hors du périmètre de ce ticket.
 
 ## Limites connues
 
