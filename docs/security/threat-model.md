@@ -95,7 +95,7 @@ Déduites des règles métier (conception 6.2) et de la matrice des droits (conc
 | Un membre simple invite, retire un membre ou se déclare capitaine | E | Rôles d'équipe vérifiés côté serveur : seul le capitaine ou le vice-capitaine agit | S12 |
 | Un joueur modifie son propre rôle via `PATCH /users/me` | E | DTO dédiés : les champs sensibles ne sont jamais liés à la requête | Test automatisé |
 | Un invité sans compte vote ou se connecte | S | Un invité n'est qu'un surnom : aucune authentification, aucun vote | Test automatisé |
-| Accès au staging depuis le réseau local du PC d'Amira : port 8080 (Ingress `/api`), API Kubernetes (`--api-port 0.0.0.0:6550`) et port-forwards en `--address 0.0.0.0` | S, I, E | Accès prévu par Tailscale seulement ; à faire : lier ces ports à l'adresse Tailscale. Passerelle : JWT vérifié, routes internes refusées | Scan ZAP baseline (SCRUM-72) |
+| Accès au staging depuis le réseau local du PC d'Amira : port 8080 (Ingress `/api`), API Kubernetes (`--api-port 0.0.0.0:6550`) et port-forwards en `--address 0.0.0.0` | S, I, E | Accès prévu par Tailscale seulement ; à faire : lier ces ports à l'adresse Tailscale. Passerelle : JWT vérifié, routes internes refusées | Scan ZAP baseline (SCRUM-72) ; pendant un scan, le port 8080 est interrogé depuis Internet par le runner (via Tailscale, `tag:ci` limité à ce port) : PC d'Amira jamais sur un Wi-Fi public pendant les scans |
 
 ## 5. Plan de tests de sécurité (S1 à S14)
 

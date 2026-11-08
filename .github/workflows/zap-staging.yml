@@ -45,8 +45,9 @@ jobs:
         id: joignable
         run: |
           HOTE=$(echo "$STAGING" | sed -E 's#^https?://([^:/]+).*#\1#')
-          tailscale status | grep -F "$HOTE" || echo "La cible $HOTE n'apparaît pas dans tailscale status (ACL ou machine hors ligne ?)"
-          tailscale ping -c 5 --timeout 5s "$HOTE" || echo "tailscale ping sans réponse (diagnostic seulement)"
+          # Pas d'adresse IP publique dans les logs : tailscale status et ping l'afficheraient (connexion directe).
+          if tailscale status | grep -qF "$HOTE"; then echo "Cible $HOTE présente dans le réseau Tailscale"; else echo "La cible $HOTE n'apparaît pas dans tailscale status (ACL, machine hors ligne ou mauvais tailnet ?)"; fi
+          if tailscale ping -c 5 --timeout 5s "$HOTE" >/dev/null 2>&1; then echo "Tunnel Tailscale vers $HOTE : OK"; else echo "tailscale ping sans réponse (diagnostic seulement)"; fi
           CODE=000
           for essai in 1 2 3 4 5 6; do
             CODE=$(curl -sS -o /dev/null -m 15 -w '%{http_code}' "$CIBLE_API" 2>curl.err || true)
