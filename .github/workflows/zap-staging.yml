@@ -38,10 +38,23 @@ jobs:
 
       # Le staging tourne sur un PC qui n'est pas toujours allumé : s'il ne répond pas,
       # on le signale sans faire échouer le job (pas une faille, juste pas de scan ce soir).
+      # Un nœud qui vient de rejoindre Tailscale n'est pas joignable tout de suite (carte du réseau à
+      # recevoir par le PC d'Amira, relais DERP) : plusieurs essais espacés avant de conclure.
+      # Diagnostic sans secret : état Tailscale vers la cible et code de sortie de curl.
       - name: Le staging répond-il ?
         id: joignable
         run: |
-          CODE=$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$CIBLE_API" || true)
+          HOTE=$(echo "$STAGING" | sed -E 's#^https?://([^:/]+).*#\1#')
+          tailscale status | grep -F "$HOTE" || echo "La cible $HOTE n'apparaît pas dans tailscale status (ACL ou machine hors ligne ?)"
+          tailscale ping -c 5 --timeout 5s "$HOTE" || echo "tailscale ping sans réponse (diagnostic seulement)"
+          CODE=000
+          for essai in 1 2 3 4 5 6; do
+            CODE=$(curl -sS -o /dev/null -m 15 -w '%{http_code}' "$CIBLE_API" 2>curl.err || true)
+            echo "Essai $essai : HTTP $CODE $(cat curl.err)"
+            [ "$CODE" != "000" ] && break
+            sleep 10
+          done
+          rm -f curl.err
           if [ "$CODE" = "000" ]; then
             echo "::warning::Staging injoignable ($STAGING) : PC d'Amira éteint ou cluster arrêté. Scan non effectué."
             echo "Staging injoignable : scan non effectué." >> "$GITHUB_STEP_SUMMARY"
