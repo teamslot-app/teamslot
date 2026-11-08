@@ -68,17 +68,18 @@ kubectl create secret generic argocd-notifications-secret -n argocd \
   | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/sealed-secrets/notifications-secret.yaml
 ```
 
-4. Amira relit, puis applique. Sealed Secrets ne remplace pas un Secret qu'il n'a pas créé : le secret vide `argocd-notifications-secret` créé par l'installation d'Argo CD doit d'abord être supprimé (ou annoté `sealedsecrets.bitnami.com/managed=true`).
+4. Amira relit, puis applique, dans cet ordre. Sur une installation neuve, le Secret vide `argocd-notifications-secret` existe déjà, et Sealed Secrets ne remplace pas un Secret qu'il n'a pas créé : on l'annote d'abord pour qu'il le reprenne (sans le supprimer).
 
 ```bash
-kubectl apply -n argocd -f deploy/argocd/notifications-cm.yaml
+kubectl annotate secret argocd-notifications-secret -n argocd sealedsecrets.bitnami.com/managed="true"
 kubectl apply -n argocd -f deploy/argocd/sealed-secrets/notifications-secret.yaml
+kubectl apply -n argocd -f deploy/argocd/notifications-cm.yaml
 kubectl apply -n argocd -f deploy/argocd/staging.yaml
 ```
 
 5. Vérifier : `kubectl get sealedsecret,secret argocd-notifications-secret -n argocd`, puis `kubectl logs deploy/argocd-notifications-controller -n argocd --tail=50` sans erreur d'authentification GitHub ; le commit déployé porte le statut `deploy/staging`.
 
-⚠️ **Mise à jour d'Argo CD** : le manifeste d'installation officiel contient une ConfigMap `argocd-notifications-cm` et un Secret `argocd-notifications-secret` **vides**. Après toute mise à jour par `kubectl apply` de ce manifeste, réappliquer `notifications-cm.yaml` et vérifier le secret (étape 5), sinon les statuts GitHub s'arrêtent sans erreur visible dans la CI.
+⚠️ **Mise à jour d'Argo CD (à vérifier lors de la prochaine mise à jour, non testé)** : le manifeste d'installation officiel contient une ConfigMap `argocd-notifications-cm` et un Secret `argocd-notifications-secret` **vides**, qui pourraient écraser notre configuration. Après une mise à jour par `kubectl apply` de ce manifeste, vérifier le statut `deploy/staging` du commit suivant et, si besoin, réappliquer les commandes de l'étape 4.
 
 Rien n'est créé au niveau du cluster (pas de ClusterRole) : une ConfigMap, un SealedSecret et l'annotation de l'application, tous dans `argocd`.
 
