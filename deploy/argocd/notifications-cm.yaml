@@ -1,0 +1,59 @@
+# SCRUM-113 : configuration d'Argo CD Notifications (installation par manifestes, pas Helm).
+# Ne contient AUCUN secret : la clé privée est dans argocd-notifications-secret (scellé),
+# référencée par $github-privateKey.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: argocd
+data:
+  service.github: |
+    appID: "5357712"
+    installationID: "172397563"
+    privateKey: $github-privateKey
+  template.deploy-en-cours: |
+    github:
+      repoURLPath: "{{.app.spec.source.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+      status:
+        state: pending
+        label: "deploy/staging"
+        targetURL: "https://github.com/teamslot-app/teamslot/blob/main/docs/cd.md"
+  template.deploy-reussi: |
+    github:
+      repoURLPath: "{{.app.spec.source.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+      status:
+        state: success
+        label: "deploy/staging"
+        targetURL: "https://github.com/teamslot-app/teamslot/blob/main/docs/cd.md"
+  template.deploy-echoue: |
+    github:
+      repoURLPath: "{{.app.spec.source.repoURL}}"
+      revisionPath: "{{.app.status.operationState.syncResult.revision}}"
+      status:
+        state: failure
+        label: "deploy/staging"
+        targetURL: "https://github.com/teamslot-app/teamslot/blob/main/docs/cd.md#que-faire-si-le-test-échoue"
+  trigger.on-sync-running: |
+    - description: Synchronisation en cours
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [deploy-en-cours]
+      when: app.status.operationState != nil and app.status.operationState.phase in ['Running']
+  trigger.on-deployed: |
+    - description: Synchronisé, test de fumée réussi, application en bonne santé
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [deploy-reussi]
+      when: app.status.operationState != nil and app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+  trigger.on-sync-failed: |
+    - description: Synchronisation ou test de fumée en échec
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [deploy-echoue]
+      when: app.status.operationState != nil and app.status.operationState.phase in ['Error', 'Failed']
+  trigger.on-health-degraded: |
+    - description: Application dégradée après synchronisation
+      oncePer: app.status.operationState?.syncResult?.revision
+      send: [deploy-echoue]
+      when: app.status.health.status == 'Degraded'
