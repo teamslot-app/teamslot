@@ -48,19 +48,19 @@ PR, relecture, fusion : la CI republie l'image de la version précédente, le bo
 
 ## Mise en place du statut GitHub (SCRUM-113)
 
-Argo CD Notifications (inclus dans Argo CD, installé avec Helm) écrit le statut avec une **application GitHub** dédiée :
+Argo CD Notifications (inclus dans Argo CD, **installé par manifestes**, pas avec Helm) écrit le statut avec une **application GitHub** dédiée :
 
 - **teamslot-argocd-status** (App ID 5357712) : seule permission « Commit statuses : Read and write », installée uniquement sur `teamslot-app/teamslot`. Elle ne peut ni lire ni modifier le code ;
 - sa **clé privée** est dans le secret `argocd-notifications-secret` (namespace `argocd`), **scellé** : `deploy/argocd/sealed-secrets/notifications-secret.yaml`. Jamais en clair dans le dépôt, ni dans un message ;
-- la configuration (`deploy/argocd/notifications-values.yaml`, valeurs du chart Helm `argo-cd`) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
+- la configuration (`deploy/argocd/notifications-cm.yaml`, ConfigMap `argocd-notifications-cm` : service GitHub, modèles et déclencheurs) et l'abonnement de l'application (`deploy/argocd/staging.yaml`, annotations `notifications.argoproj.io/subscribe.*`) ne contiennent aucun secret.
 
 Qui fait quoi : Sara (SCRUM-113) prépare les fichiers, l'application GitHub et le secret scellé ; Amira, responsable du cluster, relit puis applique dans `argocd` (accès de Sara limité, séparation des rôles).
 
 Étapes (une seule fois) :
 
 1. Créer l'application GitHub (permission ci-dessus, sans webhook), l'installer sur le dépôt et générer une clé privée (`.pem`), gardée hors du dépôt.
-2. Mettre l'`installationID` (172397563) dans `notifications-values.yaml` (ces identifiants ne sont pas secrets).
-3. Sceller la clé avec le certificat **public** du cluster, sans jamais l'écrire dans un fichier du dépôt :
+2. Mettre l'`appID` (5357712) et l'`installationID` (172397563) dans `notifications-cm.yaml` (ces identifiants ne sont pas secrets).
+3. Sceller la clé avec le certificat **public** du cluster (`kubeseal --fetch-cert`), sans jamais l'écrire dans un fichier du dépôt :
 
 ```bash
 kubectl create secret generic argocd-notifications-secret -n argocd \
@@ -68,18 +68,21 @@ kubectl create secret generic argocd-notifications-secret -n argocd \
   | kubeseal --cert pub-cert.pem --format yaml > deploy/argocd/sealed-secrets/notifications-secret.yaml
 ```
 
-4. Amira relit, puis applique. D'abord Helm (`<release>` et `<version>` : `helm list -n argocd` ; `--reuse-values` garde tous les réglages actuels ; `secret.create: false` retire le secret vide créé par Helm), puis le secret scellé et l'abonnement :
+4. Amira relit, puis applique. Sealed Secrets ne remplace pas un Secret qu'il n'a pas créé : le secret vide `argocd-notifications-secret` créé par l'installation d'Argo CD doit d'abord être supprimé (ou annoté `sealedsecrets.bitnami.com/managed=true`).
 
 ```bash
-helm upgrade <release> argo/argo-cd -n argocd --version <version> \
-  --reuse-values -f deploy/argocd/notifications-values.yaml
+kubectl apply -n argocd -f deploy/argocd/notifications-cm.yaml
 kubectl apply -n argocd -f deploy/argocd/sealed-secrets/notifications-secret.yaml
 kubectl apply -n argocd -f deploy/argocd/staging.yaml
 ```
 
-5. Vérifier : `kubectl get secret argocd-notifications-secret -n argocd` existe, `kubectl logs deploy/<release>-notifications-controller -n argocd --tail=50` sans erreur d'authentification GitHub, puis le prochain commit du bot porte le statut `deploy/staging`.
+5. Vérifier : `kubectl get sealedsecret,secret argocd-notifications-secret -n argocd`, puis `kubectl logs deploy/argocd-notifications-controller -n argocd --tail=50` sans erreur d'authentification GitHub ; le commit déployé porte le statut `deploy/staging`.
 
-Rien n'est créé au niveau du cluster (pas de ClusterRole) : des valeurs Helm, un SealedSecret et l'annotation de l'application, tous dans `argocd`.
+⚠️ **Mise à jour d'Argo CD** : le manifeste d'installation officiel contient une ConfigMap `argocd-notifications-cm` et un Secret `argocd-notifications-secret` **vides**. Après toute mise à jour par `kubectl apply` de ce manifeste, réappliquer `notifications-cm.yaml` et vérifier le secret (étape 5), sinon les statuts GitHub s'arrêtent sans erreur visible dans la CI.
+
+Rien n'est créé au niveau du cluster (pas de ClusterRole) : une ConfigMap, un SealedSecret et l'annotation de l'application, tous dans `argocd`.
+
+**Écart avec ADR-008** (Helm pour les outils tiers) : Argo CD est installé par manifestes ; c'est pourquoi la configuration est une ConfigMap et non des valeurs Helm (PR #160 corrigée par #161).
 
 ## Signature des images (SCRUM-104)
 
