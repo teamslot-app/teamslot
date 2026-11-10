@@ -15,10 +15,10 @@ resources:
 - sealed-secrets/mysql-auth.yaml
 - sealed-secrets/redis-auth.yaml
 images:
-- digest: sha256:7099bfc20c0e9aa45a6b7b534e82949032dd4107d927f47eaad9265d91d2c59d
+- digest: sha256:92dee4c8ebe36ca06bee8d2bead9d03535df6029b6dee56b65ad91502e1a84f0
   name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
-  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
+  newTag: 61b05708a1c5a7679562faa1b30c13fe090e8143
 - digest: sha256:91ea070358bb899351ebd2fd58e229a9fcf9595d14dbd3996b3a5758c59436e3
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
