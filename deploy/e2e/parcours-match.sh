@@ -116,6 +116,15 @@ case "$corps" in *'"openSpots":2'*) reussi "2 places ouvertes" ;; *) echoue "ope
 appel POST "/api/v1/matches/$match/open-spots" "" '{"openSpots":2}'
 attendu 401 "ouvrir des places sans jeton"
 
+echo "== 4 ter. Matchs ouverts (SCRUM-118) =="
+# Le jour du créneau ($jour, UTC) est aussi le jour à Marrakech : UTC+0 depuis le 20/09/2026 (tzdata 2026c).
+appel GET "/api/v1/matches/open?date=$jour" "$ami"
+attendu 200 "l'ami voit les matchs ouverts du $jour"
+case "$corps" in *"\"id\":\"$match\""*) reussi "le match aux places ouvertes est listé" ;; *) echoue "match $match absent de la liste" ;; esac
+case "$corps" in *Yassir*|*guestName*|*ownerId*) echoue "la liste contient des données de participants" ;; *) reussi "aucune donnée de participant dans la liste" ;; esac
+appel GET "/api/v1/matches/open?date=$jour" ""
+attendu 401 "matchs ouverts sans jeton"
+
 echo "== 5. Paiement en ligne (payment-service, puis événement Kafka vers match-service) =="
 i=0
 code=000

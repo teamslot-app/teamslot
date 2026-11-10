@@ -4,6 +4,7 @@ import Connexion from './pages/Connexion'
 import Creneaux from './pages/Creneaux'
 import Inscription from './pages/Inscription'
 import Layout from './pages/Layout'
+import MatchsOuverts from './pages/MatchsOuverts'
 import PageMatch from './pages/PageMatch'
 import Reservation from './pages/Reservation'
 import Terrains from './pages/Terrains'
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/terrains/:venueId" element={<Creneaux />} />
         <Route path="/terrains/:venueId/creneaux/:slotId" element={<Reservation />} />
         <Route path="/matchs/:matchId" element={<PageMatch />} />
+        <Route path="/matchs-ouverts" element={<MatchsOuverts />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

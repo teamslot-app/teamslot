@@ -46,17 +46,22 @@ final class DonneesMongo {
 
     /** Match FRIENDLY de 300 MAD le 20/10/2026 à 18h, sans participant (mêmes valeurs que les anciens INSERT). */
     UUID creerMatch(UUID organisateur, String statut) {
+        return creerMatch(organisateur, statut, java.time.Instant.parse("2026-10-20T18:00:00Z"), 0);
+    }
+
+    /** SCRUM-118 : match à une heure donnée, avec des places ouvertes (sans maxPlayers, comme avant SCRUM-78). */
+    UUID creerMatch(UUID organisateur, String statut, java.time.Instant debut, int placesOuvertes) {
         UUID id = UUID.randomUUID();
         mongo.insert(new Document("_id", id.toString())
                 .append("kind", "FRIENDLY")
                 .append("status", statut)
                 .append("visibility", "PRIVATE")
-                .append("openSpots", 0)
+                .append("openSpots", placesOuvertes)
                 .append("ownerId", organisateur.toString())
                 .append("payerId", organisateur.toString())
                 .append("venueId", UUID.randomUUID().toString())
                 .append("slotId", UUID.randomUUID().toString())
-                .append("startsAt", Date.from(java.time.Instant.parse("2026-10-20T18:00:00Z")))
+                .append("startsAt", Date.from(debut))
                 .append("totalAmountCents", 30000L)
                 .append("currency", "MAD")
                 .append("acceptsOnSitePayment", false)

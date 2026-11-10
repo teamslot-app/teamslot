@@ -1,5 +1,7 @@
 package ma.teamslot.match.application;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import ma.teamslot.match.domain.Match;
@@ -31,4 +33,10 @@ public interface MatchRepository {
      * @return le match après l'écriture, vide si la condition n'est plus vraie (rien n'a été écrit).
      */
     Optional<Match> ouvrirPlaces(UUID matchId, UUID organisateur, long version, int openSpots);
+
+    /**
+     * SCRUM-118 : matchs PENDING_PAYMENT ou CONFIRMED avec openSpots > 0 et depuis <= startsAt < jusqua,
+     * par heure de début, au plus limite.
+     */
+    List<MatchOuvert> ouverts(Instant depuis, Instant jusqua, int limite);
 }
