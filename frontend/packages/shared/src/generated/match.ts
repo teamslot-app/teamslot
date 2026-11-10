@@ -58,6 +58,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/matches/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Matchs d'un jour qui ont des places ouvertes (provisoire)
+         * @description SCRUM-118. Seul moyen de trouver un match à rejoindre tant que search-service n'existe pas
+         *     (ADR-012) ; sera remplacé par la recherche sur la carte.
+         *     Le jour est compté à Marrakech (Africa/Casablanca). Seuls les matchs PENDING_PAYMENT ou CONFIRMED,
+         *     pas encore commencés et avec au moins une place ouverte sont renvoyés, par heure de début,
+         *     50 au plus. Aucune donnée des participants (ni surnom d'invité, ni téléphone).
+         */
+        get: operations["listOpenMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/matches/{id}/open-spots": {
         parameters: {
             query?: never;
@@ -72,7 +96,13 @@ export interface paths {
         put?: never;
         /**
          * Ouvrir des places à des joueurs extérieurs (organisateur)
-         * @description Le match devient visible sur la carte. Publie match.spots_opened.
+         * @description SCRUM-78. Fixe le nombre de places ouvertes (il ne s'ajoute pas aux places déjà ouvertes).
+         *     Seul l'organisateur (claim sub du JWT) ouvre des places, et seulement sur un match
+         *     PENDING_PAYMENT ou CONFIRMED (409 match-closed sinon).
+         *     Joueurs déjà inscrits = organisateur + participants INVITED ou CONFIRMED (comptes et invités) ;
+         *     joueurs inscrits + openSpots ne doit pas dépasser maxPlayers (400 too-many-spots).
+         *     Le match apparaît dans GET /api/v1/matches/open (en attendant la carte, ADR-012).
+         *     Publie match.spots_opened.
          */
         post: operations["openSpots"];
         delete?: never;
@@ -95,9 +125,63 @@ export interface paths {
         put?: never;
         /**
          * Demander à rejoindre un match aux places ouvertes
-         * @description Publie match.join_requested ; l'organisateur accepte ensuite (match.join_accepted).
+         * @description SCRUM-79. Le joueur (claim sub du JWT) demande une place ; l'organisateur accepte ensuite.
+         *     Aucun corps : l'identité vient du jeton. Publie match.join_requested.
+         *     409 : plus de place (no-open-spots), demande déjà faite (join-already-requested),
+         *     déjà participant ou organisateur (participant-already-added), match fermé (match-closed).
          */
         post: operations["joinMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}/join-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Demandes en attente (organisateur)
+         * @description SCRUM-79. Réservé à l'organisateur (403 sinon), par ordre d'arrivée.
+         */
+        get: operations["listJoinRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}/join-requests/{userId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+                /** @description Joueur qui a demandé à rejoindre */
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accepter une demande (organisateur)
+         * @description SCRUM-79. Le joueur devient participant CONFIRMED et openSpots diminue de 1, en une seule écriture
+         *     conditionnelle (openSpots > 0) : deux acceptations simultanées ne dépassent jamais le nombre de places.
+         *     Publie match.join_accepted. 404 join-request-not-found si aucune demande en attente pour ce joueur ;
+         *     409 no-open-spots si le match est complet.
+         */
+        post: operations["acceptJoinRequest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -298,6 +382,12 @@ export interface components {
             visibility: components["schemas"]["MatchVisibility"];
             /** @description Places ouvertes à des joueurs extérieurs */
             openSpots: number;
+            /**
+             * @description Nombre maximal de joueurs, organisateur compris (SCRUM-78). venue n'a pas de capacité :
+             *     10 par défaut (foot à 5), y compris pour les matchs créés avant ce champ.
+             * @default 10
+             */
+            maxPlayers: number;
             status: components["schemas"]["MatchStatus"];
             /**
              * Format: uuid
@@ -352,7 +442,28 @@ export interface components {
             guestName?: string;
         } & (unknown | unknown);
         OpenSpotsRequest: {
-            count: number;
+            /** @description Nombre de places ouvertes après l'appel (remplace la valeur précédente) */
+            openSpots: number;
+        };
+        /** @description Résumé public d'un match aux places ouvertes (SCRUM-118), sans aucun participant */
+        OpenMatch: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            venueId: string;
+            /** Format: date-time */
+            startsAt: string;
+            openSpots: number;
+            maxPlayers: number;
+        };
+        /** @description Demande d'un joueur avec compte pour rejoindre un match (SCRUM-79) */
+        JoinRequest: {
+            /** Format: uuid */
+            matchId: string;
+            /** Format: uuid */
+            userId: string;
+            /** Format: date-time */
+            requestedAt: string;
         };
         ChallengeRequest: {
             /**
@@ -552,6 +663,31 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    listOpenMatches: {
+        parameters: {
+            query: {
+                /** @description Jour demandé (ISO 8601, AAAA-MM-JJ), à Marrakech */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matchs avec des places ouvertes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenMatch"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     openSpots: {
         parameters: {
             query?: never;
@@ -596,8 +732,62 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Demande enregistrée */
+            /** @description Demande enregistrée, en attente de l'organisateur */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinRequest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listJoinRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Demandes en attente */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinRequest"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptJoinRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+                /** @description Joueur qui a demandé à rejoindre */
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joueur ajouté au match */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -606,6 +796,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };

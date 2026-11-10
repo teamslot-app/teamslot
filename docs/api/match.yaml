@@ -104,13 +104,48 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/matches/open:
+    get:
+      tags: [recruiting]
+      summary: Matchs d'un jour qui ont des places ouvertes (provisoire)
+      description: |
+        SCRUM-118. Seul moyen de trouver un match à rejoindre tant que search-service n'existe pas
+        (ADR-012) ; sera remplacé par la recherche sur la carte.
+        Le jour est compté à Marrakech (Africa/Casablanca). Seuls les matchs PENDING_PAYMENT ou CONFIRMED,
+        pas encore commencés et avec au moins une place ouverte sont renvoyés, par heure de début,
+        50 au plus. Aucune donnée des participants (ni surnom d'invité, ni téléphone).
+      operationId: listOpenMatches
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: Jour demandé (ISO 8601, AAAA-MM-JJ), à Marrakech
+          schema: { type: string, format: date, example: '2026-11-14' }
+      responses:
+        '200':
+          description: Matchs avec des places ouvertes
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 50
+                items: { $ref: '#/components/schemas/OpenMatch' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/v1/matches/{id}/open-spots:
     parameters:
       - { $ref: '#/components/parameters/MatchId' }
     post:
       tags: [recruiting]
       summary: Ouvrir des places à des joueurs extérieurs (organisateur)
-      description: Le match devient visible sur la carte. Publie match.spots_opened.
+      description: |
+        SCRUM-78. Fixe le nombre de places ouvertes (il ne s'ajoute pas aux places déjà ouvertes).
+        Seul l'organisateur (claim sub du JWT) ouvre des places, et seulement sur un match
+        PENDING_PAYMENT ou CONFIRMED (409 match-closed sinon).
+        Joueurs déjà inscrits = organisateur + participants INVITED ou CONFIRMED (comptes et invités) ;
+        joueurs inscrits + openSpots ne doit pas dépasser maxPlayers (400 too-many-spots).
+        Le match apparaît dans GET /api/v1/matches/open (en attendant la carte, ADR-012).
+        Publie match.spots_opened.
       operationId: openSpots
       requestBody:
         required: true
@@ -134,15 +169,65 @@ paths:
     post:
       tags: [recruiting]
       summary: Demander à rejoindre un match aux places ouvertes
-      description: Publie match.join_requested ; l'organisateur accepte ensuite (match.join_accepted).
+      description: |
+        SCRUM-79. Le joueur (claim sub du JWT) demande une place ; l'organisateur accepte ensuite.
+        Aucun corps : l'identité vient du jeton. Publie match.join_requested.
+        409 : plus de place (no-open-spots), demande déjà faite (join-already-requested),
+        déjà participant ou organisateur (participant-already-added), match fermé (match-closed).
       operationId: joinMatch
       responses:
         '202':
-          description: Demande enregistrée
+          description: Demande enregistrée, en attente de l'organisateur
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JoinRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/matches/{id}/join-requests:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+    get:
+      tags: [recruiting]
+      summary: Demandes en attente (organisateur)
+      description: SCRUM-79. Réservé à l'organisateur (403 sinon), par ordre d'arrivée.
+      operationId: listJoinRequests
+      responses:
+        '200':
+          description: Demandes en attente
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/JoinRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/matches/{id}/join-requests/{userId}/accept:
+    parameters:
+      - { $ref: '#/components/parameters/MatchId' }
+      - name: userId
+        in: path
+        required: true
+        description: Joueur qui a demandé à rejoindre
+        schema: { type: string, format: uuid }
+    post:
+      tags: [recruiting]
+      summary: Accepter une demande (organisateur)
+      description: |
+        SCRUM-79. Le joueur devient participant CONFIRMED et openSpots diminue de 1, en une seule écriture
+        conditionnelle (openSpots > 0) : deux acceptations simultanées ne dépassent jamais le nombre de places.
+        Publie match.join_accepted. 404 join-request-not-found si aucune demande en attente pour ce joueur ;
+        409 no-open-spots si le match est complet.
+      operationId: acceptJoinRequest
+      responses:
+        '200':
+          description: Joueur ajouté au match
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Participant' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/matches/{id}/challenge:
@@ -363,12 +448,19 @@ components:
       enum: [PENDING_PAYMENT, CONFIRMED, IN_PROGRESS, PLAYED, CLOSED, CANCELLED, NO_SHOW, DISPUTED]
     Match:
       type: object
-      required: [id, kind, visibility, openSpots, status, ownerId, payerId, slotId]
+      required: [id, kind, visibility, openSpots, maxPlayers, status, ownerId, payerId, slotId]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: '#/components/schemas/MatchKind' }
         visibility: { $ref: '#/components/schemas/MatchVisibility' }
         openSpots: { type: integer, minimum: 0, description: Places ouvertes à des joueurs extérieurs }
+        maxPlayers:
+          type: integer
+          minimum: 2
+          default: 10
+          description: |
+            Nombre maximal de joueurs, organisateur compris (SCRUM-78). venue n'a pas de capacité :
+            10 par défaut (foot à 5), y compris pour les matchs créés avant ce champ.
         status: { $ref: '#/components/schemas/MatchStatus' }
         ownerId: { type: string, format: uuid, description: Organisateur principal }
         payerId: { type: string, format: uuid, description: Responsable du paiement }
@@ -411,9 +503,30 @@ components:
         guestName: { type: string, minLength: 1, maxLength: 40 }
     OpenSpotsRequest:
       type: object
-      required: [count]
+      required: [openSpots]
       properties:
-        count: { type: integer, minimum: 1 }
+        openSpots:
+          type: integer
+          minimum: 1
+          description: Nombre de places ouvertes après l'appel (remplace la valeur précédente)
+    OpenMatch:
+      type: object
+      description: Résumé public d'un match aux places ouvertes (SCRUM-118), sans aucun participant
+      required: [id, venueId, startsAt, openSpots, maxPlayers]
+      properties:
+        id: { type: string, format: uuid }
+        venueId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        openSpots: { type: integer, minimum: 1 }
+        maxPlayers: { type: integer, minimum: 2 }
+    JoinRequest:
+      type: object
+      description: Demande d'un joueur avec compte pour rejoindre un match (SCRUM-79)
+      required: [matchId, userId, requestedAt]
+      properties:
+        matchId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        requestedAt: { type: string, format: date-time }
     ChallengeRequest:
       type: object
       required: [teamId, visibility]
