@@ -1,7 +1,69 @@
-@import "tailwindcss";
+/* Polices auto-hébergées (copiées dans dist/assets par Vite) : aucune requête vers Google Fonts ni un CDN (CSP default-src 'self'). */
+@import '@fontsource/bebas-neue/latin-400.css';
+@import '@fontsource-variable/inter/wght.css';
+@import 'tailwindcss';
 
-/* Remplace le CSS du modèle Vite (variables, centrage de tout le texte) : la mise en page vient de Tailwind. */
-body {
-  margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+/*
+ * Design system « Stade Authentique » : voir design-system/teamslot/MASTER.md.
+ * Les valeurs par défaut de Tailwind (couleurs, arrondis, ombres) sont effacées : seules nos couleurs
+ * existent, et aucun arrondi ne dépasse 4 px. Les composants n'utilisent que ces noms, jamais un hex.
+ */
+@theme {
+    --color-*: initial;
+    --color-transparent: transparent;
+    --color-current: currentColor;
+    --color-primary: #0e3b2e; /* vert terrain */
+    --color-surface: #ffffff;
+    --color-paper: #f8f4e7; /* feuille de match */
+    --color-action: #c62f3b; /* 5,43:1 sur surface, 4,93:1 sur paper */
+    --color-action-hover: #a3242f;
+    --color-accent: #ffc857; /* ambre : toujours en fond, texte ink ou primary */
+    --color-ink: #1f2937;
+    --color-muted: #4b5563; /* texte secondaire et bordures de champ (6,87:1 sur paper) */
+    --color-line: #d6cfb8; /* séparateurs décoratifs uniquement */
+    --color-error: #9a3412; /* rouge brique, distinct de l'action (7,31:1 sur surface) */
+    --color-error-bg: #fbeae3;
+    --color-confirm: #14532d;
+    --color-confirm-bg: #e3f0e6;
+
+    --font-*: initial;
+    --font-sans: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
+    --font-display: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+
+    --radius-*: initial;
+    --radius-xs: 2px;
+    --radius-sm: 4px;
+
+    --shadow-*: initial;
+    --shadow-sm: 0 1px 2px 0 rgb(31 41 55 / 0.08);
+    --shadow-md: 0 2px 6px -1px rgb(31 41 55 / 0.12);
+}
+
+@layer base {
+    body {
+        margin: 0;
+        background-color: var(--color-paper);
+        color: var(--color-ink);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Focus toujours visible au clavier ; en ambre sur les fonds sombres (classe .sur-sombre). */
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+    .sur-sombre :focus-visible {
+        outline-color: var(--color-accent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        ::before,
+        ::after {
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+        }
+    }
 }
