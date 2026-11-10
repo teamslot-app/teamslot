@@ -1,5 +1,7 @@
 package ma.teamslot.match.application;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import ma.teamslot.match.domain.Match;
@@ -21,4 +23,20 @@ public interface MatchRepository {
      * @return true si le match a été annulé, false s'il n'était plus annulable.
      */
     boolean annuler(UUID matchId);
+
+    /** SCRUM-78 : organisateur, statut, capacité, joueurs inscrits et version ; vide si le match n'existe pas. */
+    Optional<MatchPourPlaces> pourPlaces(UUID matchId);
+
+    /**
+     * SCRUM-78 : fixe openSpots (version + 1), en une écriture conditionnelle sur l'organisateur,
+     * un statut PENDING_PAYMENT ou CONFIRMED et la version lue par pourPlaces.
+     * @return le match après l'écriture, vide si la condition n'est plus vraie (rien n'a été écrit).
+     */
+    Optional<Match> ouvrirPlaces(UUID matchId, UUID organisateur, long version, int openSpots);
+
+    /**
+     * SCRUM-118 : matchs PENDING_PAYMENT ou CONFIRMED avec openSpots > 0 et depuis <= startsAt < jusqua,
+     * par heure de début, au plus limite.
+     */
+    List<MatchOuvert> ouverts(Instant depuis, Instant jusqua, int limite);
 }

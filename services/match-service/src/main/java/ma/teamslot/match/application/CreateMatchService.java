@@ -47,8 +47,8 @@ public class CreateMatchService {
     }
 
     private Match enregistrer(UUID matchId, UUID callerId, UUID slotId, VenueReservation r) {
-        Match match = new Match(matchId, KIND, STATUS, VISIBILITE, 0, callerId, callerId,
-                r.venueId(), slotId, r.startsAt(), r.totalAmountCents(), r.currency(),
+        Match match = new Match(matchId, KIND, STATUS, VISIBILITE, 0, Match.MAX_JOUEURS_PAR_DEFAUT,
+                callerId, callerId, r.venueId(), slotId, r.startsAt(), r.totalAmountCents(), r.currency(),
                 r.acceptsOnSitePayment(), 0L);
         matches.save(match);
         outbox.record(matchId, "match.created", new MatchCreatedData(matchId, KIND, VISIBILITE,

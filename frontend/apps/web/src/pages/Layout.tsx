@@ -7,7 +7,7 @@ export default function Layout() {
   return (
     <>
       <header>
-        <Link to="/">TeamSlot</Link>
+        <Link to="/">TeamSlot</Link> <Link to="/matchs-ouverts">Matchs ouverts</Link>
         <button type="button" onClick={seDeconnecter}>
           Se déconnecter
         </button>
