@@ -1,0 +1,5 @@
+# SCRUM-127 : analyse du rendu Kustomize de staging.
+# Règles par défaut de kube-linter (dont conteneur root, requests/limits manquants, Job sans TTL).
+# Toute exception se déclare ici, avec une justification écrite.
+checks:
+  exclude: []

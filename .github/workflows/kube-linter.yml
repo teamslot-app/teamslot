@@ -1,0 +1,21 @@
+name: kube-linter
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rendu Kustomize de staging
+        run: kubectl kustomize deploy/k8s/overlays/staging > "$RUNNER_TEMP/rendu-staging.yaml"
+      - name: kube-linter (configuration dans .kube-linter.yaml)
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/.kube-linter.yaml:/config/.kube-linter.yaml:ro" \
+            -v "$RUNNER_TEMP/rendu-staging.yaml:/work/rendu-staging.yaml:ro" \
+            stackrox/kube-linter@sha256:f2bfce7879206d32f69ab6572c376f916643f54ca291ac38cf7d01ef591ff3f9 \
+            lint --config /config/.kube-linter.yaml /work/rendu-staging.yaml

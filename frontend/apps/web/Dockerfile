@@ -14,6 +14,11 @@ WORKDIR /repo/frontend/apps/web
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00
+# SCRUM-119 : correctifs Alpine absents de l'image de base (scan Trivy du 10/11 : brotli-libs CRITICAL,
+# curl, libexpat, libx11, musl, zlib HIGH). L'image tourne en nginx : root seulement pour apk, USER nginx plus bas.
+# A retirer avec une nouvelle empreinte de nginx-unprivileged qui embarque ces versions.
+USER root
+RUN apk upgrade --no-cache
 # Modèle rempli au démarrage par 20-envsubst-on-templates.sh (API_UPSTREAM) : le même image marche en compose et en cluster
 COPY apps/web/nginx.conf.template /etc/nginx/templates/default.conf.template
 ENV API_UPSTREAM=http://gateway:8080
