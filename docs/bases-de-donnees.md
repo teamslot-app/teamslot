@@ -25,6 +25,13 @@ Depuis SCRUM-112, match-service n'utilise plus PostgreSQL : ses données sont da
 
 - **Collection `matches`** : un document par match, avec ses participants et leur côté (A ou B) dans le tableau `participants`. Les UUID sont stockés en texte.
 - **Validateur JSON Schema** posé à la création de la collection : statuts, montant ≥ 0, surnom de 1 à 40 caractères, soit un compte soit un surnom (mêmes règles que les anciens `CHECK`). Le modifier ensuite demande `collMod` (rôle dbAdmin), donc `mongosh` en root : `match_user` n'a que `readWrite`.
+- **Capacité d'un match (SCRUM-78)** : champ `maxPlayers` (organisateur compris), écrit à 10 à la création ; **absent** dans les matchs créés avant, et lu alors comme 10 (`Match.MAX_JOUEURS_PAR_DEFAUT`), sans migration. Le validateur du code le décrit (entier ≥ 2, facultatif). Une collection déjà créée (local, staging) accepte le champ telle quelle ; pour y ajouter la règle, une fois, en root :
+
+  ```js
+  const v = db.getCollectionInfos({ name: "matches" })[0].options.validator;
+  v.$jsonSchema.properties.maxPlayers = { bsonType: ["int", "long"], minimum: 2 };
+  db.runCommand({ collMod: "matches", validator: v });
+  ```
 - **Unicité dans un match** (un compte, ou un surnom sans espaces ni casse, une seule fois) : assurée par la condition de l'écriture (`$push` seulement si absent), car un index unique MongoDB ne compare pas les éléments d'un même tableau.
 - **Index** créés au démarrage par `CollectionMatches` (`ownerId`, `participants.userId`) : pas de Flyway pour MongoDB.
 - **Outbox et idempotence** : collections `outbox_event` et `processed_event`, dans la même transaction MongoDB (libs/events, SCRUM-111).

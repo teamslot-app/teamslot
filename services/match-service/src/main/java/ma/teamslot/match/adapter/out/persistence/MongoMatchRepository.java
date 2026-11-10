@@ -1,18 +1,28 @@
 package ma.teamslot.match.adapter.out.persistence;
 
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.COLLECTION;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.DEBUT;
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.ID;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.MAX_JOUEURS;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.ORGANISATEUR;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.PARTICIPANTS;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.PLACES_OUVERTES;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.P_COMPTE;
+import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.P_STATUT;
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.STATUT;
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.VERSION;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import ma.teamslot.match.application.MatchPourAnnulation;
+import ma.teamslot.match.application.MatchPourPlaces;
 import ma.teamslot.match.application.MatchRepository;
 import ma.teamslot.match.domain.Match;
 import org.bson.Document;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -35,12 +45,13 @@ public class MongoMatchRepository implements MatchRepository {
                 .append("kind", m.kind())
                 .append(STATUT, m.status())
                 .append("visibility", m.visibility())
-                .append("openSpots", m.openSpots())
+                .append(PLACES_OUVERTES, m.openSpots())
+                .append(MAX_JOUEURS, m.maxPlayers())
                 .append("ownerId", m.ownerId().toString())
                 .append("payerId", m.payerId().toString())
                 .append("venueId", m.venueId().toString())
                 .append("slotId", m.slotId().toString())
-                .append("startsAt", Date.from(m.startsAt()))
+                .append(DEBUT, Date.from(m.startsAt()))
                 .append("totalAmountCents", m.totalAmountCents())
                 .append("currency", m.currency())
                 .append("acceptsOnSitePayment", m.acceptsOnSitePayment())
@@ -74,5 +85,49 @@ public class MongoMatchRepository implements MatchRepository {
                 .and(STATUT).in("PENDING_PAYMENT", "CONFIRMED"));
         Update annule = new Update().set(STATUT, "CANCELLED").inc(VERSION, 1);
         return mongo.updateFirst(annulable, annule, COLLECTION).getModifiedCount() == 1;
+    }
+
+    /** Lecture des seuls champs utiles : pas de surnom d'invité chargé pour compter les joueurs. */
+    @Override
+    public Optional<MatchPourPlaces> pourPlaces(UUID matchId) {
+        Query query = MatchDocuments.parId(matchId);
+        query.fields().include(ORGANISATEUR, STATUT, MAX_JOUEURS, VERSION,
+                PARTICIPANTS + "." + P_COMPTE, PARTICIPANTS + "." + P_STATUT);
+        return Optional.ofNullable(mongo.findOne(query, Document.class, COLLECTION)).map(m -> {
+            List<MatchPourPlaces.Inscrit> inscrits = MatchDocuments.participants(m).stream()
+                    .map(p -> new MatchPourPlaces.Inscrit(MatchDocuments.uuid(p.getString(P_COMPTE)),
+                            p.getString(P_STATUT)))
+                    .toList();
+            return MatchPourPlaces.de(UUID.fromString(m.getString(ORGANISATEUR)), m.getString(STATUT),
+                    (int) MatchDocuments.nombre(m, MAX_JOUEURS, Match.MAX_JOUEURS_PAR_DEFAUT),
+                    MatchDocuments.nombre(m, VERSION, 0), inscrits);
+        });
+    }
+
+    /**
+     * Une seule écriture conditionnelle (findAndModify) : organisateur, statut ouvert et version inchangée.
+     * Un participant ajouté entre-temps change la version : rien n'est écrit, le service répond 409.
+     */
+    @Override
+    public Optional<Match> ouvrirPlaces(UUID matchId, UUID organisateur, long version, int openSpots) {
+        Query condition = Query.query(Criteria.where(ID).is(matchId.toString())
+                .and(ORGANISATEUR).is(organisateur.toString())
+                .and(STATUT).in("PENDING_PAYMENT", "CONFIRMED")
+                .and(VERSION).is(version));
+        Update ouvre = new Update().set(PLACES_OUVERTES, openSpots).inc(VERSION, 1);
+        Document apres = mongo.findAndModify(condition, ouvre, FindAndModifyOptions.options().returnNew(true),
+                Document.class, COLLECTION);
+        return Optional.ofNullable(apres).map(MongoMatchRepository::versMatch);
+    }
+
+    static Match versMatch(Document d) {
+        return new Match(UUID.fromString(d.getString(ID)), d.getString("kind"), d.getString(STATUT),
+                d.getString("visibility"), (int) MatchDocuments.nombre(d, PLACES_OUVERTES, 0),
+                (int) MatchDocuments.nombre(d, MAX_JOUEURS, Match.MAX_JOUEURS_PAR_DEFAUT),
+                UUID.fromString(d.getString(ORGANISATEUR)), UUID.fromString(d.getString("payerId")),
+                UUID.fromString(d.getString("venueId")), UUID.fromString(d.getString("slotId")),
+                d.getDate(DEBUT).toInstant(), MatchDocuments.nombre(d, "totalAmountCents", 0),
+                d.getString("currency"), Boolean.TRUE.equals(d.getBoolean("acceptsOnSitePayment")),
+                MatchDocuments.nombre(d, VERSION, 0));
     }
 }

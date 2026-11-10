@@ -25,6 +25,10 @@ final class MatchDocuments {
     static final String ORGANISATEUR = "ownerId";
     static final String VERSION = "version";
     static final String PARTICIPANTS = "participants";
+    static final String PLACES_OUVERTES = "openSpots";
+    /** SCRUM-78 : absent dans les matchs créés avant, lu comme Match.MAX_JOUEURS_PAR_DEFAUT. */
+    static final String MAX_JOUEURS = "maxPlayers";
+    static final String DEBUT = "startsAt";
 
     // Champs d'un participant (élément du tableau participants)
     static final String P_ID = "id";
@@ -70,6 +74,12 @@ final class MatchDocuments {
     static List<Document> participants(Document match) {
         List<Document> liste = match.getList(PARTICIPANTS, Document.class);
         return liste == null ? List.of() : new ArrayList<>(liste);
+    }
+
+    /** Entier stocké en int ou en long (selon qui l'a écrit) ; valeur par défaut si le champ est absent. */
+    static long nombre(Document d, String champ, long parDefaut) {
+        Object valeur = d.get(champ);
+        return valeur instanceof Number n ? n.longValue() : parDefaut;
     }
 
     static String texte(UUID id) {

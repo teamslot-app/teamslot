@@ -45,6 +45,10 @@ export default function PageMatch() {
   const [ajout, setAjout] = useState<Action>({ type: 'repos' })
   const [reglement, setReglement] = useState<Action>({ type: 'repos' })
   const [annulation, setAnnulation] = useState<'repos' | 'confirmer' | 'envoi' | 'fait'>('repos')
+  // SCRUM-78 : places ouvertes à des joueurs extérieurs (le match vient de la navigation, on suit sa valeur ici).
+  const [placesOuvertes, setPlacesOuvertes] = useState(match?.openSpots ?? 0)
+  const [places, setPlaces] = useState('')
+  const [ouverture, setOuverture] = useState<Action>({ type: 'repos' })
   const [erreurAnnulation, setErreurAnnulation] = useState<string | null>(null)
 
   useEffect(() => {
@@ -128,6 +132,28 @@ export default function PageMatch() {
     }
   }
 
+  async function ouvrirPlaces(evenement: FormEvent<HTMLFormElement>) {
+    evenement.preventDefault()
+    const nombre = Number(places)
+    if (!matchId || !Number.isInteger(nombre) || nombre < 1 || ouverture.type === 'envoi') return
+    setOuverture({ type: 'envoi' })
+    try {
+      const { data, error, response } = await api.match.POST('/api/v1/matches/{id}/open-spots', {
+        params: { path: { id: matchId } },
+        body: { openSpots: nombre },
+      })
+      if (data) {
+        setPlacesOuvertes(data.openSpots)
+        setPlaces('')
+        setOuverture({ type: 'ok' })
+      } else {
+        setOuverture({ type: 'erreur', message: messageServeur(response.status, error) })
+      }
+    } catch {
+      setOuverture({ type: 'erreur', message: INDISPONIBLE })
+    }
+  }
+
   async function annuler() {
     if (!matchId || annulation === 'envoi') return
     setAnnulation('envoi')
@@ -206,6 +232,33 @@ export default function PageMatch() {
           </button>
           {ajout.type === 'erreur' && <p role="alert">{ajout.message}</p>}
           {ajout.type === 'ok' && <p role="status">Ami ajouté.</p>}
+        </form>
+      )}
+
+      <h2>Compléter mon groupe</h2>
+      {placesOuvertes > 0 && (
+        <p>{placesOuvertes === 1 ? '1 place ouverte' : `${placesOuvertes} places ouvertes`} à d’autres joueurs.</p>
+      )}
+      {!annule && (
+        <form onSubmit={ouvrirPlaces} aria-label="Ouvrir des places">
+          <label>
+            Places à ouvrir
+            <input
+              type="number"
+              name="openSpots"
+              min={1}
+              max={(match.maxPlayers ?? 10) - 1}
+              step={1}
+              required
+              value={places}
+              onChange={(e) => setPlaces(e.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={ouverture.type === 'envoi'}>
+            {ouverture.type === 'envoi' ? 'Ouverture…' : 'Ouvrir des places'}
+          </button>
+          {ouverture.type === 'erreur' && <p role="alert">{ouverture.message}</p>}
+          {ouverture.type === 'ok' && <p role="status">Places ouvertes : d’autres joueurs peuvent demander à venir.</p>}
         </form>
       )}
 

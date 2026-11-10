@@ -22,6 +22,8 @@ TOPICS=(
   venue.created
   # SCRUM-75 : le gérant confirme l'encaissement sur place
   payment.collected_on_site
+  # SCRUM-78 : l'organisateur ouvre des places pour compléter son groupe
+  match.spots_opened
 )
 
 for topic in "${TOPICS[@]}"; do

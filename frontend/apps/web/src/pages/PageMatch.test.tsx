@@ -11,7 +11,7 @@ const AVEC_SUR_PLACE = TERRAINS[0] // Guéliz : accepte le paiement sur place
 const SANS_SUR_PLACE = TERRAINS[1] // Daoudiate : ne l'accepte pas
 const MAD = (centimes: number) => ({ amount: centimes, currency: 'MAD' })
 const MATCH = {
-  id: 'm1', kind: 'FRIENDLY', visibility: 'PRIVATE', openSpots: 0, status: 'PENDING_PAYMENT',
+  id: 'm1', kind: 'FRIENDLY', visibility: 'PRIVATE', openSpots: 0, maxPlayers: 10, status: 'PENDING_PAYMENT',
   ownerId: 'u1', payerId: 'u1', slotId: 's1', totalPrice: MAD(15000),
 }
 const PARTICIPANTS = 'GET /api/v1/matches/m1/participants'
@@ -19,6 +19,7 @@ const AJOUT = 'POST /api/v1/matches/m1/participants'
 const EN_LIGNE = 'POST /api/v1/payments/m1/online'
 const SUR_PLACE = 'POST /api/v1/payments/m1/on-site'
 const ANNULER = 'POST /api/v1/matches/m1/cancel'
+const PLACES = 'POST /api/v1/matches/m1/open-spots'
 
 const json = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), { status, headers: { 'Content-Type': 'application/json' } })
@@ -225,5 +226,44 @@ describe('page du match : annulation et accès', () => {
     rendre(AVEC_SUR_PLACE.id, false)
 
     expect(screen.getByRole('heading', { name: 'Terrains' })).toBeTruthy()
+  })
+})
+
+describe('page du match : ouvrir des places (SCRUM-78)', () => {
+  it('ouvre des places : corps { openSpots }, nombre renvoyé par le serveur affiché', async () => {
+    const { corps } = serveur({ [PLACES]: () => json({ ...MATCH, openSpots: 3, version: 1 }) })
+    const u = userEvent.setup()
+    rendre()
+
+    await u.type(await screen.findByLabelText('Places à ouvrir'), '3')
+    await u.click(screen.getByRole('button', { name: 'Ouvrir des places' }))
+
+    expect((await screen.findByRole('status')).textContent).toMatch(/Places ouvertes/)
+    expect(JSON.parse(corps[PLACES])).toEqual({ openSpots: 3 })
+    expect(screen.getByText(/3 places ouvertes à d’autres joueurs/)).toBeTruthy()
+  })
+
+  it('trop de places : le message du serveur s’affiche, rien n’est indiqué comme ouvert', async () => {
+    const detail = 'Tu peux ouvrir de 1 à 7 places pour ce match.'
+    serveur({ [PLACES]: () => json({ type: 'x', title: 'refus', status: 400, detail, maxOpenSpots: 7 }, 400) })
+    const u = userEvent.setup()
+    rendre()
+
+    await u.type(await screen.findByLabelText('Places à ouvrir'), '8')
+    await u.click(screen.getByRole('button', { name: 'Ouvrir des places' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(detail)
+    expect(screen.queryByText(/places? ouvertes? à d’autres joueurs/)).toBeNull()
+  })
+
+  it('sans réponse du serveur : message d’indisponibilité', async () => {
+    serveur({ [PLACES]: () => Promise.reject(new TypeError('réseau')) })
+    const u = userEvent.setup()
+    rendre()
+
+    await u.type(await screen.findByLabelText('Places à ouvrir'), '2')
+    await u.click(screen.getByRole('button', { name: 'Ouvrir des places' }))
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/indisponible/)
   })
 })

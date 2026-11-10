@@ -78,6 +78,11 @@ final class DonneesMongo {
         mongo.updateFirst(parId(matchId), new Update().push("participants", participant), MATCHES);
     }
 
+    /** SCRUM-78 : capacité écrite (les matchs de creerMatch n'en ont pas, comme avant SCRUM-78). */
+    void fixerMaxJoueurs(UUID matchId, int maxJoueurs) {
+        mongo.updateFirst(parId(matchId), new Update().set("maxPlayers", maxJoueurs), MATCHES);
+    }
+
     void changerStatut(UUID matchId, String statut) {
         mongo.updateFirst(parId(matchId), new Update().set("status", statut), MATCHES);
     }

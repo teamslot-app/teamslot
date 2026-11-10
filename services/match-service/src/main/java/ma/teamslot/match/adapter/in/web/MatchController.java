@@ -1,6 +1,7 @@
 package ma.teamslot.match.adapter.in.web;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.time.Instant;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CancelMatchService;
 import ma.teamslot.match.application.CreateMatchService;
+import ma.teamslot.match.application.OpenSpotsService;
 import ma.teamslot.match.domain.Match;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +28,19 @@ public class MatchController {
 
     private final CreateMatchService service;
     private final CancelMatchService annulation;
+    private final OpenSpotsService places;
 
-    public MatchController(CreateMatchService service, CancelMatchService annulation) {
+    public MatchController(CreateMatchService service, CancelMatchService annulation, OpenSpotsService places) {
         this.service = service;
         this.annulation = annulation;
+        this.places = places;
+    }
+
+    /** SCRUM-78 : l'organisateur fixe le nombre de places ouvertes à des joueurs extérieurs. */
+    @PostMapping("/{matchId}/open-spots")
+    public MatchResponse openSpots(@PathVariable UUID matchId, @Valid @RequestBody OpenSpotsRequest request,
+                                   @AuthenticationPrincipal Jwt jeton) {
+        return MatchResponse.from(places.open(Appelant.de(jeton), matchId, request.openSpots()));
     }
 
     /** SCRUM-76 : l'organisateur (claim sub du JWT, jamais un en-tête) annule le match. */
@@ -53,7 +64,11 @@ public class MatchController {
     public record CreateMatchRequest(@NotNull UUID slotId, List<UUID> equipmentIds) {
     }
 
-    public record MatchResponse(UUID id, String kind, String visibility, int openSpots,
+    /** Integer et @NotNull : un corps sans openSpots donne 400, pas 0. */
+    public record OpenSpotsRequest(@NotNull @Min(1) Integer openSpots) {
+    }
+
+    public record MatchResponse(UUID id, String kind, String visibility, int openSpots, int maxPlayers,
                                 String status, UUID ownerId, UUID payerId, UUID slotId,
                                 UUID venueId, Instant startsAt, Money totalPrice, long version) {
 
@@ -61,7 +76,7 @@ public class MatchController {
         }
 
         static MatchResponse from(Match m) {
-            return new MatchResponse(m.id(), m.kind(), m.visibility(), m.openSpots(), m.status(),
+            return new MatchResponse(m.id(), m.kind(), m.visibility(), m.openSpots(), m.maxPlayers(), m.status(),
                     m.ownerId(), m.payerId(), m.slotId(), m.venueId(), m.startsAt(),
                     new Money(m.totalAmountCents(), m.currency()), m.version());
         }

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Test E2E du parcours « groupe d'amis » en staging (SCRUM-112, ADR-017).
-# Passe par la passerelle, comme le front : inscription, connexion, créneau, match, amis, paiement, répartition.
+# Passe par la passerelle, comme le front : inscription, connexion, créneau, match, amis, places ouvertes,
+# paiement, répartition, annulation.
 # Tourne DANS le cluster (aucun port à ouvrir) :
 #   kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 \
 #     --command -- sh -s < deploy/e2e/parcours-match.sh
@@ -100,6 +101,20 @@ appel POST "/api/v1/matches/$match/participants" "$ami" '{"guestName":"Karim"}'
 attendu 403 "un non-organisateur ne peut pas ajouter"
 appel POST "/api/v1/matches/$match/participants" "" '{"guestName":"Karim"}'
 attendu 401 "sans jeton"
+
+echo "== 4 bis. Ouvrir des places (SCRUM-78) =="
+# 3 joueurs inscrits (organisateur, ami, Yassir) et 10 au plus : 7 places au maximum.
+appel POST "/api/v1/matches/$match/open-spots" "$ami" '{"openSpots":2}'
+attendu 403 "un non-organisateur ne peut pas ouvrir de places"
+appel POST "/api/v1/matches/$match/open-spots" "$orga" '{"openSpots":0}'
+attendu 400 "zéro place refusé"
+appel POST "/api/v1/matches/$match/open-spots" "$orga" '{"openSpots":8}'
+attendu 400 "plus de places que la capacité refusé"
+appel POST "/api/v1/matches/$match/open-spots" "$orga" '{"openSpots":2}'
+attendu 200 "l'organisateur ouvre 2 places"
+case "$corps" in *'"openSpots":2'*) reussi "2 places ouvertes" ;; *) echoue "openSpots 2 attendu" ;; esac
+appel POST "/api/v1/matches/$match/open-spots" "" '{"openSpots":2}'
+attendu 401 "ouvrir des places sans jeton"
 
 echo "== 5. Paiement en ligne (payment-service, puis événement Kafka vers match-service) =="
 i=0

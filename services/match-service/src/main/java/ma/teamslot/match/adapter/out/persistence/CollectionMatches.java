@@ -96,6 +96,8 @@ class CollectionMatches implements InitializingBean {
                         .append("status", new Document("enum", STATUTS_MATCH))
                         .append("visibility", type("string"))
                         .append("openSpots", new Document("bsonType", List.of("int", "long")).append("minimum", 0))
+                        // SCRUM-78 : facultatif, absent dans les matchs créés avant (lu comme 10).
+                        .append("maxPlayers", new Document("bsonType", List.of("int", "long")).append("minimum", 2))
                         .append("ownerId", type("string"))
                         .append("payerId", type("string"))
                         .append("venueId", type("string"))

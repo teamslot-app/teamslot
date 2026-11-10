@@ -102,6 +102,8 @@ class MatchCreationTests {
                 .andExpect(jsonPath("$.kind").value("FRIENDLY"))
                 .andExpect(jsonPath("$.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
+                .andExpect(jsonPath("$.openSpots").value(0))
+                .andExpect(jsonPath("$.maxPlayers").value(10))
                 .andExpect(jsonPath("$.ownerId").value(caller.toString()))
                 .andExpect(jsonPath("$.payerId").value(caller.toString()))
                 .andExpect(jsonPath("$.totalPrice.amount").value(30000))
@@ -113,6 +115,7 @@ class MatchCreationTests {
         Document match = donnees().matchs().getFirst();
         assertThat(match).containsEntry("ownerId", caller.toString());
         assertThat(match).containsEntry("payerId", caller.toString());
+        assertThat(match).containsEntry("maxPlayers", 10);
 
         assertThat(donnees().evenements()).hasSize(1);
         Document evenement = donnees().evenements().getFirst();
