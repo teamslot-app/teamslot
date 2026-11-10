@@ -13,6 +13,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.CollectionOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
+import org.springframework.data.mongodb.core.index.PartialIndexFilter;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.validation.Validator;
 import org.springframework.stereotype.Component;
 
@@ -45,6 +47,12 @@ class CollectionMatches implements InitializingBean {
         mongo.indexOps(COLLECTION).createIndex(new Index().on("ownerId", Sort.Direction.ASC).named("idx_matches_owner"));
         mongo.indexOps(COLLECTION).createIndex(new Index().on("participants.userId", Sort.Direction.ASC)
                 .sparse().named("idx_matches_participant_compte"));
+        // SCRUM-118 : matchs ouverts d'un jour. Index partiel : seuls les matchs avec des places y entrent,
+        // il reste petit même avec beaucoup de matchs privés.
+        mongo.indexOps(COLLECTION).createIndex(new Index()
+                .on("startsAt", Sort.Direction.ASC).on("openSpots", Sort.Direction.ASC)
+                .partial(PartialIndexFilter.of(Criteria.where("openSpots").gt(0)))
+                .named("idx_matches_places_ouvertes"));
     }
 
     /**
@@ -96,6 +104,8 @@ class CollectionMatches implements InitializingBean {
                         .append("status", new Document("enum", STATUTS_MATCH))
                         .append("visibility", type("string"))
                         .append("openSpots", new Document("bsonType", List.of("int", "long")).append("minimum", 0))
+                        // SCRUM-78 : facultatif, absent dans les matchs créés avant (lu comme 10).
+                        .append("maxPlayers", new Document("bsonType", List.of("int", "long")).append("minimum", 2))
                         .append("ownerId", type("string"))
                         .append("payerId", type("string"))
                         .append("venueId", type("string"))

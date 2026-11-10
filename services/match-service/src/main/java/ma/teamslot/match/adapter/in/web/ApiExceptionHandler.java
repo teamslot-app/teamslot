@@ -2,6 +2,8 @@ package ma.teamslot.match.adapter.in.web;
 
 import java.net.URI;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
+import ma.teamslot.match.application.InvalidOpenSpotsException;
+import ma.teamslot.match.application.MatchChangedException;
 import ma.teamslot.match.application.MatchNotConfirmedException;
 import ma.teamslot.match.application.NotAParticipantException;
 import ma.teamslot.match.application.NotEnoughPlayersException;
@@ -86,6 +88,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail matchFerme(MatchClosedException ex) {
         return problem(HttpStatus.CONFLICT, "match-closed", "Match fermé",
                 "Ce match n'accepte plus de participants.");
+    }
+
+    /** SCRUM-78 : le détail donne le maximum accepté, jamais la valeur envoyée. */
+    @ExceptionHandler(InvalidOpenSpotsException.class)
+    ProblemDetail placesRefusees(InvalidOpenSpotsException ex) {
+        String detail = ex.placesPossibles() == 0
+                ? "Le match est déjà complet : aucune place à ouvrir."
+                : "Tu peux ouvrir de 1 à " + ex.placesPossibles() + " places pour ce match.";
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "invalid-open-spots", "Nombre de places refusé",
+                detail);
+        problem.setProperty("maxOpenSpots", ex.placesPossibles());
+        return problem;
+    }
+
+    @ExceptionHandler(MatchChangedException.class)
+    ProblemDetail matchModifie(MatchChangedException ex) {
+        return problem(HttpStatus.CONFLICT, "match-changed", "Match modifié",
+                "Le match vient d'être modifié : recharge la page et réessaie.");
     }
 
     /** Message de la règle du domaine : il ne contient jamais la valeur envoyée. */

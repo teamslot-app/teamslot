@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ticket** | SCRUM-24 |
-| **Version** | 1.1 — Sprint 1 (ajout de `acceptsOnSitePayment` dans `match.created`) |
+| **Version** | 1.2 — Sprint 3 (`match.spots_opened` produit, SCRUM-78) |
 | **Source** | Conception TeamSlot, section 7.3 ; contrats `docs/api/*.yaml` |
 
 Les services communiquent par événements (ADR-002). Ce catalogue est **la référence** : un producteur n'émet que des événements listés ici, avec ces noms et ces champs, et tout nouvel événement est ajouté dans ce fichier **dans la même pull request** que le code qui le produit.
@@ -93,7 +93,7 @@ La colonne **S1** marque les événements nécessaires aux stories du Sprint 1 (
 | `match.created` | matchId | payment, notification, search | matchId, kind, visibility, ownerId, payerId, venueId, slotId, startsAt, totalAmount, currency, acceptsOnSitePayment | ✓ |
 | `match.participant_added` | matchId | notification, messaging | matchId, participantId, userId ou guestName | ✓ |
 | `match.co_organizer_added` | matchId | notification | matchId, userId | |
-| `match.spots_opened` | matchId | search, notification | matchId, venueId, startsAt, openSpots | |
+| `match.spots_opened` | matchId | search, notification | matchId, venueId, startsAt, openSpots (nombre de places ouvertes après l'appel ; aucun participant) — produit depuis SCRUM-78 | |
 | `match.join_requested` | matchId | notification | matchId, userId | |
 | `match.join_accepted` | matchId | notification, messaging | matchId, userId | |
 | `match.challenge_posted` | matchId | search, notification | matchId, teamId, opponentTeamId (défi direct), visibility, startsAt | |
@@ -151,4 +151,5 @@ sequenceDiagram
 
 | Version | Changement | Raison |
 |---|---|---|
+| 1.2 | `match.spots_opened` produit par match-service (SCRUM-78) ; topic et `.dlt` ajoutés à `create-topics.sh`. Aucun consommateur ce sprint (search-service n'existe pas, ADR-012). | L'organisateur ouvre des places pour compléter son groupe. Nouvel événement : aucun consommateur existant n'est touché (`match.participant_added` et `match.confirmed` inchangés pour notification). |
 | 1.1 | Champ `acceptsOnSitePayment` (booléen) ajouté dans `match.created` | payment-service doit savoir si le terrain accepte le paiement sur place (SCRUM-62). match-service le reçoit de venue dans la réponse de réservation. Ajout de champ : compatible avec les consommateurs existants. |
