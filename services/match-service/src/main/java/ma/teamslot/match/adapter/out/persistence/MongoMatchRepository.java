@@ -12,16 +12,19 @@ import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.P_STATUT;
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.STATUT;
 import static ma.teamslot.match.adapter.out.persistence.MatchDocuments.VERSION;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import ma.teamslot.match.application.MatchOuvert;
 import ma.teamslot.match.application.MatchPourAnnulation;
 import ma.teamslot.match.application.MatchPourPlaces;
 import ma.teamslot.match.application.MatchRepository;
 import ma.teamslot.match.domain.Match;
 import org.bson.Document;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -118,6 +121,25 @@ public class MongoMatchRepository implements MatchRepository {
         Document apres = mongo.findAndModify(condition, ouvre, FindAndModifyOptions.options().returnNew(true),
                 Document.class, COLLECTION);
         return Optional.ofNullable(apres).map(MongoMatchRepository::versMatch);
+    }
+
+    /**
+     * Index partiel idx_matches_places_ouvertes (CollectionMatches) : seuls les matchs avec des places y sont.
+     * Projection limitée aux champs publics : aucun participant ne sort de la base pour cette liste.
+     */
+    @Override
+    public List<MatchOuvert> ouverts(Instant depuis, Instant jusqua, int limite) {
+        Query query = Query.query(Criteria.where(PLACES_OUVERTES).gt(0)
+                        .and(DEBUT).gte(Date.from(depuis)).lt(Date.from(jusqua))
+                        .and(STATUT).in("PENDING_PAYMENT", "CONFIRMED"))
+                .with(Sort.by(Sort.Direction.ASC, DEBUT))
+                .limit(limite);
+        query.fields().include(ID, "venueId", DEBUT, PLACES_OUVERTES, MAX_JOUEURS);
+        return mongo.find(query, Document.class, COLLECTION).stream()
+                .map(d -> new MatchOuvert(UUID.fromString(d.getString(ID)), UUID.fromString(d.getString("venueId")),
+                        d.getDate(DEBUT).toInstant(), (int) MatchDocuments.nombre(d, PLACES_OUVERTES, 0),
+                        (int) MatchDocuments.nombre(d, MAX_JOUEURS, Match.MAX_JOUEURS_PAR_DEFAUT)))
+                .toList();
     }
 
     static Match versMatch(Document d) {
