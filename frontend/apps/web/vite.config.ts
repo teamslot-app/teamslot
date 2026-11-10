@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
@@ -8,7 +9,7 @@ const shared = fileURLToPath(new URL('../../packages/shared/src/index.ts', impor
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     // Le client généré vit dans frontend/packages/shared (SCRUM-69) : pas d'espace de travail npm, un alias suffit.
     alias: { '@teamslot/shared': shared },
