@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: staging
 resources:
 - ../../base
+- namespace.yaml
 - ingress-api.yaml
 - ingress-web.yaml
 - sealed-secrets/postgres-admin.yaml
@@ -14,10 +15,10 @@ resources:
 - sealed-secrets/mysql-auth.yaml
 - sealed-secrets/redis-auth.yaml
 images:
-- digest: sha256:7099bfc20c0e9aa45a6b7b534e82949032dd4107d927f47eaad9265d91d2c59d
+- digest: sha256:92dee4c8ebe36ca06bee8d2bead9d03535df6029b6dee56b65ad91502e1a84f0
   name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
-  newTag: 68194765250f7ae37e5a7a644c9ead8b98df762c
+  newTag: 61b05708a1c5a7679562faa1b30c13fe090e8143
 - digest: sha256:91ea070358bb899351ebd2fd58e229a9fcf9595d14dbd3996b3a5758c59436e3
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
@@ -38,10 +39,10 @@ images:
   name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
   newTag: 56780eec20b6d2aaba6b42654861c99b5971086a
-- digest: sha256:649c47c8ac506d0991504ecb4efd81ebf1c8e684ba66863c5b2f8c5d985ca513
+- digest: sha256:5e34ba07aafcc29027339631a8edc83694aad1066e719d2559564d41fb20ef57
   name: ghcr.io/teamslot-app/web
   newName: ghcr.io/teamslot-app/web
-  newTag: 09f16e28bfe86d2746b3c6679b03b1f207e7bac7
+  newTag: 61b05708a1c5a7679562faa1b30c13fe090e8143
 # SCRUM-99 : copie les tags d'image déployés dans le Job smoke-test (affichés dans ses logs)
 replacements:
 - path: smoke-test-versions.yaml

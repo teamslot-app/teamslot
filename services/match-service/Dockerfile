@@ -19,6 +19,10 @@ RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl services/match-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
+# SCRUM-119 : correctifs Alpine absents de l'image de base (scan Trivy du 10/11 : brotli-libs CRITICAL,
+# libexpat, musl, zlib HIGH). apk upgrade de tous les paquets plutôt qu'une liste : de nouveaux CVE corrigés
+# apparaissent chaque semaine. A retirer avec la nouvelle empreinte de l'image de base (SCRUM-121).
+RUN apk upgrade --no-cache
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/match-service/target/*.jar app.jar
