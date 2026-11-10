@@ -16,6 +16,7 @@ metadata:
 spec:
   # MongoDB peut ne pas être encore prêt au premier passage : Kubernetes relance le pod
   backoffLimit: 10
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       restartPolicy: Never
