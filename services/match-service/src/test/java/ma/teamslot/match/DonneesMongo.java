@@ -88,6 +88,12 @@ final class DonneesMongo {
         mongo.updateFirst(parId(matchId), new Update().set("maxPlayers", maxJoueurs), MATCHES);
     }
 
+    /** SCRUM-79 : demande en attente, comme l'écrit POST /join. */
+    void ajouterDemande(UUID matchId, UUID compte) {
+        mongo.updateFirst(parId(matchId), new Update().push("joinRequests",
+                new Document("userId", compte.toString()).append("requestedAt", new Date())), MATCHES);
+    }
+
     void changerStatut(UUID matchId, String statut) {
         mongo.updateFirst(parId(matchId), new Update().set("status", statut), MATCHES);
     }

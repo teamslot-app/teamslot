@@ -1,11 +1,11 @@
 #!/bin/sh
 # Test E2E du parcours « groupe d'amis » en staging (SCRUM-112, ADR-017).
 # Passe par la passerelle, comme le front : inscription, connexion, créneau, match, amis, places ouvertes,
-# paiement, répartition, annulation.
+# demande et acceptation d'un joueur extérieur, paiement, répartition, annulation.
 # Tourne DANS le cluster (aucun port à ouvrir) :
 #   kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 \
 #     --command -- sh -s < deploy/e2e/parcours-match.sh
-# Crée à chaque passage deux comptes de test jetables (numéros aléatoires) et un match sur un terrain de démo.
+# Crée à chaque passage trois comptes de test jetables (numéros aléatoires) et un match sur un terrain de démo.
 # N'affiche ni mot de passe ni jeton.
 set -u
 
@@ -125,6 +125,36 @@ case "$corps" in *Yassir*|*guestName*|*ownerId*) echoue "la liste contient des d
 appel GET "/api/v1/matches/open?date=$jour" ""
 attendu 401 "matchs ouverts sans jeton"
 
+echo "== 4 quater. Rejoindre un match (SCRUM-79) =="
+# Un troisième compte, qui n'est pas encore dans le match, demande une des 2 places ouvertes.
+appel POST /api/v1/auth/register "" "{\"phone\":\"+2125$suffixe\",\"password\":\"$mdp\",\"displayName\":\"E2E Joueur $suffixe\"}"
+attendu 201 "inscription du joueur extérieur"
+joueur_id=$(champ "$corps" id)
+appel POST /api/v1/auth/login "" "{\"phone\":\"+2125$suffixe\",\"password\":\"$mdp\"}"
+attendu 200 "connexion du joueur extérieur"
+joueur=$(champ "$corps" accessToken)
+[ -n "$joueur" ] && [ -n "$joueur_id" ] || { echoue "jeton ou id du joueur extérieur absent : arrêt"; fin; }
+appel POST "/api/v1/matches/$match/join" "$joueur"
+attendu 202 "le joueur demande à rejoindre"
+appel POST "/api/v1/matches/$match/join" "$joueur"
+attendu 409 "deuxième demande du même joueur refusée"
+appel POST "/api/v1/matches/$match/join" "$ami"
+attendu 409 "un participant ne peut pas demander"
+appel GET "/api/v1/matches/$match/join-requests" "$ami"
+attendu 403 "un non-organisateur ne voit pas les demandes"
+appel GET "/api/v1/matches/$match/join-requests" "$orga"
+attendu 200 "l'organisateur voit les demandes"
+case "$corps" in *"$joueur_id"*) reussi "la demande du joueur est listée" ;; *) echoue "demande du joueur absente" ;; esac
+appel POST "/api/v1/matches/$match/join-requests/$joueur_id/accept" "$ami"
+attendu 403 "un non-organisateur ne peut pas accepter"
+appel POST "/api/v1/matches/$match/join-requests/$joueur_id/accept" "$orga"
+attendu 200 "l'organisateur accepte le joueur"
+case "$corps" in *'"status":"CONFIRMED"'*) reussi "joueur CONFIRMED" ;; *) echoue "statut CONFIRMED attendu" ;; esac
+appel POST "/api/v1/matches/$match/join-requests/$joueur_id/accept" "$orga"
+attendu 404 "accepter deux fois : plus de demande"
+appel POST "/api/v1/matches/$match/join" ""
+attendu 401 "demander sans jeton"
+
 echo "== 5. Paiement en ligne (payment-service, puis événement Kafka vers match-service) =="
 i=0
 code=000
@@ -154,7 +184,7 @@ echo "== 7. Liste des participants vue par l'ami =="
 appel GET "/api/v1/matches/$match/participants" "$ami"
 attendu 200 "l'ami voit la liste"
 cotes=$(printf '%s' "$corps" | grep -o '"side":"[AB]"' | wc -l | tr -d ' ')
-if [ "$cotes" = 3 ]; then reussi "3 joueurs répartis (organisateur, ami, Yassir)"; else echoue "3 côtés attendus, $cotes trouvés"; fi
+if [ "$cotes" = 4 ]; then reussi "4 joueurs répartis (organisateur, ami, Yassir, joueur accepté)"; else echoue "4 côtés attendus, $cotes trouvés"; fi
 
 echo "== 8. Annulation d'un match payé (SCRUM-76) =="
 # Les passages précédents occupent des créneaux : on cherche à nouveau sur J+1 à J+7.

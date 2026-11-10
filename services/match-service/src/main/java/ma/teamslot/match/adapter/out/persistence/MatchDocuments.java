@@ -30,6 +30,11 @@ final class MatchDocuments {
     static final String MAX_JOUEURS = "maxPlayers";
     static final String DEBUT = "startsAt";
 
+    // SCRUM-79 : demandes pour rejoindre (tableau joinRequests, absent tant qu'il n'y en a pas)
+    static final String DEMANDES = "joinRequests";
+    static final String D_COMPTE = "userId";
+    static final String D_LE = "requestedAt";
+
     // Champs d'un participant (élément du tableau participants)
     static final String P_ID = "id";
     static final String P_COMPTE = "userId";

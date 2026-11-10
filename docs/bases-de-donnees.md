@@ -32,6 +32,15 @@ Depuis SCRUM-112, match-service n'utilise plus PostgreSQL : ses données sont da
   v.$jsonSchema.properties.maxPlayers = { bsonType: ["int", "long"], minimum: 2 };
   db.runCommand({ collMod: "matches", validator: v });
   ```
+- **Demandes pour rejoindre (SCRUM-79)** : tableau `joinRequests` (`userId`, `requestedAt`), absent tant qu'il n'y a pas de demande. Une demande ne change pas `version` (elle ne prend pas de place) ; l'acceptation retire la demande, ajoute le participant `CONFIRMED` et fait `openSpots - 1` en une seule écriture conditionnelle (`openSpots > 0`). Deux écritures simultanées dans des transactions : MongoDB refuse la seconde (`TransientTransactionError`), `TransactionsMongo` la rejoue (3 essais). Règle du validateur pour une collection déjà créée, en root :
+
+  ```js
+  const v = db.getCollectionInfos({ name: "matches" })[0].options.validator;
+  v.$jsonSchema.properties.joinRequests = { bsonType: "array", items: { bsonType: "object",
+    required: ["userId", "requestedAt"],
+    properties: { userId: { bsonType: "string" }, requestedAt: { bsonType: "date" } } } };
+  db.runCommand({ collMod: "matches", validator: v });
+  ```
 - **Unicité dans un match** (un compte, ou un surnom sans espaces ni casse, une seule fois) : assurée par la condition de l'écriture (`$push` seulement si absent), car un index unique MongoDB ne compare pas les éléments d'un même tableau.
 - **Index** créés au démarrage par `CollectionMatches` (`ownerId`, `participants.userId`) : pas de Flyway pour MongoDB.
 - **Outbox et idempotence** : collections `outbox_event` et `processed_event`, dans la même transaction MongoDB (libs/events, SCRUM-111).

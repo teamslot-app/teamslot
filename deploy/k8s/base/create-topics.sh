@@ -24,6 +24,9 @@ TOPICS=(
   payment.collected_on_site
   # SCRUM-78 : l'organisateur ouvre des places pour compléter son groupe
   match.spots_opened
+  # SCRUM-79 : un joueur demande une place, l'organisateur accepte
+  match.join_requested
+  match.join_accepted
 )
 
 for topic in "${TOPICS[@]}"; do

@@ -8,6 +8,7 @@ import { terrainParId } from '../venues'
 type Match = MatchComponents['schemas']['Match']
 type Participant = MatchComponents['schemas']['Participant']
 type Payment = PaymentComponents['schemas']['Payment']
+type DemandeRejoindre = MatchComponents['schemas']['JoinRequest']
 // Transmis par la page de réservation (navigation) : il n'existe pas de GET /matches/{id}.
 type Contexte = { match?: Match; venueId?: string; start?: string; end?: string }
 // statut 0 : le serveur n'a pas répondu
@@ -49,6 +50,9 @@ export default function PageMatch() {
   const [placesOuvertes, setPlacesOuvertes] = useState(match?.openSpots ?? 0)
   const [places, setPlaces] = useState('')
   const [ouverture, setOuverture] = useState<Action>({ type: 'repos' })
+  // SCRUM-79 : demandes pour rejoindre (403 si l'on n'est pas l'organisateur : la section ne s'affiche pas)
+  const [demandes, setDemandes] = useState<Chargement<DemandeRejoindre[]> | null>(null)
+  const [acceptation, setAcceptation] = useState<Action>({ type: 'repos' })
   const [erreurAnnulation, setErreurAnnulation] = useState<string | null>(null)
 
   useEffect(() => {
@@ -61,6 +65,22 @@ export default function PageMatch() {
       })
       .catch(() => {
         if (!annule) setParticipants({ statut: 0, donnees: null })
+      })
+    return () => {
+      annule = true
+    }
+  }, [matchId, rechargement])
+
+  useEffect(() => {
+    if (!matchId) return
+    let annule = false
+    api.match
+      .GET('/api/v1/matches/{id}/join-requests', { params: { path: { id: matchId } } })
+      .then(({ data, response }) => {
+        if (!annule) setDemandes({ statut: response.status, donnees: data ?? null })
+      })
+      .catch(() => {
+        if (!annule) setDemandes({ statut: 0, donnees: null })
       })
     return () => {
       annule = true
@@ -151,6 +171,26 @@ export default function PageMatch() {
       }
     } catch {
       setOuverture({ type: 'erreur', message: INDISPONIBLE })
+    }
+  }
+
+  async function accepter(userId: string) {
+    if (!matchId || acceptation.type === 'envoi') return
+    setAcceptation({ type: 'envoi' })
+    try {
+      const { error, response } = await api.match.POST('/api/v1/matches/{id}/join-requests/{userId}/accept', {
+        params: { path: { id: matchId, userId } },
+      })
+      if (response.ok) {
+        setAcceptation({ type: 'ok' })
+        setPlacesOuvertes((n) => Math.max(0, n - 1))
+        setRechargement((n) => n + 1) // participants et demandes
+      } else {
+        setAcceptation({ type: 'erreur', message: messageServeur(response.status, error) })
+        setRechargement((n) => n + 1)
+      }
+    } catch {
+      setAcceptation({ type: 'erreur', message: INDISPONIBLE })
     }
   }
 
@@ -260,6 +300,29 @@ export default function PageMatch() {
           {ouverture.type === 'erreur' && <p role="alert">{ouverture.message}</p>}
           {ouverture.type === 'ok' && <p role="status">Places ouvertes : d’autres joueurs peuvent demander à venir.</p>}
         </form>
+      )}
+
+      {demandes?.donnees && (
+        <>
+          <h3>Demandes pour rejoindre</h3>
+          {demandes.donnees.length === 0 && <p>Aucune demande pour l’instant.</p>}
+          {demandes.donnees.length > 0 && (
+            <ul aria-label="Demandes pour rejoindre">
+              {demandes.donnees.map((d) => (
+                <li key={d.userId}>
+                  Joueur avec compte · demande à {formatHeure(d.requestedAt)}{' '}
+                  {!annule && (
+                    <button type="button" disabled={acceptation.type === 'envoi'} onClick={() => accepter(d.userId)}>
+                      Accepter
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {acceptation.type === 'erreur' && <p role="alert">{acceptation.message}</p>}
+          {acceptation.type === 'ok' && <p role="status">Joueur ajouté au match.</p>}
+        </>
       )}
 
       <h2>Paiement</h2>

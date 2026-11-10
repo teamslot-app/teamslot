@@ -3,6 +3,9 @@ package ma.teamslot.match.adapter.in.web;
 import java.net.URI;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.InvalidOpenSpotsException;
+import ma.teamslot.match.application.JoinAlreadyRequestedException;
+import ma.teamslot.match.application.JoinRequestNotFoundException;
+import ma.teamslot.match.application.NoOpenSpotsException;
 import ma.teamslot.match.application.MatchChangedException;
 import ma.teamslot.match.application.MatchNotConfirmedException;
 import ma.teamslot.match.application.NotAParticipantException;
@@ -100,6 +103,24 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 detail);
         problem.setProperty("maxOpenSpots", ex.placesPossibles());
         return problem;
+    }
+
+    @ExceptionHandler(NoOpenSpotsException.class)
+    ProblemDetail plusDePlace(NoOpenSpotsException ex) {
+        return problem(HttpStatus.CONFLICT, "no-open-spots", "Match complet",
+                "Ce match n'a plus de place ouverte.");
+    }
+
+    @ExceptionHandler(JoinAlreadyRequestedException.class)
+    ProblemDetail dejaDemande(JoinAlreadyRequestedException ex) {
+        return problem(HttpStatus.CONFLICT, "join-already-requested", "Demande déjà envoyée",
+                "Tu as déjà demandé à rejoindre ce match : l'organisateur doit répondre.");
+    }
+
+    @ExceptionHandler(JoinRequestNotFoundException.class)
+    ProblemDetail demandeIntrouvable(JoinRequestNotFoundException ex) {
+        return problem(HttpStatus.NOT_FOUND, "join-request-not-found", "Demande introuvable",
+                "Ce joueur n'a pas de demande en attente pour ce match.");
     }
 
     @ExceptionHandler(MatchChangedException.class)
