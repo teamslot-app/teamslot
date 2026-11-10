@@ -76,6 +76,22 @@ Auto-hébergée (`@fontsource/bebas-neue` latin 400, `@fontsource-variable/inter
 - Icônes décoratives `aria-hidden` ; le sens est toujours porté par un texte.
 - Statuts : texte en casse normale dans le DOM, capitales par CSS (`uppercase`), pour les lecteurs d'écran.
 
+## 5 bis. Styles de base des éléments HTML (`@layer base`)
+
+Le preflight de Tailwind retire tout le style natif. Pour qu'une page soit utilisable **avant même d'utiliser les composants**, `src/index.css` donne aux éléments nus un style lisible, uniquement avec les tokens :
+
+- `main` : une colonne centrée de 28 rem max, gouttière de 16 px, espacement de 16 px.
+- `h1`/`h2` : Bebas Neue, `primary`. `a` : souligné 2 px, `primary`. Un lien seul dans son paragraphe (« ← Terrains ») fait 44 px de haut.
+- `form` en colonne ; `label` en bloc au-dessus du champ ; une case à cocher reste sur la ligne de son libellé (ligne de 44 px cliquable).
+- `input`, `select`, `textarea` : fond `surface`, bordure 2 px **`muted`** (et non `line` : la bordure d'un champ doit atteindre 3:1, `line` n'en fait que 1,42), 44 px, 16 px de texte.
+- `button` : fond `action`, texte `surface`, 44 px ; dans l'en-tête, contour blanc sur vert.
+- `ul`/`li` dans `main` : une rangée blanche par élément (48 px) ; un lien seul occupe la rangée, la dernière action se cale à droite.
+- `[role=alert]` / `[role=status]` : couleurs `error` / `confirm` avec une icône en masque CSS (`data:`, autorisé par `img-src`), absente du texte lu. Les composants `Alerte`/`Confirmation` ont leur propre SVG : pas de doublon.
+
+Toute classe utilitaire (donc tout composant de `src/ui`) remplace ces règles, car le calque `utilities` passe avant `base`.
+
+Vérification visuelle : captures Playwright à 375 et 1440 px de Connexion, Inscription, Terrains, Créneaux, Réservation et page du match, avec contrôle automatique de l'absence de défilement horizontal et des cibles de moins de 44 px. `src/libelles.test.tsx` vérifie que chaque champ de chaque page a un libellé.
+
 ## 6. Composants (`src/ui/`)
 
 | Composant | Rôle |

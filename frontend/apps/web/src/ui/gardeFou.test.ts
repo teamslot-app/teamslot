@@ -81,7 +81,12 @@ describe('garde-fou du design system', () => {
   })
 
   it('index.css : aucune police ni ressource distante', () => {
-    expect(indexCss).not.toMatch(/https?:\/\//)
+    // l'espace de noms SVG des icônes en data: est un identifiant, jamais téléchargé
+    const sansEspaceDeNoms = indexCss.replaceAll(
+      'http://www.w3.org/2000/svg',
+      '',
+    )
+    expect(sansEspaceDeNoms).not.toMatch(/https?:\/\//)
     expect(indexCss).not.toMatch(/fonts\.googleapis|fonts\.gstatic/)
     expect(indexCss).toMatch(/@fontsource\/bebas-neue/)
     expect(indexCss).toMatch(/@fontsource-variable\/inter/)

@@ -39,13 +39,264 @@
     --shadow-md: 0 2px 6px -1px rgb(31 41 55 / 0.12);
 }
 
+/*
+ * Styles par défaut des éléments HTML. Le preflight de Tailwind retire tout le style natif (bordures des champs,
+ * apparence des boutons, soulignement des liens) : sans ce bloc, une page qui n'utilise pas encore les composants
+ * de src/ui serait inutilisable. Ces règles sont en @layer base : toute classe utilitaire les remplace.
+ */
 @layer base {
     body {
         margin: 0;
         background-color: var(--color-paper);
         color: var(--color-ink);
         font-family: var(--font-sans);
+        line-height: 1.5;
         -webkit-font-smoothing: antialiased;
+    }
+
+    /* Mise en page : une colonne centrée, mobile d'abord (16 px de gouttière à 375 px). */
+    main {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+        max-width: 28rem;
+        margin-inline: auto;
+        padding: 1.5rem 1rem 3rem;
+    }
+
+    h1,
+    h2 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: var(--color-primary);
+    }
+    h1 {
+        font-size: 2.75rem;
+    }
+    h2 {
+        font-size: 1.875rem;
+        margin-top: 0.75rem;
+    }
+
+    a {
+        color: var(--color-primary);
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 4px;
+    }
+    a:hover {
+        color: var(--color-ink);
+    }
+    /* Lien seul dans son paragraphe (« ← Terrains ») : ce n'est pas un lien dans une phrase, donc 44 px. */
+    main > p > a:only-child {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.75rem;
+    }
+
+    /* En-tête des pages connectées (Layout) : bande vert terrain. */
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 1rem;
+        background-color: var(--color-primary);
+        color: var(--color-surface);
+    }
+    header a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.75rem;
+        font-family: var(--font-display);
+        font-size: 1.75rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        color: var(--color-surface);
+        text-decoration: none;
+    }
+    header a:hover {
+        color: var(--color-accent);
+    }
+
+    /* Formulaires : champs en colonne, libellé en bloc au-dessus du champ. */
+    form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+    }
+    label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-ink);
+    }
+    /* Case à cocher : sur la même ligne que son libellé, toute la ligne (44 px) est cliquable. */
+    label:has(> input[type='checkbox'], > input[type='radio']) {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+        min-height: 2.75rem;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    /* Bordure muted et non line : un champ doit se distinguer du fond à 3:1 au moins (WCAG 1.4.11). */
+    input:where(:not([type='checkbox'], [type='radio'])),
+    select,
+    textarea {
+        box-sizing: border-box;
+        width: 100%;
+        min-height: 2.75rem;
+        padding: 0.5rem 0.75rem;
+        border: 2px solid var(--color-muted);
+        border-radius: var(--radius-sm);
+        background-color: var(--color-surface);
+        color: var(--color-ink);
+        font-size: 1rem;
+        font-weight: 400;
+    }
+    ::placeholder {
+        color: var(--color-muted);
+        opacity: 1;
+    }
+    input[type='checkbox'],
+    input[type='radio'] {
+        width: 1.25rem;
+        height: 1.25rem;
+        margin: 0;
+        accent-color: var(--color-primary);
+    }
+    fieldset {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0.5rem 1rem 0.75rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        background-color: var(--color-surface);
+    }
+    legend {
+        padding-inline: 0.25rem;
+        font-family: var(--font-display);
+        font-size: 1.375rem;
+        color: var(--color-primary);
+    }
+
+    button {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-sm);
+        background-color: var(--color-action);
+        color: var(--color-surface);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 150ms;
+    }
+    button:hover:not(:disabled) {
+        background-color: var(--color-action-hover);
+    }
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    header button {
+        border: 2px solid var(--color-surface);
+        background-color: transparent;
+        color: var(--color-surface);
+    }
+    header button:hover:not(:disabled) {
+        background-color: var(--color-surface);
+        color: var(--color-primary);
+    }
+    /* Boutons côte à côte (paiement) : espacés de 8 px, sur plusieurs lignes si besoin. */
+    main > div:has(> button) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Listes (terrains, créneaux, participants) : une rangée par élément, sur fond blanc. */
+    main ul {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    main li {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        column-gap: 0.75rem;
+        min-height: 3rem;
+        padding: 0.25rem 1rem;
+        border: 1px solid var(--color-line);
+        border-radius: var(--radius-sm);
+        background-color: var(--color-surface);
+        box-shadow: var(--shadow-sm);
+    }
+    /* Cibles tactiles de 44 px : un lien seul occupe toute la rangée, l'action d'une rangée se cale à droite. */
+    main li > a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.75rem;
+    }
+    main li > a:only-child {
+        flex: 1;
+    }
+    main li > :last-child:not(:only-child) {
+        margin-left: auto;
+    }
+
+    /* Messages : erreur (alert) en rouge brique, confirmation (status) en vert, toujours avec une icône.
+       L'icône est un masque CSS (data:, autorisé par img-src) : elle n'entre pas dans le texte lu.
+       Les composants Alerte et Confirmation ont déjà leur icône SVG : pas de doublon. */
+    [role='alert'],
+    [role='status'] {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        border-left: 4px solid;
+        border-radius: var(--radius-sm);
+    }
+    [role='alert'] {
+        border-color: var(--color-error);
+        background-color: var(--color-error-bg);
+        color: var(--color-error);
+    }
+    [role='status'] {
+        border-color: var(--color-confirm);
+        background-color: var(--color-confirm-bg);
+        color: var(--color-confirm);
+    }
+    [role='alert']:not(:has(> svg))::before,
+    [role='status']:not(:has(> svg))::before {
+        content: '';
+        flex: none;
+        width: 1.25rem;
+        height: 1.25rem;
+        margin-top: 0.125rem;
+        background-color: currentColor;
+        mask: var(--icone) center / contain no-repeat;
+    }
+    [role='alert'] {
+        --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8v5M12 16.5v.5M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'/%3E%3C/svg%3E");
+    }
+    [role='status'] {
+        --icone: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
     }
 
     /* Focus toujours visible au clavier ; en ambre sur les fonds sombres (classe .sur-sombre). */
