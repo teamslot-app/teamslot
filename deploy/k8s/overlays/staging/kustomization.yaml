@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: staging
 resources:
 - ../../base
+- namespace.yaml
 - ingress-api.yaml
 - ingress-web.yaml
 - sealed-secrets/postgres-admin.yaml

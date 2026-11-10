@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    # SCRUM-126 : étape 1, on observe sans bloquer. enforce viendra après correction.
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+  annotations:
+    # Sécurité : si ce fichier est un jour retiré du dépôt, Argo CD ne doit pas supprimer le namespace (et tout son contenu).
+    argocd.argoproj.io/sync-options: Prune=false
