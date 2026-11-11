@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
+import ma.teamslot.match.application.SlotAlreadyStartedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueClient.VenueReservation;
 import ma.teamslot.match.application.VenueUnavailableException;
@@ -90,6 +91,41 @@ class VenueHttpClientTests {
     @Test
     void creneau_pris_409() throws Exception {
         VenueHttpClient client = demarrer(409, "{}");
+        UUID m = UUID.randomUUID();
+        UUID s = UUID.randomUUID();
+        assertThatThrownBy(() -> client.reserve(m, s, List.of(), "jeton"))
+                .isInstanceOf(SlotAlreadyReservedException.class);
+    }
+
+    // SCRUM-97 : le type du Problem Details de venue distingue les deux 409
+
+    private static String probleme(String type) {
+        return """
+                {"type":"https://teamslot.app/problems/%s","title":"Conflit","status":409,"detail":"texte de venue"}
+                """.formatted(type);
+    }
+
+    @Test
+    void creneau_deja_commence_409_slot_already_started() throws Exception {
+        VenueHttpClient client = demarrer(409, probleme("slot-already-started"));
+        UUID m = UUID.randomUUID();
+        UUID s = UUID.randomUUID();
+        assertThatThrownBy(() -> client.reserve(m, s, List.of(), "jeton"))
+                .isInstanceOf(SlotAlreadyStartedException.class);
+    }
+
+    @Test
+    void creneau_deja_reserve_409_slot_already_reserved() throws Exception {
+        VenueHttpClient client = demarrer(409, probleme("slot-already-reserved"));
+        UUID m = UUID.randomUUID();
+        UUID s = UUID.randomUUID();
+        assertThatThrownBy(() -> client.reserve(m, s, List.of(), "jeton"))
+                .isInstanceOf(SlotAlreadyReservedException.class);
+    }
+
+    @Test
+    void conflit_sans_corps_lisible_reste_deja_reserve() throws Exception {
+        VenueHttpClient client = demarrer(409, "pas du json");
         UUID m = UUID.randomUUID();
         UUID s = UUID.randomUUID();
         assertThatThrownBy(() -> client.reserve(m, s, List.of(), "jeton"))

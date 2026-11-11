@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
+import ma.teamslot.match.application.SlotAlreadyStartedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -183,6 +184,35 @@ class MatchCreationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"slotId\":\"" + slot + "\"}"))
                 .andExpect(status().isConflict());
+
+        assertThat(nombre("matches")).isZero();
+        assertThat(nombre("outbox_event")).isZero();
+    }
+
+    @Test
+    void creneau_deja_pris_message_et_type_slot_already_reserved() throws Exception {
+        venue.erreur = new SlotAlreadyReservedException(UUID.randomUUID());
+
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slotId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("https://teamslot.app/problems/slot-already-reserved"))
+                .andExpect(jsonPath("$.detail").value("Ce créneau est déjà réservé."));
+    }
+
+    /** SCRUM-97 : un créneau déjà commencé a son propre type et son propre message. */
+    @Test
+    void creneau_deja_commence_409_message_precis_sans_match_ni_evenement() throws Exception {
+        UUID slot = UUID.randomUUID();
+        venue.erreur = new SlotAlreadyStartedException(slot);
+
+        mvc.perform(post("/api/v1/matches").with(appelant(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slotId\":\"" + slot + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("https://teamslot.app/problems/slot-already-started"))
+                .andExpect(jsonPath("$.detail").value("Ce créneau a déjà commencé : choisis un créneau à venir."));
 
         assertThat(nombre("matches")).isZero();
         assertThat(nombre("outbox_event")).isZero();

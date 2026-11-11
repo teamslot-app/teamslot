@@ -594,7 +594,10 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            /** @description Créneau déjà réservé */
+            /**
+             * @description Créneau déjà réservé (type slot-already-reserved) ou déjà commencé (type slot-already-started, SCRUM-97).
+             *     Le front choisit son message d'après le champ type.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -53,7 +53,9 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: Créneau déjà réservé
+          description: |
+            Créneau déjà réservé (type slot-already-reserved) ou déjà commencé (type slot-already-started, SCRUM-97).
+            Le front choisit son message d'après le champ type.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CallerNotAuthenticatedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
+import ma.teamslot.match.application.SlotAlreadyStartedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueClient;
 import ma.teamslot.match.application.VenueUnavailableException;
@@ -22,6 +23,8 @@ import org.springframework.web.client.RestClientException;
 /** Appel synchrone interne à venue-service (POST /api/v1/slot-reservations, docs/api/venue.yaml). */
 @Component
 public class VenueHttpClient implements VenueClient {
+
+    static final String TYPE_DEJA_COMMENCE = "slot-already-started";
 
     private final RestClient rest;
 
@@ -45,7 +48,7 @@ public class VenueHttpClient implements VenueClient {
                             throw new CallerNotAuthenticatedException();
                         }
                         if (statut == 409) {
-                            throw new SlotAlreadyReservedException(slotId);
+                            throw conflit(slotId, lireType(response));
                         }
                         if (statut == 404) {
                             throw new SlotNotFoundException(slotId);
@@ -57,6 +60,26 @@ public class VenueHttpClient implements VenueClient {
                     });
         } catch (RestClientException e) {
             throw new VenueUnavailableException("appel à venue impossible : " + e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * SCRUM-97 : venue renvoie deux sortes de 409 (Problem Details, champ type). On ne garde que le type :
+     * le texte de venue n'est jamais recopié vers l'organisateur. Type absent ou inconnu : « déjà réservé ».
+     */
+    static RuntimeException conflit(UUID slotId, String type) {
+        if (type != null && type.endsWith("/" + TYPE_DEJA_COMMENCE)) {
+            return new SlotAlreadyStartedException(slotId);
+        }
+        return new SlotAlreadyReservedException(slotId);
+    }
+
+    private static String lireType(RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response) {
+        try {
+            ProblemeVenue probleme = response.bodyTo(ProblemeVenue.class);
+            return probleme == null ? null : probleme.type();
+        } catch (RuntimeException e) {
+            return null; // corps vide ou illisible : on garde le message habituel
         }
     }
 
@@ -77,5 +100,10 @@ public class VenueHttpClient implements VenueClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Money(long amount, String currency) {
+    }
+
+    /** Seul le champ type du Problem Details de venue est lu (docs/api/venue.yaml). */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ProblemeVenue(String type) {
     }
 }

@@ -11,7 +11,8 @@ import java.util.UUID;
  */
 public interface VenueClient {
 
-    /** @throws SlotAlreadyReservedException 409
+    /** @throws SlotAlreadyReservedException 409 slot-already-reserved (ou 409 sans type lisible)
+     *  @throws SlotAlreadyStartedException 409 slot-already-started (SCRUM-97)
      *  @throws SlotNotFoundException 404
      *  @throws CallerNotAuthenticatedException 401 (jeton refusé par venue)
      *  @throws VenueUnavailableException venue ne répond pas ou répond mal */
