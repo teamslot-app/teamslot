@@ -8,6 +8,11 @@ import org.slf4j.MDC;
  * À l'écriture, EventEnvelope.of le lit dans le MDC (rempli par CorrelationIdFilter pour chaque requête HTTP) ;
  * à la lecture, le consommateur le remet dans le MDC pendant le traitement, puis le retire.
  * Une requête se suit ainsi d'un service à l'autre, à travers l'outbox et Kafka.
+ *
+ * Côté consommateur, entourer l'appel au bean IdempotentProcessor :
+ * {@code Correlation.pendant(evenement.correlationId(), () -> processeur.traiterUneFois(evenement.eventId(), ...))}.
+ * Pas de méthode par défaut dans IdempotentProcessor : appelée sur le proxy Spring, elle rappellerait
+ * traiterUneFois sur l'objet lui-même, sans passer par le proxy, donc SANS la transaction (@Transactional).
  */
 public final class Correlation {
 

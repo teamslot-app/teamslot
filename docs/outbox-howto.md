@@ -46,13 +46,16 @@ Une requête HTTP reçoit un `X-Correlation-Id` (filtre `CorrelationIdFilter`, r
 
 1. **À l'écriture** : `outbox.record(...)` crée l'enveloppe avec `EventEnvelope.of`, qui lit le MDC et remplit `correlationId` (JDBC et MongoDB, rien à faire dans le service). Hors requête (tâche planifiée, relais), le champ est absent.
 2. **Dans Kafka** : le relais publie l'enveloppe telle quelle ; le champ voyage dans le JSON.
-3. **À la lecture** : passer l'enveloppe à `traiterUneFois` au lieu de son `eventId` :
+3. **À la lecture** : entourer l'appel au consommateur idempotent avec `Correlation.pendant` :
 
 ```java
-processeur.traiterUneFois(evenement, () -> service.surPaiement(...));   // et non evenement.eventId()
+Correlation.pendant(evenement.correlationId(), () ->
+        processeur.traiterUneFois(evenement.eventId(), () -> service.surPaiement(...)));
 ```
 
-   Pendant le traitement, `correlationId` est dans le MDC : les logs du consommateur portent le même identifiant que la requête d'origine, et les événements qu'il publie à son tour (`match.confirmed` après `payment.completed`) aussi. Le MDC est remis dans son état d'avant à la fin, même en cas d'erreur. Pour un lecteur qui ne garde que l'`eventId` (payment-service), `Correlation.pendant(correlationId, () -> ...)` fait la même chose.
+   Pendant le traitement, `correlationId` est dans le MDC : les logs du consommateur portent le même identifiant que la requête d'origine, et les événements qu'il publie à son tour (`match.confirmed` après `payment.completed`) aussi. Le MDC est remis dans son état d'avant à la fin, même en cas d'erreur.
+
+   ⚠️ Toujours appeler `traiterUneFois` **sur le bean injecté** (le proxy Spring) : c'est lui qui ouvre la transaction. Une méthode qui rappelle `traiterUneFois` depuis l'objet lui-même contourne le proxy, et donc la transaction (l'outbox refuse alors d'écrire : `MANDATORY`).
 
 🔒 Seule une valeur au format UUID est remise dans le MDC : un événement mal formé ne peut pas injecter de texte dans les logs. Une valeur invalide est ignorée, l'événement est traité normalement.
 

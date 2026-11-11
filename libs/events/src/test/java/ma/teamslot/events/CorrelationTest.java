@@ -84,16 +84,11 @@ class CorrelationTest {
     @Test
     void le_consommateur_met_l_identifiant_dans_le_mdc_pendant_le_traitement_puis_le_retire() {
         AtomicReference<String> vu = new AtomicReference<>();
-        IdempotentProcessor processeur = (eventId, traitement) -> {
-            traitement.run();
-            return true;
-        };
         EventEnvelope<Map<String, String>> evenement = new EventEnvelope<>(UUID.randomUUID(), "payment.completed", 1,
                 java.time.Instant.now(), "payment-service", Map.of(), ID);
 
-        boolean execute = processeur.traiterUneFois(evenement, () -> vu.set(MDC.get(Correlation.MDC_KEY)));
+        Correlation.pendant(evenement.correlationId(), () -> vu.set(MDC.get(Correlation.MDC_KEY)));
 
-        assertThat(execute).isTrue();
         assertThat(vu.get()).isEqualTo(ID);
         assertThat(MDC.get(Correlation.MDC_KEY)).isNull();
     }
