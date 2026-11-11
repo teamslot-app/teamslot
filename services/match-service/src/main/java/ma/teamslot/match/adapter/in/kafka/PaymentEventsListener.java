@@ -48,6 +48,7 @@ public class PaymentEventsListener {
             return;
         }
         PaymentEventData data = json.treeToValue(evenement.data(), PaymentEventData.class);
-        processeur.traiterUneFois(evenement.eventId(), () -> service.surPaiement(data.matchId(), evenement.type()));
+        // SCRUM-89 : l'identifiant de corrélation du paiement suit dans les logs et dans match.confirmed
+        processeur.traiterUneFois(evenement, () -> service.surPaiement(data.matchId(), evenement.type()));
     }
 }

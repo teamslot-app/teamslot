@@ -40,6 +40,24 @@ public void surMatchCree(String message) {
 - `traiterUneFois` enregistre l'`eventId` dans `processed_event` **dans la même transaction** que le traitement : un doublon est ignoré, un traitement en échec pourra être retraité.
 - Un champ inconnu dans `data` est ignoré (règle d'évolution du catalogue).
 
+## Identifiant de corrélation (SCRUM-89)
+
+Une requête HTTP reçoit un `X-Correlation-Id` (filtre `CorrelationIdFilter`, rangé dans le MDC sous la clé `correlationId`). `libs/events` le fait suivre :
+
+1. **À l'écriture** : `outbox.record(...)` crée l'enveloppe avec `EventEnvelope.of`, qui lit le MDC et remplit `correlationId` (JDBC et MongoDB, rien à faire dans le service). Hors requête (tâche planifiée, relais), le champ est absent.
+2. **Dans Kafka** : le relais publie l'enveloppe telle quelle ; le champ voyage dans le JSON.
+3. **À la lecture** : passer l'enveloppe à `traiterUneFois` au lieu de son `eventId` :
+
+```java
+processeur.traiterUneFois(evenement, () -> service.surPaiement(...));   // et non evenement.eventId()
+```
+
+   Pendant le traitement, `correlationId` est dans le MDC : les logs du consommateur portent le même identifiant que la requête d'origine, et les événements qu'il publie à son tour (`match.confirmed` après `payment.completed`) aussi. Le MDC est remis dans son état d'avant à la fin, même en cas d'erreur. Pour un lecteur qui ne garde que l'`eventId` (payment-service), `Correlation.pendant(correlationId, () -> ...)` fait la même chose.
+
+🔒 Seule une valeur au format UUID est remise dans le MDC : un événement mal formé ne peut pas injecter de texte dans les logs. Une valeur invalide est ignorée, l'événement est traité normalement.
+
+Pour suivre une requête : chercher son `correlationId` dans les logs JSON de tous les services (passerelle, match, payment, venue).
+
 ## Erreurs et `.dlt`
 
 - Erreur passagère : 2 nouveaux essais, à 1 seconde d'intervalle.

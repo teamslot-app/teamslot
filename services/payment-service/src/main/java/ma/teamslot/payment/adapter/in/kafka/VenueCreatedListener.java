@@ -1,5 +1,6 @@
 package ma.teamslot.payment.adapter.in.kafka;
 
+import ma.teamslot.events.Correlation;
 import ma.teamslot.events.IdempotentProcessor;
 import ma.teamslot.payment.application.VenueOwnerRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,7 +30,7 @@ public class VenueCreatedListener {
     @KafkaListener(topics = TOPIC)
     public void recevoir(String message) {
         lecteur.lire(message, TOPIC, VenueCreatedData.class).ifPresent(recu ->
-                processeur.traiterUneFois(recu.eventId(),
-                        () -> gerants.enregistrerSiAbsent(recu.data().venueId(), recu.data().ownerId())));
+                Correlation.pendant(recu.correlationId(), () -> processeur.traiterUneFois(recu.eventId(),
+                        () -> gerants.enregistrerSiAbsent(recu.data().venueId(), recu.data().ownerId()))));
     }
 }

@@ -53,6 +53,7 @@ public class MatchCancelledListener {
       return;
     }
     MatchCancelledData data = json.treeToValue(evenement.data(), MatchCancelledData.class);
-    processeur.traiterUneFois(evenement.eventId(), () -> service.surMatchAnnule(data.matchId()));
+    // SCRUM-89 : identifiant de corrélation de l'annulation dans les logs et dans slot.released
+    processeur.traiterUneFois(evenement, () -> service.surMatchAnnule(data.matchId()));
   }
 }

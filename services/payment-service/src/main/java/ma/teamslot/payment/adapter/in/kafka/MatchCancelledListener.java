@@ -1,5 +1,6 @@
 package ma.teamslot.payment.adapter.in.kafka;
 
+import ma.teamslot.events.Correlation;
 import ma.teamslot.events.IdempotentProcessor;
 import ma.teamslot.payment.application.RefundService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,6 +30,7 @@ public class MatchCancelledListener {
     @KafkaListener(topics = TOPIC)
     public void recevoir(String message) {
         lecteur.lire(message, TOPIC, MatchCancelledData.class).ifPresent(recu ->
-                processeur.traiterUneFois(recu.eventId(), () -> service.surMatchAnnule(recu.data().matchId())));
+                Correlation.pendant(recu.correlationId(), () -> processeur.traiterUneFois(recu.eventId(),
+                        () -> service.surMatchAnnule(recu.data().matchId()))));
     }
 }
