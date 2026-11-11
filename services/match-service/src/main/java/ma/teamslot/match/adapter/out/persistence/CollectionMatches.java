@@ -116,9 +116,20 @@ class CollectionMatches implements InitializingBean {
                         .append("acceptsOnSitePayment", type("bool"))
                         .append("version", new Document("bsonType", List.of("int", "long")).append("minimum", 0))
                         .append("createdAt", type("date"))
-                        .append("participants", new Document("bsonType", "array").append("items", participant)));
+                        .append("participants", new Document("bsonType", "array").append("items", participant))
+                        // SCRUM-79 : facultatif (absent dans les matchs sans demande)
+                        .append("joinRequests", new Document("bsonType", "array").append("items", demande())));
 
         return new Document("$jsonSchema", match);
+    }
+
+    /** Une demande pour rejoindre : un compte et la date, rien d'autre (ni surnom, ni téléphone). */
+    static Document demande() {
+        return new Document("bsonType", "object")
+                .append("required", List.of("userId", "requestedAt"))
+                .append("properties", new Document()
+                        .append("userId", type("string"))
+                        .append("requestedAt", type("date")));
     }
 
     private static Document type(String bsonType) {

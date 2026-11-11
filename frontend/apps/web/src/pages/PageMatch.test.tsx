@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
@@ -20,6 +20,8 @@ const EN_LIGNE = 'POST /api/v1/payments/m1/online'
 const SUR_PLACE = 'POST /api/v1/payments/m1/on-site'
 const ANNULER = 'POST /api/v1/matches/m1/cancel'
 const PLACES = 'POST /api/v1/matches/m1/open-spots'
+const DEMANDES = 'GET /api/v1/matches/m1/join-requests'
+const ACCEPTER = 'POST /api/v1/matches/m1/join-requests/u9/accept'
 
 const json = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), { status, headers: { 'Content-Type': 'application/json' } })
@@ -265,5 +267,58 @@ describe('page du match : ouvrir des places (SCRUM-78)', () => {
     await u.click(screen.getByRole('button', { name: 'Ouvrir des places' }))
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/indisponible/)
+  })
+})
+
+describe('page du match : demandes pour rejoindre (SCRUM-79)', () => {
+  const DEMANDE = { matchId: 'm1', userId: 'u9', requestedAt: '2026-11-10T18:30:00Z' }
+
+  it('non-organisateur (403) : la section des demandes ne s’affiche pas', async () => {
+    serveur({ [DEMANDES]: () => json({ status: 403 }, 403) })
+    rendre()
+
+    await screen.findByRole('heading', { name: 'Ton match' })
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Demandes pour rejoindre' })).toBeNull())
+  })
+
+  it('l’organisateur voit la demande et l’accepte : listes rechargées, une place de moins', async () => {
+    let demandes = [DEMANDE]
+    const { appels } = serveur({
+      [PLACES]: () => json({ ...MATCH, openSpots: 2, version: 1 }),
+      [DEMANDES]: () => json(demandes),
+      [ACCEPTER]: () => {
+        demandes = []
+        return json({ id: 'p9', matchId: 'm1', userId: 'u9', status: 'CONFIRMED' })
+      },
+    })
+    const u = userEvent.setup()
+    rendre()
+
+    await u.type(await screen.findByLabelText('Places à ouvrir'), '2')
+    await u.click(screen.getByRole('button', { name: 'Ouvrir des places' }))
+    expect(await screen.findByText(/2 places ouvertes/)).toBeTruthy()
+
+    const liste = await screen.findByRole('list', { name: 'Demandes pour rejoindre' })
+    expect(liste.textContent).toMatch(/Joueur avec compte · demande à 18:30/)
+    await u.click(within(liste).getByRole('button', { name: 'Accepter' }))
+
+    expect(await screen.findByText('Joueur ajouté au match.')).toBeTruthy()
+    expect(await screen.findByText('Aucune demande pour l’instant.')).toBeTruthy()
+    expect(screen.getByText(/1 place ouverte/)).toBeTruthy()
+    expect(appels.filter((a) => a === PARTICIPANTS).length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('match complet : le message du serveur s’affiche', async () => {
+    const detail = 'Ce match n’a plus de place ouverte.'
+    serveur({
+      [DEMANDES]: () => json([DEMANDE]),
+      [ACCEPTER]: () => json({ type: 'x', title: 'Match complet', status: 409, detail }, 409),
+    })
+    const u = userEvent.setup()
+    rendre()
+
+    await u.click(await screen.findByRole('button', { name: 'Accepter' }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(detail)
   })
 })

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import { AuthProvider } from '../auth/AuthContext'
@@ -40,7 +41,7 @@ describe('matchs ouverts (SCRUM-118)', () => {
     const lignes = await screen.findAllByRole('listitem')
     expect(lignes).toHaveLength(2)
     expect(lignes[0].textContent).toMatch(/Terrain Démo Guéliz · 2 places/)
-    expect(lignes[1].textContent).toMatch(/Terrain Démo Massira · 1 place$/)
+    expect(lignes[1].textContent).toMatch(/Terrain Démo Massira · 1 place Demander/)
   })
 
   it('demande le jour choisi avec le jeton, et recharge quand la date change', async () => {
@@ -69,5 +70,42 @@ describe('matchs ouverts (SCRUM-118)', () => {
     rendre()
 
     expect((await screen.findByRole('link', { name: 'Matchs ouverts' })).getAttribute('href')).toBe('/matchs-ouverts')
+  })
+})
+
+describe('demander à rejoindre (SCRUM-79)', () => {
+  const routeur = (rejoindre: () => Response) =>
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (entree) => {
+      const requete = entree as Request
+      const chemin = urlDe(requete).pathname
+      if (requete.method === 'POST' && chemin === '/api/v1/matches/m1/join') return rejoindre()
+      return json(OUVERTS)
+    })
+
+  it('envoie la demande sans corps et l’indique sur la ligne du match', async () => {
+    const appel = routeur(() => json({ matchId: 'm1', userId: 'u9', requestedAt: '2026-11-10T10:00:00Z' }, 202))
+    const u = userEvent.setup()
+    rendre()
+
+    const ligne = (await screen.findAllByRole('listitem'))[0]
+    await u.click(within(ligne).getByRole('button', { name: 'Demander à rejoindre' }))
+
+    expect((await within(ligne).findByRole('status')).textContent).toMatch(/Demande envoyée/)
+    const post = appel.mock.calls.map((c) => c[0] as Request).find((r) => r.method === 'POST')!
+    expect(await post.text()).toBe('')
+    expect(post.headers.get('Authorization')).toBe('Bearer jeton')
+  })
+
+  it('match complet entre-temps : le message du serveur s’affiche', async () => {
+    const detail = 'Ce match n’a plus de place ouverte.'
+    routeur(() => json({ type: 'x', title: 'Match complet', status: 409, detail }, 409))
+    const u = userEvent.setup()
+    rendre()
+
+    const ligne = (await screen.findAllByRole('listitem'))[0]
+    await u.click(within(ligne).getByRole('button', { name: 'Demander à rejoindre' }))
+
+    expect((await within(ligne).findByRole('alert')).textContent).toContain(detail)
+    expect(within(ligne).getByRole('button', { name: 'Demander à rejoindre' })).toBeTruthy()
   })
 })
