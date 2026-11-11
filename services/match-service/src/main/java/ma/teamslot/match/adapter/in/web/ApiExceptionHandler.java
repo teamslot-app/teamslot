@@ -14,6 +14,7 @@ import ma.teamslot.match.application.MatchNotFoundException;
 import ma.teamslot.match.application.NotMatchOrganizerException;
 import ma.teamslot.match.application.ParticipantAlreadyAddedException;
 import ma.teamslot.match.application.SlotAlreadyReservedException;
+import ma.teamslot.match.application.SlotAlreadyStartedException;
 import ma.teamslot.match.application.SlotNotFoundException;
 import ma.teamslot.match.application.VenueUnavailableException;
 import ma.teamslot.match.domain.InvalidParticipantException;
@@ -47,6 +48,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail creneauPris(SlotAlreadyReservedException ex) {
         return problem(HttpStatus.CONFLICT, "slot-already-reserved", "Créneau déjà réservé",
                 "Ce créneau est déjà réservé.");
+    }
+
+    /** SCRUM-97 : même code 409, mais un type et un message propres. */
+    @ExceptionHandler(SlotAlreadyStartedException.class)
+    ProblemDetail creneauCommence(SlotAlreadyStartedException ex) {
+        return problem(HttpStatus.CONFLICT, "slot-already-started", "Créneau déjà commencé",
+                "Ce créneau a déjà commencé : choisis un créneau à venir.");
     }
 
     @ExceptionHandler(VenueUnavailableException.class)
