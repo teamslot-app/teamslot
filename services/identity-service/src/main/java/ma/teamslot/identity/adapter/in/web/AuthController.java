@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
+import ma.teamslot.identity.domain.AccountType;
 import ma.teamslot.identity.application.AuthService;
 import ma.teamslot.identity.application.TokenPair;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,8 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
         return UserResponse.from(auth.register(new AuthService.Inscription(request.phone(), request.password(),
-                request.displayName(), request.email(), request.birthDate(), request.phoneCountry())));
+                request.displayName(), request.email(), request.birthDate(), request.phoneCountry(),
+                request.accountType() == null ? AccountType.PLAYER : request.accountType())));
     }
 
     @PostMapping("/login")
@@ -59,7 +61,9 @@ public class AuthController {
             String email,
             LocalDate birthDate,
             @Pattern(regexp = "^[A-Z]{2}$", message = "code pays ISO 3166-1, par exemple MA")
-            String phoneCountry) {
+            String phoneCountry,
+            // SCRUM-136 : PLAYER par défaut ; VENUE_MANAGER = demande en attente, jamais le rôle directement
+            AccountType accountType) {
     }
 
     public record LoginRequest(@NotBlank String phone, @NotBlank String password) {
@@ -70,11 +74,12 @@ public class AuthController {
 
     /** Profil renvoyé au client : jamais le mot de passe ni son empreinte. */
     public record UserResponse(UUID id, String phone, String phoneCountry, boolean phoneVerified, String email,
-                               boolean emailVerified, LocalDate birthDate, String displayName, String platformRole) {
+                               boolean emailVerified, LocalDate birthDate, String displayName, String platformRole,
+                               String managerStatus) {
         static UserResponse from(UserEntity user) {
             return new UserResponse(user.getId(), user.getPhone(), user.getPhoneCountry(), user.isPhoneVerified(),
                     user.getEmail(), user.isEmailVerified(), user.getBirthDate(), user.getDisplayName(),
-                    user.getPlatformRole().name());
+                    user.getPlatformRole().name(), user.getManagerStatus().name());
         }
     }
 }

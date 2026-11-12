@@ -16,6 +16,7 @@ import java.util.UUID;
 
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
 import ma.teamslot.identity.adapter.out.persistence.UserRepository;
+import ma.teamslot.identity.domain.AccountType;
 import ma.teamslot.identity.domain.IndicatifsPays;
 import ma.teamslot.identity.domain.PlatformRole;
 import ma.teamslot.identity.domain.PolitiqueMotDePasse;
@@ -52,7 +53,13 @@ public class AuthService {
 
     /** Données d'inscription ; email, birthDate et phoneCountry restent facultatifs pendant la migration (contrat 2.0.0). */
     public record Inscription(String phone, String rawPassword, String displayName, String email,
-                              LocalDate birthDate, String phoneCountry) {
+                              LocalDate birthDate, String phoneCountry, AccountType accountType) {
+
+        /** Sans accountType (anciens clients) : compte joueur. */
+        public Inscription(String phone, String rawPassword, String displayName, String email,
+                           LocalDate birthDate, String phoneCountry) {
+            this(phone, rawPassword, displayName, email, birthDate, phoneCountry, AccountType.PLAYER);
+        }
     }
 
     private static final LocalDate NAISSANCE_MIN = LocalDate.of(1900, 1, 1);
@@ -69,6 +76,10 @@ public class AuthService {
         }
         UserEntity user = new UserEntity(UUID.randomUUID(), demande.phone(), passwordEncoder.encode(demande.rawPassword()),
                 displayName, PlatformRole.PLAYER, Instant.now(), email, demande.birthDate(), demande.phoneCountry());
+        // SCRUM-136 : toujours PLAYER à l'inscription ; une demande de gérant attend un administrateur (SCRUM-137)
+        if (demande.accountType() == AccountType.VENUE_MANAGER) {
+            user.demanderAEtreGerant(Instant.now());
+        }
         try {
             user = users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {

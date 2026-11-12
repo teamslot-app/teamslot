@@ -148,6 +148,36 @@ class AuthApiTests {
         assertThat(registerV2(newPhone(), PASSWORD, "pas-un-email", null, null).statusCode()).isEqualTo(400);
     }
 
+    // ---------- type de compte (SCRUM-136) ----------
+
+    @Test
+    void sansTypeDeCompte_joueurSansDemande() throws Exception {
+        Map<String, Object> user = json(register(newPhone(), PASSWORD));
+
+        assertThat(user.get("platformRole")).isEqualTo("PLAYER");
+        assertThat(user.get("managerStatus")).isEqualTo("NONE");
+    }
+
+    @Test
+    void demandeDeGerant_resteJoueurEnAttente_etLeJetonDitPlayer() throws Exception {
+        String phone = newPhone();
+        HttpResponse<String> response = registerAvecType(phone, "VENUE_MANAGER");
+
+        assertThat(response.statusCode()).isEqualTo(201);
+        assertThat(json(response).get("platformRole")).isEqualTo("PLAYER");
+        assertThat(json(response).get("managerStatus")).isEqualTo("PENDING");
+        // le rôle ne vient jamais de la requête : le jeton d'un compte en attente reste joueur
+        SignedJWT jwt = SignedJWT.parse((String) json(login(phone, PASSWORD)).get("accessToken"));
+        assertThat(jwt.getJWTClaimsSet().getStringClaim("role")).isEqualTo("PLAYER");
+    }
+
+    @Test
+    void typeDeCompteAdminOuInconnu_400() throws Exception {
+        // ADMIN n'est pas un type de compte demandable : on ne peut pas se donner un rôle à l'inscription
+        assertThat(registerAvecType(newPhone(), "ADMIN").statusCode()).isEqualTo(400);
+        assertThat(registerAvecType(newPhone(), "PROPRIETAIRE").statusCode()).isEqualTo(400);
+    }
+
     // ---------- connexion ----------
 
     @Test
@@ -225,6 +255,11 @@ class AuthApiTests {
     HttpResponse<String> register(String phone, String password) throws Exception {
         return post("/api/v1/auth/register",
                 "{\"phone\":\"" + phone + "\",\"password\":\"" + password + "\",\"displayName\":\"Yassir\"}");
+    }
+
+    HttpResponse<String> registerAvecType(String phone, String accountType) throws Exception {
+        return post("/api/v1/auth/register", "{\"phone\":\"" + phone + "\",\"password\":\"" + PASSWORD
+                + "\",\"displayName\":\"Yassir\",\"accountType\":\"" + accountType + "\"}");
     }
 
     /** Inscription v2 : les champs null ne sont pas envoyés (comme un ancien client). */

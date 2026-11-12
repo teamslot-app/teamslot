@@ -173,6 +173,19 @@ export interface components {
         };
         /** @enum {string} */
         PlatformRole: "PLAYER" | "VENUE_MANAGER" | "ADMIN";
+        /**
+         * @description Type de compte demandé à l'inscription. VENUE_MANAGER crée une demande de gérant en attente de validation :
+         *     le compte reste PLAYER (et son jeton aussi) tant qu'un administrateur ne l'a pas acceptée.
+         * @default PLAYER
+         * @enum {string}
+         */
+        AccountType: "PLAYER" | "VENUE_MANAGER";
+        /**
+         * @description NONE : aucune demande de gérant · PENDING : en attente d'un administrateur · APPROVED : gérant validé
+         *     (platformRole = VENUE_MANAGER) · REJECTED : demande refusée, le compte reste joueur.
+         * @enum {string}
+         */
+        ManagerStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
         /** @description Le mot de passe n'est jamais renvoyé. */
         User: {
             /** Format: uuid */
@@ -195,6 +208,7 @@ export interface components {
             /** @example Yassir */
             displayName: string;
             platformRole: components["schemas"]["PlatformRole"];
+            managerStatus?: components["schemas"]["ManagerStatus"];
         };
         /**
          * @description Pays du numéro (ISO 3166-1 alpha-2), pour le drapeau et la vérification du numéro
@@ -226,6 +240,7 @@ export interface components {
              * @example 2001-04-17
              */
             birthDate?: string;
+            accountType?: components["schemas"]["AccountType"];
         };
         VerifyEmailRequest: {
             /** Format: email */
