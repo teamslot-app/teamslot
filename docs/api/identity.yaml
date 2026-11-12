@@ -1,9 +1,14 @@
 openapi: 3.0.3
 info:
   title: identity-service
-  version: 1.0.0
+  version: 2.0.0
   description: |
     Comptes, authentification (JWT court + refresh révocable) et profil.
+    v2 (SCRUM-131) : inscription avec e-mail, date de naissance et pays du téléphone ; e-mail vérifié par un
+    code à 6 chiffres avant la première connexion.
+    Migration : email, phoneCountry et birthDate sont encore facultatifs dans RegisterRequest, pour que
+    apps/web (front actuel) et deploy/e2e continuent de marcher. Ils deviennent obligatoires avec SCRUM-132,
+    quand le nouveau front (apps/teamslot) et l'E2E les envoient.
     Contrat issu de la conception (sections 4, 6.3 et 7.2).
     Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
 servers:
@@ -21,7 +26,12 @@ paths:
     post:
       tags: [auth]
       summary: Créer un compte
-      description: Publie l'événement user.registered.
+      description: |
+        Crée un compte dont l'e-mail n'est pas encore vérifié, et publie user.registered puis
+        identity.email_verification_requested (le code part par e-mail via notification-service).
+        Le mot de passe est contrôlé ici, côté serveur, même si le front aide à le choisir :
+        12 à 128 caractères, au moins 3 familles parmi minuscules, majuscules, chiffres et symboles,
+        et il ne doit contenir ni l'e-mail, ni le nom affiché, ni le numéro.
       operationId: register
       security: []
       requestBody:
@@ -37,7 +47,9 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409":
-          description: Numéro de téléphone déjà utilisé
+          description: |
+            E-mail ou numéro déjà utilisé. Le message ne dit pas lequel des deux (type
+            https://teamslot.app/problems/account-exists).
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/ProblemDetails" }
@@ -45,7 +57,10 @@ paths:
     post:
       tags: [auth]
       summary: Se connecter
-      description: Un échec renvoie toujours 401, sans préciser si le téléphone ou le mot de passe est faux.
+      description: |
+        Un échec renvoie toujours 401, sans préciser si le téléphone ou le mot de passe est faux.
+        Avec un mot de passe correct mais un e-mail pas encore vérifié : 403
+        (type https://teamslot.app/problems/email-not-verified), pour que le front propose de saisir le code.
       operationId: login
       security: []
       requestBody:
@@ -61,6 +76,57 @@ paths:
               schema: { $ref: "#/components/schemas/TokenPair" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: E-mail pas encore vérifié
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+  /api/v1/auth/email/verify:
+    post:
+      tags: [auth]
+      summary: Vérifier l'e-mail avec le code reçu
+      description: |
+        Code à 6 chiffres, valable 15 minutes, à usage unique, 5 essais au plus. Erreurs (type) :
+        invalid-code (400), code-expired (410), too-many-attempts (429). Un e-mail inconnu renvoie
+        invalid-code, comme un mauvais code : la réponse ne dit pas si le compte existe.
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyEmailRequest" }
+      responses:
+        "204": { description: "E-mail vérifié, l'utilisateur peut se connecter" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "410":
+          description: "Code expiré, en demander un nouveau"
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+        "429":
+          description: "Trop d'essais pour ce code, en demander un nouveau"
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+  /api/v1/auth/email/resend:
+    post:
+      tags: [auth]
+      summary: Renvoyer un code de vérification
+      description: |
+        Répond toujours 202, que l'e-mail existe, soit déjà vérifié ou non : la réponse ne révèle rien.
+        Au plus 1 envoi par minute et 5 par heure pour un même e-mail (au-delà, rien n'est envoyé,
+        toujours 202). Un nouveau code annule le précédent.
+      operationId: resendEmailCode
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResendEmailCodeRequest" }
+      responses:
+        "202": { description: Demande prise en compte }
+        "400": { $ref: "#/components/responses/BadRequest" }
   /api/v1/auth/refresh:
     post:
       tags: [auth]
@@ -185,16 +251,58 @@ components:
       properties:
         id: { type: string, format: uuid }
         phone: { type: string, example: "+212600000000" }
+        phoneCountry: { $ref: "#/components/schemas/CountryCode" }
         phoneVerified: { type: boolean }
+        email: { type: string, format: email, example: "yassir@example.com" }
+        emailVerified: { type: boolean }
+        birthDate: { type: string, format: date, example: "2001-04-17" }
         displayName: { type: string, example: Yassir }
         platformRole: { $ref: "#/components/schemas/PlatformRole" }
+    CountryCode:
+      type: string
+      pattern: "^[A-Z]{2}$"
+      description: Pays du numéro (ISO 3166-1 alpha-2), pour le drapeau et la vérification du numéro
+      example: MA
     RegisterRequest:
       type: object
       required: [phone, password, displayName]
+      description: |
+        email, phoneCountry et birthDate : facultatifs pendant la migration, obligatoires à partir de SCRUM-132.
       properties:
-        phone: { type: string, pattern: "^\\+[1-9][0-9]{7,14}$", description: Numéro au format international }
-        password: { type: string, format: password, minLength: 10, maxLength: 128 }
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Enregistré en minuscules ; doit être unique
+        phone:
+          type: string
+          pattern: "^\\+[1-9][0-9]{7,14}$"
+          description: Numéro au format international (E.164), composé par le front à partir de l'indicatif du pays et du numéro saisi
+          example: "+212645488442"
+        phoneCountry: { $ref: "#/components/schemas/CountryCode" }
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 128
+          description: "Règles complètes vérifiées par le serveur (12 caractères minimum à partir de SCRUM-132) : voir la description de POST /auth/register"
         displayName: { type: string, minLength: 1, maxLength: 40 }
+        birthDate:
+          type: string
+          format: date
+          description: Date passée, après le 1900-01-01. Pas d'âge minimum (décision d'équipe).
+          example: "2001-04-17"
+    VerifyEmailRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        code: { type: string, pattern: "^[0-9]{6}$", example: "482913" }
+    ResendEmailCodeRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
     LoginRequest:
       type: object
       required: [phone, password]
