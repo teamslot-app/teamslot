@@ -4,6 +4,7 @@ namespace: staging
 resources:
 - ../../base
 - namespace.yaml
+- network-policies.yaml
 - ingress-api.yaml
 - ingress-web.yaml
 - sealed-secrets/postgres-admin.yaml
