@@ -1,0 +1,10 @@
+# SCRUM-124 : E2E automatique après chaque déploiement de staging (hook PostSync).
+# Inclus par overlays/staging seulement : le E2E crée des comptes de test, il ne doit jamais tourner en prod.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - e2e-job.yaml
+configMapGenerator:
+  - name: e2e-parcours-match
+    files:
+      - parcours-match.sh
