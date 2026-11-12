@@ -84,6 +84,70 @@ class AuthApiTests {
         assertThat(register(newPhone(), "court").statusCode()).isEqualTo(400);
     }
 
+    // ---------- inscription v2 (SCRUM-132) ----------
+
+    @Test
+    void inscriptionV2_201_emailEnMinusculesEtNonVerifie() throws Exception {
+        String phone = newPhone();
+        String email = "Joueur" + phone.substring(5) + "@Exemple.MA";
+        HttpResponse<String> response = registerV2(phone, PASSWORD, email, "2001-05-14", "MA");
+
+        assertThat(response.statusCode()).isEqualTo(201);
+        Map<String, Object> user = json(response);
+        assertThat(user.get("email")).isEqualTo(email.toLowerCase());
+        assertThat(user.get("emailVerified")).isEqualTo(false);
+        assertThat(user.get("birthDate")).isEqualTo("2001-05-14");
+        assertThat(user.get("phoneCountry")).isEqualTo("MA");
+    }
+
+    @Test
+    void motDePasseFaible_400_avecLaListeDesRegles() throws Exception {
+        HttpResponse<String> response = register(newPhone(), "toutenminuscules");
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(json(response).get("type")).isEqualTo("https://teamslot.app/problems/weak-password");
+        assertThat((java.util.List<?>) json(response).get("violations")).isNotEmpty();
+    }
+
+    @Test
+    void motDePasseContenantLeNumero_400() throws Exception {
+        String phone = newPhone();
+        assertThat(register(phone, "Match-" + phone.substring(phone.length() - 6) + "-Soir").statusCode())
+                .isEqualTo(400);
+    }
+
+    @Test
+    void emailDejaUtilise_409_messageGenerique() throws Exception {
+        String email = "doublon" + newPhone().substring(5) + "@exemple.ma";
+        registerV2(newPhone(), PASSWORD, email, null, null);
+        HttpResponse<String> second = registerV2(newPhone(), PASSWORD, email.toUpperCase(), null, null);
+
+        assertThat(second.statusCode()).isEqualTo(409);
+        assertThat(json(second).get("type")).isEqualTo("https://teamslot.app/problems/account-exists");
+        // le message ne dit pas si c'est le numéro ou l'e-mail qui existe déjà
+        assertThat((String) json(second).get("detail")).contains("numéro ou cette adresse e-mail");
+    }
+
+    @Test
+    void numeroQuiNeCorrespondPasAuPays_400() throws Exception {
+        HttpResponse<String> response = registerV2(newPhone(), PASSWORD, null, null, "FR");
+
+        assertThat(response.statusCode()).isEqualTo(400);
+        assertThat(json(response).get("type")).isEqualTo("https://teamslot.app/problems/invalid-phone");
+    }
+
+    @Test
+    void dateDeNaissanceDansLeFutur_ouAvant1900_400() throws Exception {
+        String demain = java.time.LocalDate.now().plusDays(2).toString();
+        assertThat(registerV2(newPhone(), PASSWORD, null, demain, null).statusCode()).isEqualTo(400);
+        assertThat(registerV2(newPhone(), PASSWORD, null, "1899-12-31", null).statusCode()).isEqualTo(400);
+    }
+
+    @Test
+    void emailMalForme_400() throws Exception {
+        assertThat(registerV2(newPhone(), PASSWORD, "pas-un-email", null, null).statusCode()).isEqualTo(400);
+    }
+
     // ---------- connexion ----------
 
     @Test
@@ -161,6 +225,23 @@ class AuthApiTests {
     HttpResponse<String> register(String phone, String password) throws Exception {
         return post("/api/v1/auth/register",
                 "{\"phone\":\"" + phone + "\",\"password\":\"" + password + "\",\"displayName\":\"Yassir\"}");
+    }
+
+    /** Inscription v2 : les champs null ne sont pas envoyés (comme un ancien client). */
+    HttpResponse<String> registerV2(String phone, String password, String email, String birthDate, String country)
+            throws Exception {
+        StringBuilder body = new StringBuilder("{\"phone\":\"" + phone + "\",\"password\":\"" + password
+                + "\",\"displayName\":\"Yassir\"");
+        if (email != null) {
+            body.append(",\"email\":\"").append(email).append('"');
+        }
+        if (birthDate != null) {
+            body.append(",\"birthDate\":\"").append(birthDate).append('"');
+        }
+        if (country != null) {
+            body.append(",\"phoneCountry\":\"").append(country).append('"');
+        }
+        return post("/api/v1/auth/register", body.append('}').toString());
     }
 
     HttpResponse<String> login(String phone, String password) throws Exception {

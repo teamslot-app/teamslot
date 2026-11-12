@@ -29,7 +29,7 @@ export async function sInscrire(phone: string, password: string, displayName: st
   if (status === 409) throw new ErreurAuth('Ce numéro est déjà inscrit.')
   if (status === 400) {
     throw new ErreurAuth(
-      'Vérifie le numéro (format international, par exemple +212600000000) et choisis un mot de passe d’au moins 10 caractères.',
+      'Vérifie le numéro (format international, par exemple +212600000000) et choisis un mot de passe d’au moins 12 caractères mêlant au moins 3 types : minuscules, majuscules, chiffres, symboles.',
     )
   }
   if (!ok) throw new ErreurAuth(MESSAGE_INDISPONIBLE)
