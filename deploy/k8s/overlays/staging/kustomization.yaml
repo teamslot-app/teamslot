@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: staging
 resources:
 - ../../base
+- ../../../e2e
 - namespace.yaml
 - network-policies.yaml
 - ingress-api.yaml

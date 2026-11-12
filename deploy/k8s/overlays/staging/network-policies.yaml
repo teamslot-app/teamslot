@@ -282,3 +282,24 @@ spec:
   ingress:
   - from: [{podSelector: {matchLabels: {job-name: smoke-test}}}]
     ports: [{port: 8080}, {port: 8081}, {port: 8082}, {port: 8083}, {port: 8085}]
+---
+# E2E (hook PostSync, SCRUM-124) : n'appelle que la passerelle, comme le front
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: job-e2e-egress}
+spec:
+  podSelector: {matchLabels: {job-name: e2e-parcours-match}}
+  policyTypes: [Egress]
+  egress:
+  - to: [{podSelector: {matchLabels: {app: gateway}}}]
+    ports: [{port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-e2e-ingress}
+spec:
+  podSelector: {matchLabels: {app: gateway}}
+  policyTypes: [Ingress]
+  ingress:
+  - from: [{podSelector: {matchLabels: {job-name: e2e-parcours-match}}}]
+    ports: [{port: 8080}]
