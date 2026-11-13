@@ -1,13 +1,23 @@
+# SCRUM-73 : Prometheus collecte /actuator/prometheus de tous les services
+# (avant : service-template seulement). Le label "job" de chaque série = nom du Service.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: service-template
+  name: teamslot-services
   labels:
     release: monitoring
 spec:
   selector:
-    matchLabels:
-      app: service-template
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - gateway
+          - identity-service
+          - venue-service
+          - match-service
+          - payment-service
+          - service-template
   endpoints:
     - port: http
       path: /actuator/prometheus
