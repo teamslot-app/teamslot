@@ -52,7 +52,7 @@ public class UserEntity {
     @Column(name = "phone_country", length = 2)
     private String phoneCountry;
 
-    /** SCRUM-136 : demande « gérant de terrain ». Ne change jamais platformRole à elle seule. */
+    /** SCRUM-136 : état du dossier de terrain (envoi : Sprint 4). Ne change jamais platformRole à lui seul. */
     @Enumerated(EnumType.STRING)
     @Column(name = "manager_status", nullable = false, length = 10)
     private ManagerStatus managerStatus = ManagerStatus.NONE;
@@ -99,9 +99,4 @@ public class UserEntity {
     public ManagerStatus getManagerStatus() { return managerStatus; }
     public Instant getManagerRequestedAt() { return managerRequestedAt; }
 
-    /** SCRUM-136 : demande faite à l'inscription. Le rôle reste celui du compte (PLAYER) jusqu'à la validation. */
-    public void demanderAEtreGerant(Instant maintenant) {
-        this.managerStatus = ManagerStatus.PENDING;
-        this.managerRequestedAt = maintenant;
-    }
 }

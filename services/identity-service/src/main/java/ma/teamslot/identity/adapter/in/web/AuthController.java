@@ -9,7 +9,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
-import ma.teamslot.identity.domain.AccountType;
 import ma.teamslot.identity.application.AuthService;
 import ma.teamslot.identity.application.TokenPair;
 import org.springframework.http.HttpStatus;
@@ -34,8 +33,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
         return UserResponse.from(auth.register(new AuthService.Inscription(request.phone(), request.password(),
-                request.displayName(), request.email(), request.birthDate(), request.phoneCountry(),
-                request.accountType() == null ? AccountType.PLAYER : request.accountType())));
+                request.displayName(), request.email(), request.birthDate(), request.phoneCountry())));
     }
 
     @PostMapping("/login")
@@ -61,9 +59,8 @@ public class AuthController {
             String email,
             LocalDate birthDate,
             @Pattern(regexp = "^[A-Z]{2}$", message = "code pays ISO 3166-1, par exemple MA")
-            String phoneCountry,
-            // SCRUM-136 : PLAYER par défaut ; VENUE_MANAGER = demande en attente, jamais le rôle directement
-            AccountType accountType) {
+            String phoneCountry) {
+        // Volontairement aucun champ de rôle : un platformRole ou accountType envoyé est ignoré (SCRUM-136)
     }
 
     public record LoginRequest(@NotBlank String phone, @NotBlank String password) {

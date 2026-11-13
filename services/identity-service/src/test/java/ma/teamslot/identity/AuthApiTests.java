@@ -159,23 +159,18 @@ class AuthApiTests {
     }
 
     @Test
-    void demandeDeGerant_resteJoueurEnAttente_etLeJetonDitPlayer() throws Exception {
+    void roleOuTypeDeCompteEnvoyes_ignores_resteJoueurSansDemande() throws Exception {
+        // affectation de masse : un client ne peut pas se donner un rôle en ajoutant des champs à l'inscription
         String phone = newPhone();
-        HttpResponse<String> response = registerAvecType(phone, "VENUE_MANAGER");
+        HttpResponse<String> response = post("/api/v1/auth/register", "{\"phone\":\"" + phone + "\",\"password\":\""
+                + PASSWORD + "\",\"displayName\":\"Yassir\",\"accountType\":\"VENUE_MANAGER\","
+                + "\"platformRole\":\"ADMIN\",\"managerStatus\":\"APPROVED\"}");
 
         assertThat(response.statusCode()).isEqualTo(201);
         assertThat(json(response).get("platformRole")).isEqualTo("PLAYER");
-        assertThat(json(response).get("managerStatus")).isEqualTo("PENDING");
-        // le rôle ne vient jamais de la requête : le jeton d'un compte en attente reste joueur
+        assertThat(json(response).get("managerStatus")).isEqualTo("NONE");
         SignedJWT jwt = SignedJWT.parse((String) json(login(phone, PASSWORD)).get("accessToken"));
         assertThat(jwt.getJWTClaimsSet().getStringClaim("role")).isEqualTo("PLAYER");
-    }
-
-    @Test
-    void typeDeCompteAdminOuInconnu_400() throws Exception {
-        // ADMIN n'est pas un type de compte demandable : on ne peut pas se donner un rôle à l'inscription
-        assertThat(registerAvecType(newPhone(), "ADMIN").statusCode()).isEqualTo(400);
-        assertThat(registerAvecType(newPhone(), "PROPRIETAIRE").statusCode()).isEqualTo(400);
     }
 
     // ---------- connexion ----------
@@ -255,11 +250,6 @@ class AuthApiTests {
     HttpResponse<String> register(String phone, String password) throws Exception {
         return post("/api/v1/auth/register",
                 "{\"phone\":\"" + phone + "\",\"password\":\"" + password + "\",\"displayName\":\"Yassir\"}");
-    }
-
-    HttpResponse<String> registerAvecType(String phone, String accountType) throws Exception {
-        return post("/api/v1/auth/register", "{\"phone\":\"" + phone + "\",\"password\":\"" + PASSWORD
-                + "\",\"displayName\":\"Yassir\",\"accountType\":\"" + accountType + "\"}");
     }
 
     /** Inscription v2 : les champs null ne sont pas envoyés (comme un ancien client). */

@@ -174,15 +174,8 @@ export interface components {
         /** @enum {string} */
         PlatformRole: "PLAYER" | "VENUE_MANAGER" | "ADMIN";
         /**
-         * @description Type de compte demandé à l'inscription. VENUE_MANAGER crée une demande de gérant en attente de validation :
-         *     le compte reste PLAYER (et son jeton aussi) tant qu'un administrateur ne l'a pas acceptée.
-         * @default PLAYER
-         * @enum {string}
-         */
-        AccountType: "PLAYER" | "VENUE_MANAGER";
-        /**
-         * @description NONE : aucune demande de gérant · PENDING : en attente d'un administrateur · APPROVED : gérant validé
-         *     (platformRole = VENUE_MANAGER) · REJECTED : demande refusée, le compte reste joueur.
+         * @description NONE : aucun dossier de terrain envoyé · PENDING : dossier envoyé, en attente d'un administrateur ·
+         *     APPROVED : dossier validé (platformRole = VENUE_MANAGER) · REJECTED : dossier refusé, le compte garde son rôle.
          * @enum {string}
          */
         ManagerStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
@@ -240,7 +233,6 @@ export interface components {
              * @example 2001-04-17
              */
             birthDate?: string;
-            accountType?: components["schemas"]["AccountType"];
         };
         VerifyEmailRequest: {
             /** Format: email */
