@@ -2,6 +2,7 @@ package ma.teamslot.venue.adapter.in.kafka;
 
 import ma.teamslot.venue.application.ReleaseService;
 import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.Correlation;
 import ma.teamslot.events.EventReader;
 import ma.teamslot.events.IdempotentProcessor;
 import org.slf4j.Logger;
@@ -53,6 +54,9 @@ public class MatchCancelledListener {
       return;
     }
     MatchCancelledData data = json.treeToValue(evenement.data(), MatchCancelledData.class);
-    processeur.traiterUneFois(evenement.eventId(), () -> service.surMatchAnnule(data.matchId()));
+    // SCRUM-89 : identifiant de corrélation de l'annulation dans les logs et dans slot.released
+    Correlation.pendant(
+        evenement.correlationId(),
+        () -> processeur.traiterUneFois(evenement.eventId(), () -> service.surMatchAnnule(data.matchId())));
   }
 }
