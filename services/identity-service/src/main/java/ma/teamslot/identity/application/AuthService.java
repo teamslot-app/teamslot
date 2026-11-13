@@ -54,12 +54,6 @@ public class AuthService {
     /** Données d'inscription ; email, birthDate et phoneCountry restent facultatifs pendant la migration (contrat 2.0.0). */
     public record Inscription(String phone, String rawPassword, String displayName, String email,
                               LocalDate birthDate, String phoneCountry, AccountType accountType) {
-
-        /** Sans accountType (anciens clients) : compte joueur. */
-        public Inscription(String phone, String rawPassword, String displayName, String email,
-                           LocalDate birthDate, String phoneCountry) {
-            this(phone, rawPassword, displayName, email, birthDate, phoneCountry, AccountType.PLAYER);
-        }
     }
 
     private static final LocalDate NAISSANCE_MIN = LocalDate.of(1900, 1, 1);
@@ -88,11 +82,6 @@ public class AuthService {
         }
         // TODO SCRUM-70 / SCRUM-133 : publier user.registered et identity.email_verification_requested par l'outbox
         return user;
-    }
-
-    /** Ancienne signature (apps/web, tests existants) : inscription sans e-mail ni date de naissance. */
-    public UserEntity register(String phone, String rawPassword, String displayName) {
-        return register(new Inscription(phone, rawPassword, displayName, null, null, null));
     }
 
     private void verifier(Inscription demande, String email, String displayName) {
