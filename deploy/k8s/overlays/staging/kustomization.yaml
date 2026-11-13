@@ -4,6 +4,7 @@ namespace: staging
 resources:
 - ../../base
 - ../../../e2e
+- ../../../monitoring
 - namespace.yaml
 - network-policies.yaml
 - ingress-api.yaml
