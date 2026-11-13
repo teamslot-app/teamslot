@@ -9,7 +9,7 @@
 # N'affiche ni mot de passe ni jeton.
 set -u
 
-API="${API:-http://gateway}"
+API="${API:-http://passerelle-inexistante}"
 TERRAIN="${TERRAIN:-a1000000-0000-4000-8000-000000000001}" # Terrain Démo Guéliz (profil demo de venue-service)
 ok=0
 ko=0
