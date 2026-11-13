@@ -21,7 +21,10 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
 # Correctifs Alpine (Trivy, PR #158) : brotli-libs CVE-2026-111497 (CRITICAL) ;
 # libexpat CVE-2026-77214, -113351, -117610, -118370 (HIGH). A retirer quand l'image de base les embarque.
-RUN apk upgrade --no-cache libexpat brotli-libs
+# SCRUM-119 (suite, 11/11) : apk upgrade de TOUS les paquets, comme match-service. La liste fixe
+# (libexpat brotli-libs) laissait passer les nouveaux CVE Alpine (musl CVE-2026-107891 HIGH).
+# A retirer avec la nouvelle empreinte de l'image de base (SCRUM-121).
+RUN apk upgrade --no-cache
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/payment-service/target/*.jar app.jar

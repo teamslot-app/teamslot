@@ -1,0 +1,60 @@
+# Test E2E du parcours match, lancé par Argo CD après le test de fumée (SCRUM-124).
+# Wave 1 : après smoke-test (wave 0). Un échec marque la synchronisation en échec (application Degraded).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e-parcours-match
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  # Garde-fou : le Job ne peut pas tourner plus de 15 minutes
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: e2e-parcours-match
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: e2e
+          # Image épinglée par empreinte (SCRUM-84)
+          image: curlimages/curl:8.10.1@sha256:d9b4541e214bcd85196d6e92e2753ac6d0ea699f0af5741f8c6cccbfcf00ef4b
+          command: ["/bin/sh", "/scripts/parcours-match.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            # Le script utilise mktemp : le disque racine est en lecture seule
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: e2e-parcours-match
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
