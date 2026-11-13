@@ -1,0 +1,152 @@
+openapi: 3.0.3
+info:
+  title: messaging-service
+  version: 1.0.0
+  description: |
+    Chat d'un match : les participants avec un compte échangent des messages texte.
+    messaging-service garde sa propre liste « match → participants », remplie par les événements
+    match.participant_added, match.join_accepted et match.challenge_accepted (docs/events.md) :
+    il n'appelle pas match-service pour chaque message.
+    Ce contrat décrit les routes HTTP (historique et envoi). La réception en direct passe par
+    WebSocket/STOMP (ADR-009) et n'est pas décrite par OpenAPI.
+    Contrat sommaire (SCRUM-71), écrit à partir de docs/events.md, de l'ADR-001 et de l'ADR-009.
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
+    L'expéditeur est toujours lu dans le JWT (claim sub), jamais dans le corps.
+    Sécurité : le contenu est du texte brut ; le front doit l'afficher comme du texte, jamais comme
+    du HTML (protection contre le XSS). Un invité sans compte (guestName) n'a pas accès au chat.
+servers:
+  - url: http://localhost:8087
+    description: Développement local (port à confirmer avec le service modèle)
+security:
+  - bearerAuth: []
+tags:
+  - name: messages
+    description: Chat d'un match
+paths:
+  /api/v1/matches/{matchId}/messages:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    get:
+      tags: [messages]
+      summary: Historique du chat d'un match
+      description: Réservé aux participants du match qui ont un compte. Les messages les plus récents d'abord.
+      operationId: listMatchMessages
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          description: Une page de messages
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessagePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [messages]
+      summary: Envoyer un message dans le chat du match
+      description: |
+        Réservé aux participants du match qui ont un compte. L'expéditeur est le sub du JWT.
+        Le message est ensuite diffusé en direct aux participants connectés (STOMP).
+      operationId: sendMatchMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendMessageRequest" }
+      responses:
+        "201":
+          description: Message enregistré
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+    Size:
+      name: size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+  responses:
+    BadRequest:
+      description: Requête invalide (contenu vide ou trop long, page ou size hors limites)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: L'utilisateur ne participe pas à ce match (type not-match-participant)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Match inconnu de messaging-service
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/not-match-participant" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    SendMessageRequest:
+      type: object
+      required: [content]
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Texte brut, affiché comme du texte par le front (jamais interprété comme du HTML)
+          example: "J'arrive 10 minutes en avance pour les chasubles."
+    Message:
+      type: object
+      required: [id, matchId, senderId, content, sentAt]
+      properties:
+        id: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        senderId: { type: string, format: uuid, description: Identifiant du compte de l'expéditeur (sub du JWT) }
+        content: { type: string, maxLength: 500 }
+        sentAt: { type: string, format: date-time, example: "2026-11-20T17:45:00Z" }
+    MessagePage:
+      type: object
+      required: [content, page, size, totalElements]
+      properties:
+        content:
+          type: array
+          items: { $ref: "#/components/schemas/Message" }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
