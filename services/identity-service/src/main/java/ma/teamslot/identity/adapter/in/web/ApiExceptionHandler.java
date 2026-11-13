@@ -16,10 +16,31 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(AuthErrors.PhoneAlreadyUsed.class)
-    ProblemDetail phoneAlreadyUsed() {
-        return problem(HttpStatus.CONFLICT, "phone-already-used", "Numéro déjà utilisé",
-                "Ce numéro de téléphone est déjà associé à un compte.");
+    @ExceptionHandler(AuthErrors.AccountAlreadyExists.class)
+    ProblemDetail accountAlreadyExists() {
+        // ne dit pas si c'est le numéro ou l'e-mail : on ne révèle pas quels comptes existent
+        return problem(HttpStatus.CONFLICT, "account-exists", "Compte déjà existant",
+                "Un compte existe déjà avec ce numéro ou cette adresse e-mail.");
+    }
+
+    @ExceptionHandler(AuthErrors.WeakPassword.class)
+    ProblemDetail weakPassword(AuthErrors.WeakPassword e) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "weak-password", "Mot de passe trop faible",
+                "Le mot de passe doit respecter : " + String.join(", ", e.violations()) + ".");
+        problem.setProperty("violations", e.violations());
+        return problem;
+    }
+
+    @ExceptionHandler(AuthErrors.PhoneCountryMismatch.class)
+    ProblemDetail phoneCountryMismatch() {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-phone", "Numéro invalide",
+                "Le numéro ne correspond pas au pays choisi.");
+    }
+
+    @ExceptionHandler(AuthErrors.InvalidBirthDate.class)
+    ProblemDetail invalidBirthDate() {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-birth-date", "Date de naissance invalide",
+                "La date de naissance doit être passée et postérieure au 1er janvier 1900.");
     }
 
     @ExceptionHandler(AuthErrors.InvalidCredentials.class)

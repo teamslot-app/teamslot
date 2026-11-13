@@ -53,7 +53,8 @@ attendu() { # attendu CODE_ATTENDU LIBELLÉ
 }
 
 suffixe=$(date +%s | tail -c 9)
-mdp="E2e-test-$suffixe-staging"
+# SCRUM-132 : le mot de passe ne doit pas contenir les chiffres du numéro -> lettres aléatoires, jamais affichées
+mdp="E2e-$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z' | head -c 12)-Staging"
 
 echo "== 1. Comptes de test =="
 appel POST /api/v1/auth/register "" "{\"phone\":\"+2126$suffixe\",\"password\":\"$mdp\",\"displayName\":\"E2E Orga $suffixe\"}"
