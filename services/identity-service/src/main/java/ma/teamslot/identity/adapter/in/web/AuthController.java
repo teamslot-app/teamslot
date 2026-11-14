@@ -1,8 +1,10 @@
 package ma.teamslot.identity.adapter.in.web;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -16,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** SCRUM-57 — contrat docs/api/identity.yaml : register, login, refresh. */
+/** SCRUM-57, SCRUM-132 — contrat docs/api/identity.yaml (2.0.0) : register, login, refresh. */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -30,7 +32,8 @@ public class AuthController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
-        return UserResponse.from(auth.register(request.phone(), request.password(), request.displayName()));
+        return UserResponse.from(auth.register(new AuthService.Inscription(request.phone(), request.password(),
+                request.displayName(), request.email(), request.birthDate(), request.phoneCountry())));
     }
 
     @PostMapping("/login")
@@ -46,10 +49,18 @@ public class AuthController {
     public record RegisterRequest(
             @NotBlank @Pattern(regexp = "^\\+[1-9][0-9]{7,14}$", message = "numéro au format international, par exemple +212600000000")
             String phone,
-            @NotBlank @Size(min = 10, max = 128, message = "entre 10 et 128 caractères")
+            // longueur, familles de caractères, etc. : PolitiqueMotDePasse, dans le service (SCRUM-132)
+            @NotBlank @Size(max = 128)
             String password,
             @NotBlank @Size(max = 40)
-            String displayName) {
+            String displayName,
+            // SCRUM-132 : facultatifs pendant la migration (contrat identity 2.0.0)
+            @Email @Size(max = 254)
+            String email,
+            LocalDate birthDate,
+            @Pattern(regexp = "^[A-Z]{2}$", message = "code pays ISO 3166-1, par exemple MA")
+            String phoneCountry) {
+        // Volontairement aucun champ de rôle : un platformRole ou accountType envoyé est ignoré (SCRUM-136)
     }
 
     public record LoginRequest(@NotBlank String phone, @NotBlank String password) {
@@ -59,10 +70,13 @@ public class AuthController {
     }
 
     /** Profil renvoyé au client : jamais le mot de passe ni son empreinte. */
-    public record UserResponse(UUID id, String phone, boolean phoneVerified, String displayName, String platformRole) {
+    public record UserResponse(UUID id, String phone, String phoneCountry, boolean phoneVerified, String email,
+                               boolean emailVerified, LocalDate birthDate, String displayName, String platformRole,
+                               String managerStatus) {
         static UserResponse from(UserEntity user) {
-            return new UserResponse(user.getId(), user.getPhone(), user.isPhoneVerified(),
-                    user.getDisplayName(), user.getPlatformRole().name());
+            return new UserResponse(user.getId(), user.getPhone(), user.getPhoneCountry(), user.isPhoneVerified(),
+                    user.getEmail(), user.isEmailVerified(), user.getBirthDate(), user.getDisplayName(),
+                    user.getPlatformRole().name(), user.getManagerStatus().name());
         }
     }
 }

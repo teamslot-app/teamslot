@@ -15,7 +15,11 @@ export interface paths {
         put?: never;
         /**
          * Créer un compte
-         * @description Publie l'événement user.registered.
+         * @description Crée un compte dont l'e-mail n'est pas encore vérifié, et publie user.registered puis
+         *     identity.email_verification_requested (le code part par e-mail via notification-service).
+         *     Le mot de passe est contrôlé ici, côté serveur, même si le front aide à le choisir :
+         *     12 à 128 caractères, au moins 3 familles parmi minuscules, majuscules, chiffres et symboles,
+         *     et il ne doit contenir ni l'e-mail, ni le nom affiché, ni le numéro.
          */
         post: operations["register"];
         delete?: never;
@@ -36,8 +40,54 @@ export interface paths {
         /**
          * Se connecter
          * @description Un échec renvoie toujours 401, sans préciser si le téléphone ou le mot de passe est faux.
+         *     Avec un mot de passe correct mais un e-mail pas encore vérifié : 403
+         *     (type https://teamslot.app/problems/email-not-verified), pour que le front propose de saisir le code.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vérifier l'e-mail avec le code reçu
+         * @description Code à 6 chiffres, valable 15 minutes, à usage unique, 5 essais au plus. Erreurs (type) :
+         *     invalid-code (400), code-expired (410), too-many-attempts (429). Un e-mail inconnu renvoie
+         *     invalid-code, comme un mauvais code : la réponse ne dit pas si le compte existe.
+         */
+        post: operations["verifyEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renvoyer un code de vérification
+         * @description Répond toujours 202, que l'e-mail existe, soit déjà vérifié ou non : la réponse ne révèle rien.
+         *     Au plus 1 envoi par minute et 5 par heure pour un même e-mail (au-delà, rien n'est envoyé,
+         *     toujours 202). Un nouveau code annule le précédent.
+         */
+        post: operations["resendEmailCode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -123,23 +173,76 @@ export interface components {
         };
         /** @enum {string} */
         PlatformRole: "PLAYER" | "VENUE_MANAGER" | "ADMIN";
+        /**
+         * @description NONE : aucun dossier de terrain envoyé · PENDING : dossier envoyé, en attente d'un administrateur ·
+         *     APPROVED : dossier validé (platformRole = VENUE_MANAGER) · REJECTED : dossier refusé, le compte garde son rôle.
+         * @enum {string}
+         */
+        ManagerStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
         /** @description Le mot de passe n'est jamais renvoyé. */
         User: {
             /** Format: uuid */
             id: string;
             /** @example +212600000000 */
             phone: string;
+            phoneCountry?: components["schemas"]["CountryCode"];
             phoneVerified?: boolean;
+            /**
+             * Format: email
+             * @example yassir@example.com
+             */
+            email?: string;
+            emailVerified?: boolean;
+            /**
+             * Format: date
+             * @example 2001-04-17
+             */
+            birthDate?: string;
             /** @example Yassir */
             displayName: string;
             platformRole: components["schemas"]["PlatformRole"];
+            managerStatus?: components["schemas"]["ManagerStatus"];
         };
+        /**
+         * @description Pays du numéro (ISO 3166-1 alpha-2), pour le drapeau et la vérification du numéro
+         * @example MA
+         */
+        CountryCode: string;
+        /** @description email, phoneCountry et birthDate : facultatifs pendant la migration, obligatoires à partir de SCRUM-132. */
         RegisterRequest: {
-            /** @description Numéro au format international */
+            /**
+             * Format: email
+             * @description Enregistré en minuscules ; doit être unique
+             */
+            email?: string;
+            /**
+             * @description Numéro au format international (E.164), composé par le front à partir de l'indicatif du pays et du numéro saisi
+             * @example +212645488442
+             */
             phone: string;
-            /** Format: password */
+            phoneCountry?: components["schemas"]["CountryCode"];
+            /**
+             * Format: password
+             * @description Règles complètes vérifiées par le serveur (12 caractères minimum à partir de SCRUM-132) : voir la description de POST /auth/register
+             */
             password: string;
             displayName: string;
+            /**
+             * Format: date
+             * @description Date passée, après le 1900-01-01. Pas d'âge minimum (décision d'équipe).
+             * @example 2001-04-17
+             */
+            birthDate?: string;
+        };
+        VerifyEmailRequest: {
+            /** Format: email */
+            email: string;
+            /** @example 482913 */
+            code: string;
+        };
+        ResendEmailCodeRequest: {
+            /** Format: email */
+            email: string;
         };
         LoginRequest: {
             phone: string;
@@ -265,7 +368,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
-            /** @description Numéro de téléphone déjà utilisé */
+            /**
+             * @description E-mail ou numéro déjà utilisé. Le message ne dit pas lequel des deux (type
+             *     https://teamslot.app/problems/account-exists).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -300,6 +406,79 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            /** @description E-mail pas encore vérifié */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    verifyEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description E-mail vérifié, l'utilisateur peut se connecter */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Code expiré, en demander un nouveau */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Trop d'essais pour ce code, en demander un nouveau */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    resendEmailCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendEmailCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Demande prise en compte */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
         };
     };
     refresh: {

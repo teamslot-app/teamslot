@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ticket** | SCRUM-24 |
-| **Version** | 1.4 — Sprint 3 (`correlationId` facultatif dans l'enveloppe, SCRUM-89) |
+| **Version** | 1.5 — Sprint 3 (`identity.email_verification_requested` ; `user.registered` enrichi, SCRUM-131 ; `correlationId` dans l'enveloppe depuis 1.4, SCRUM-89) |
 | **Source** | Conception TeamSlot, section 7.3 ; contrats `docs/api/*.yaml` |
 
 Les services communiquent par événements (ADR-002). Ce catalogue est **la référence** : un producteur n'émet que des événements listés ici, avec ces noms et ces champs, et tout nouvel événement est ajouté dans ce fichier **dans la même pull request** que le code qui le produit.
@@ -67,7 +67,31 @@ La colonne **S1** marque les événements nécessaires aux stories du Sprint 1 (
 
 | Topic | Clé | Consommateurs | Champs de `data` | S1 |
 |---|---|---|---|---|
-| `user.registered` | userId | notification | userId, displayName, phone | ✓ |
+| `user.registered` | userId | notification | userId, displayName, phone, email | ✓ |
+| `identity.email_verification_requested` | userId | notification | userId, email, displayName, code, expiresAt | |
+
+`identity.email_verification_requested` transporte le code à 6 chiffres en clair : c'est le **seul** endroit où il
+circule (en base, identity-service ne garde que son empreinte). Aucun producteur ni consommateur ne doit l'écrire
+dans un log, une trace ou un message d'erreur ; le topic `.dlt` le contient aussi, il est soumis aux mêmes règles.
+Publié via l'outbox, dans la même transaction que la création du compte ou le renvoi du code.
+
+```json
+{
+  "eventId": "6c0f6b0e-3a52-4bc4-9f5e-2f0b1d9c7a10",
+  "type": "identity.email_verification_requested",
+  "version": 1,
+  "occurredAt": "2026-11-12T14:05:00Z",
+  "producer": "identity-service",
+  "correlationId": "0d6b2f9e-41a7-4c3e-9d4a-6b8a2e1f5c33",
+  "data": {
+    "userId": "5f1d7c2a-8b3e-4a90-b6f1-2c7d9e0a4b18",
+    "email": "yassir@example.com",
+    "displayName": "Yassir",
+    "code": "482913",
+    "expiresAt": "2026-11-12T14:20:00Z"
+  }
+}
+```
 
 ### venue-service
 
@@ -153,6 +177,7 @@ sequenceDiagram
 
 | Version | Changement | Raison |
 |---|---|---|
+| 1.5 | `identity.email_verification_requested` (nouveau) ; champ `email` ajouté à `user.registered` (SCRUM-131). | Inscription v2 : e-mail vérifié par code avant la première connexion. Nouvel événement et ajout de champ : aucun consommateur existant cassé. |
 | 1.4 | Champ facultatif `correlationId` (UUID) dans l'enveloppe, rempli par `libs/events` depuis le MDC de la requête (SCRUM-89). Absent du JSON quand il n'y en a pas. | Suivre une requête d'un service à l'autre à travers l'outbox et Kafka. Ajout d'un champ facultatif : compatible avec tous les consommateurs (règle d'évolution). |
 | 1.3 | `match.join_requested` et `match.join_accepted` produits par match-service (SCRUM-79) ; topics et `.dlt` dans `create-topics.sh`. L'acceptation ne publie **pas** `match.participant_added` : notification-service doit consommer `match.join_accepted` pour prévenir le joueur accepté. | Un joueur demande une place, l'organisateur accepte. Nouveaux événements : aucun consommateur existant touché. |
 | 1.2 | `match.spots_opened` produit par match-service (SCRUM-78) ; topic et `.dlt` ajoutés à `create-topics.sh`. Aucun consommateur ce sprint (search-service n'existe pas, ADR-012). | L'organisateur ouvre des places pour compléter son groupe. Nouvel événement : aucun consommateur existant n'est touché (`match.participant_added` et `match.confirmed` inchangés pour notification). |

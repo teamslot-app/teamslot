@@ -4,15 +4,21 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
 import ma.teamslot.identity.adapter.out.persistence.UserRepository;
+import ma.teamslot.identity.domain.IndicatifsPays;
 import ma.teamslot.identity.domain.PlatformRole;
+import ma.teamslot.identity.domain.PolitiqueMotDePasse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +35,7 @@ public class AuthService {
     private final TokenService tokens;
     private final Duration refreshTokenTtl;
     private final SecureRandom random = new SecureRandom();
+    private final Clock clock = Clock.systemUTC();
     /** Empreinte factice : vérifiée quand le téléphone est inconnu, pour que la réponse prenne le même temps. */
     private final String dummyHash;
 
@@ -43,21 +50,48 @@ public class AuthService {
         this.dummyHash = passwordEncoder.encode("mot-de-passe-factice-" + UUID.randomUUID());
     }
 
+    /** Données d'inscription ; email, birthDate et phoneCountry restent facultatifs pendant la migration (contrat 2.0.0). */
+    public record Inscription(String phone, String rawPassword, String displayName, String email,
+                              LocalDate birthDate, String phoneCountry) {
+    }
+
+    private static final LocalDate NAISSANCE_MIN = LocalDate.of(1900, 1, 1);
+
     @Transactional
-    public UserEntity register(String phone, String rawPassword, String displayName) {
-        if (users.existsByPhone(phone)) {
-            throw new AuthErrors.PhoneAlreadyUsed();
+    public UserEntity register(Inscription demande) {
+        String email = demande.email() == null ? null : demande.email().strip().toLowerCase(Locale.ROOT);
+        String displayName = demande.displayName().strip();
+        verifier(demande, email, displayName);
+
+        // même erreur que ce soit le numéro ou l'e-mail : la réponse ne dit pas lequel existe déjà
+        if (users.existsByPhone(demande.phone()) || (email != null && users.existsByEmail(email))) {
+            throw new AuthErrors.AccountAlreadyExists();
         }
-        UserEntity user = new UserEntity(UUID.randomUUID(), phone, passwordEncoder.encode(rawPassword),
-                displayName.strip(), PlatformRole.PLAYER, Instant.now());
+        UserEntity user = new UserEntity(UUID.randomUUID(), demande.phone(), passwordEncoder.encode(demande.rawPassword()),
+                displayName, PlatformRole.PLAYER, Instant.now(), email, demande.birthDate(), demande.phoneCountry());
+        // SCRUM-136 : toujours PLAYER et managerStatus = NONE ; devenir gérant passe par le dossier du terrain
         try {
             user = users.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            // deux inscriptions simultanées avec le même numéro : la contrainte UNIQUE tranche
-            throw new AuthErrors.PhoneAlreadyUsed();
+            // deux inscriptions simultanées avec le même numéro ou e-mail : les contraintes UNIQUE tranchent
+            throw new AuthErrors.AccountAlreadyExists();
         }
-        // TODO SCRUM-70 : publier l'événement user.registered par l'outbox de Sara
+        // TODO SCRUM-70 / SCRUM-133 : publier user.registered et identity.email_verification_requested par l'outbox
         return user;
+    }
+
+    private void verifier(Inscription demande, String email, String displayName) {
+        List<String> violations = PolitiqueMotDePasse.violations(demande.rawPassword(), email, displayName, demande.phone());
+        if (!violations.isEmpty()) {
+            throw new AuthErrors.WeakPassword(violations);
+        }
+        if (!IndicatifsPays.coherent(demande.phoneCountry(), demande.phone())) {
+            throw new AuthErrors.PhoneCountryMismatch();
+        }
+        LocalDate naissance = demande.birthDate();
+        if (naissance != null && (naissance.isBefore(NAISSANCE_MIN) || !naissance.isBefore(LocalDate.now(clock)))) {
+            throw new AuthErrors.InvalidBirthDate();
+        }
     }
 
     @Transactional
