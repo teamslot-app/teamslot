@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/schibsted-grotesk';
+
+/*
+ * Thème « Lions de l'Atlas » : les couleurs du Maroc. Vert profond partout, rouge du maillot pour l'action,
+ * titres crème rosée (pas de blanc). Le bouton principal est un brassard de capitaine en biais, avec le « C ».
+ * Une seule famille, moderne et sobre : Schibsted Grotesk (gras serré pour les titres, normal pour le texte).
+ * Les composants n'utilisent QUE ces jetons ; la scène 3D les lit aussi (getComputedStyle).
+ * Contrastes mesurés (WCAG AA, 4,5:1 minimum) :
+ *   creme/maillot 9,5:1 · sauge/maillot 9,0:1 · creme/tonte 6,6:1 · rose-pale/rouge (brassard) 6,0:1
+ *   rose-pale/rouge-vif (survol) 4,8:1 · alerte/maillot 5,6:1
+ */
+@theme static {
+    --color-maillot: #0b3a21; /* fond : le vert du maillot */
+    --color-gazon: #0e4426; /* pelouse (scène 3D) */
+    --color-gazon-tonte: #145530; /* bande de tonte plus claire */
+    --color-rouge: #b3202a; /* action : le rouge du maillot */
+    --color-rouge-vif: #c1272d; /* survol de l'action */
+    --color-rouge-sombre: #6e1117; /* tranche du brassard */
+    --color-creme: #f7d7cf; /* titres, liens */
+    --color-rose-pale: #fbe4dd; /* texte sur le rouge */
+    --color-sauge: #cfddbf; /* texte courant */
+    --color-craie: #e6ebdc; /* marquage du terrain, cage, panneaux clairs du ballon (scène 3D seulement) */
+    --color-alerte: #ff8a80; /* erreurs, toujours avec un texte */
+    --color-projecteur: #ffe7bf; /* lumière chaude des projecteurs (scène 3D seulement) */
+    --color-horizon: #2f4b3d; /* vert du grillage à l'horizon de la photo HDRI (brume, scène 3D seulement) */
+    --color-metal: #9aa3a0; /* grillage, poteaux (scène 3D seulement) */
+    --color-ciel: #23414c; /* ciel de nuit, lumière d'ambiance (scène 3D seulement) */
+
+    --font-titre: 'Schibsted Grotesk Variable', system-ui, sans-serif;
+    --font-sans: 'Schibsted Grotesk Variable', system-ui, sans-serif;
+}
+
+@layer base {
+    html {
+        color-scheme: dark;
+    }
+    body {
+        @apply bg-maillot font-sans text-sauge antialiased;
+    }
+    :focus-visible {
+        @apply outline-3 outline-offset-4 outline-creme;
+    }
+}
+
+@layer components {
+    /*
+   * Brassard de capitaine : une bande rouge en biais (le fond est penché, le texte reste droit), avec le « C »
+   * dans un rond. Au survol, le brassard se soulève ; à l'appui, il s'enfonce (la tranche disparaît).
+   * Léger effet aimant vers le curseur sur ordinateur (--aimant-x / --aimant-y, voir useAimant).
+   */
+    .brassard {
+        @apply relative isolate inline-flex min-h-14 items-center gap-3 px-8 text-lg font-bold text-rose-pale select-none;
+        transform: translate(var(--aimant-x, 0), calc(var(--aimant-y, 0px) + var(--levee, 0px)));
+        transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .brassard::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--color-rouge);
+        transform: skewX(-12deg);
+        box-shadow: 0 5px 0 var(--color-rouge-sombre);
+        transition:
+            box-shadow 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+            background-color 160ms ease-out;
+    }
+    .brassard:hover {
+        --levee: -2px;
+    }
+    .brassard:hover::before {
+        background: var(--color-rouge-vif);
+        box-shadow: 0 7px 0 var(--color-rouge-sombre);
+    }
+    .brassard:active {
+        --levee: 5px;
+        transition-duration: 60ms;
+    }
+    .brassard:active::before {
+        box-shadow: 0 0 0 var(--color-rouge-sombre);
+        transition-duration: 60ms;
+    }
+    .brassard-c {
+        @apply inline-flex size-8 items-center justify-center rounded-full border-2 border-rose-pale text-sm font-extrabold;
+    }
+
+    /* Lien secondaire : un trait rouge en biais se trace sous le texte au survol. */
+    .lien-brassard {
+        @apply inline-flex min-h-11 items-center font-semibold text-creme;
+        background: linear-gradient(var(--color-rouge-vif), var(--color-rouge-vif)) left bottom 9px / 0 3px no-repeat;
+        transition: background-size 220ms ease-out;
+    }
+    .lien-brassard:hover {
+        background-size: 100% 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .brassard,
+        .brassard::before,
+        .lien-brassard {
+            transition: none;
+            --aimant-x: 0px;
+            --aimant-y: 0px;
+        }
+    }
+}
+
+@keyframes but-entree {
+    0% {
+        transform: scale(0.6) rotate(-6deg);
+        opacity: 0;
+    }
+    40% {
+        transform: scale(1.08) rotate(-3deg);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1) rotate(-3deg);
+        opacity: 1;
+    }
+}
+@utility anim-but {
+    animation: but-entree 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
