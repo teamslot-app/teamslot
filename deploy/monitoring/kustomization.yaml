@@ -1,0 +1,13 @@
+# SCRUM-73 : tableaux Grafana et alertes, inclus par overlays/staging.
+# Grafana charge toute ConfigMap portant le label grafana_dashboard (tous namespaces).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - alertes.yaml
+configMapGenerator:
+  - name: dashboard-teamslot-services
+    files:
+      - dashboard-services.json
+    options:
+      labels:
+        grafana_dashboard: "1"

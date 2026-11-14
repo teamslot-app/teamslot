@@ -1,0 +1,21 @@
+# SCRUM-73 : alertes. Alertmanager est désactivé : elles se lisent dans Prometheus (onglet Alerts) et Grafana, sans notification.
+# Le label release: monitoring est obligatoire (ruleSelector de Prometheus).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: teamslot-alertes
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: teamslot.rules
+      rules:
+        - alert: TeamSlotErreurs5xx
+          # Seuil proposé : plus de 3 erreurs 5xx en 5 minutes sur un service, pendant 2 minutes.
+          expr: sum by (job) (increase(http_server_requests_seconds_count{namespace="staging", status=~"5.."}[5m])) > 3
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Erreurs 5xx sur {{ $labels.job }}"
+            description: "Plus de 3 réponses 5xx en 5 minutes sur {{ $labels.job }}."
