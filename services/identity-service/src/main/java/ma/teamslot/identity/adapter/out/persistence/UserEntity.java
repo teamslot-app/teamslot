@@ -97,6 +97,11 @@ public class UserEntity {
     public LocalDate getBirthDate() { return birthDate; }
     public String getPhoneCountry() { return phoneCountry; }
     public ManagerStatus getManagerStatus() { return managerStatus; }
+
+    /** SCRUM-133 : le code reçu par e-mail a été saisi correctement. */
+    public void marquerEmailVerifie() {
+        this.emailVerified = true;
+    }
     public Instant getManagerRequestedAt() { return managerRequestedAt; }
 
 }

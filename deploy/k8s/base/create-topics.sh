@@ -27,6 +27,8 @@ TOPICS=(
   # SCRUM-79 : un joueur demande une place, l'organisateur accepte
   match.join_requested
   match.join_accepted
+  # SCRUM-133 : code de vérification de l'e-mail (consommé par notification-service, SCRUM-134)
+  identity.email_verification_requested
 )
 
 for topic in "${TOPICS[@]}"; do

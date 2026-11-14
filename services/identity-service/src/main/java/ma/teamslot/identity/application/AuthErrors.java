@@ -54,4 +54,32 @@ public final class AuthErrors {
             super("invalid refresh token");
         }
     }
+
+    /** Mot de passe correct, mais e-mail pas encore vérifié (403) : le front propose de saisir le code. */
+    public static final class EmailNotVerified extends RuntimeException {
+        public EmailNotVerified() {
+            super("email not verified");
+        }
+    }
+
+    /** Code faux, déjà utilisé, ou e-mail inconnu (400) : la réponse ne dit pas lequel. */
+    public static final class InvalidCode extends RuntimeException {
+        public InvalidCode() {
+            super("invalid code");
+        }
+    }
+
+    /** Code expiré (410) : il faut en demander un nouveau. */
+    public static final class CodeExpired extends RuntimeException {
+        public CodeExpired() {
+            super("code expired");
+        }
+    }
+
+    /** 5 essais déjà faits pour ce code (429) : il faut en demander un nouveau. */
+    public static final class TooManyAttempts extends RuntimeException {
+        public TooManyAttempts() {
+            super("too many attempts");
+        }
+    }
 }
