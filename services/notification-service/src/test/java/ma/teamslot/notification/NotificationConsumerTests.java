@@ -42,7 +42,7 @@ import org.testcontainers.kafka.KafkaContainer;
     "teamslot.notification.discord.delai-initial-s=1"
 })
 @ActiveProfiles("test")
-@Import({KafkaDeTest.class, NotificationConsumerTests.Topics.class})
+@Import({ConteneurKafka.class, NotificationConsumerTests.Topics.class})
 @ExtendWith(OutputCaptureExtension.class)
 class NotificationConsumerTests {
 
