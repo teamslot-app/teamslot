@@ -38,13 +38,13 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: allow-prometheus}
 spec:
-  podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, identity-service, venue-service, match-service, payment-service, service-template]}]}
+  podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, identity-service, venue-service, match-service, payment-service, service-template, notification-service]}]}
   policyTypes: [Ingress]
   ingress:
   - from:
     - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
       podSelector: {matchLabels: {app.kubernetes.io/name: prometheus}}
-    ports: [{port: 8080}, {port: 8081}, {port: 8082}, {port: 8083}, {port: 8085}]
+    ports: [{port: 8080}, {port: 8081}, {port: 8082}, {port: 8083}, {port: 8085}, {port: 8086}]
 ---
 # Passerelle -> services
 apiVersion: networking.k8s.io/v1
@@ -74,7 +74,7 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
   - from:
-    - podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, venue-service, match-service, payment-service, service-template]}]}
+    - podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, venue-service, match-service, payment-service, service-template, notification-service]}]}
     ports: [{port: 8083}]
   egress:
   - to: [{podSelector: {matchLabels: {app: mysql}}}]
@@ -164,7 +164,7 @@ spec:
   policyTypes: [Ingress]
   ingress:
   - from:
-    - podSelector: {matchExpressions: [{key: app, operator: In, values: [venue-service, payment-service, service-template]}]}
+    - podSelector: {matchExpressions: [{key: app, operator: In, values: [venue-service, payment-service, service-template, notification-service]}]}
     ports: [{port: 5432}]
 ---
 apiVersion: networking.k8s.io/v1
@@ -213,7 +213,7 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress:
   - from:
-    - podSelector: {matchExpressions: [{key: app, operator: In, values: [identity-service, venue-service, match-service, payment-service, kafka]}]}
+    - podSelector: {matchExpressions: [{key: app, operator: In, values: [identity-service, venue-service, match-service, payment-service, kafka, notification-service]}]}
     - podSelector: {matchLabels: {job-name: kafka-topics}}
     ports: [{port: 9092}, {port: 9093}]
   egress:
@@ -277,11 +277,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: allow-smoke-test-ingress}
 spec:
-  podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, identity-service, venue-service, match-service, payment-service, service-template]}]}
+  podSelector: {matchExpressions: [{key: app, operator: In, values: [gateway, identity-service, venue-service, match-service, payment-service, service-template, notification-service]}]}
   policyTypes: [Ingress]
   ingress:
   - from: [{podSelector: {matchLabels: {job-name: smoke-test}}}]
-    ports: [{port: 8080}, {port: 8081}, {port: 8082}, {port: 8083}, {port: 8085}]
+    ports: [{port: 8080}, {port: 8081}, {port: 8082}, {port: 8083}, {port: 8085}, {port: 8086}]
 ---
 # E2E (hook PostSync, SCRUM-124) : n'appelle que la passerelle, comme le front
 apiVersion: networking.k8s.io/v1
@@ -303,3 +303,19 @@ spec:
   ingress:
   - from: [{podSelector: {matchLabels: {job-name: e2e-parcours-match}}}]
     ports: [{port: 8080}]
+
+---
+# notification-service (SCRUM-128) : parle à PostgreSQL, Kafka et au JWKS d'identity ; aucune entrée depuis la passerelle
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: notification-service}
+spec:
+  podSelector: {matchLabels: {app: notification-service}}
+  policyTypes: [Egress]
+  egress:
+  - to: [{podSelector: {matchLabels: {app: postgres}}}]
+    ports: [{port: 5432}]
+  - to: [{podSelector: {matchLabels: {app: kafka}}}]
+    ports: [{port: 9092}]
+  - to: [{podSelector: {matchLabels: {app: identity-service}}}]
+    ports: [{port: 8083}]
