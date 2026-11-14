@@ -17,6 +17,7 @@ resources:
 - sealed-secrets/mongodb-auth.yaml
 - sealed-secrets/mysql-auth.yaml
 - sealed-secrets/redis-auth.yaml
+- sealed-secrets/staging-tls.yaml
 images:
 - digest: sha256:2e2f900b07de79c4a27d0c99a69e205ea5d2da7d4c289cf8b5dd26ffac9d2e96
   name: ghcr.io/teamslot-app/gateway
