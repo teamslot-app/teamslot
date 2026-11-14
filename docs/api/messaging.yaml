@@ -1,55 +1,120 @@
 openapi: 3.0.3
 info:
   title: messaging-service
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    Chat d'un match : les participants avec un compte échangent des messages texte.
+    Chat de match, sur le modèle d'une messagerie (WhatsApp) : une discussion par match, liste des
+    discussions avec aperçu et compteur de non-lus, historique par curseur, rattrapage après une
+    coupure, envoi idempotent (affichage immédiat côté front) et accusés de lecture.
     messaging-service garde sa propre liste « match → participants », remplie par les événements
-    match.participant_added, match.join_accepted et match.challenge_accepted (docs/events.md) :
-    il n'appelle pas match-service pour chaque message.
-    Ce contrat décrit les routes HTTP (historique et envoi). La réception en direct passe par
-    WebSocket/STOMP (ADR-009) et n'est pas décrite par OpenAPI.
+    match.participant_added, match.join_accepted et match.challenge_accepted (docs/events.md) ;
+    il n'appelle pas match-service pour chaque message. Le titre d'une discussion (terrain, date)
+    vient de match-service (GET /api/v1/matches/{id}).
     Contrat sommaire (SCRUM-71), écrit à partir de docs/events.md, de l'ADR-001 et de l'ADR-009.
     Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
-    L'expéditeur est toujours lu dans le JWT (claim sub), jamais dans le corps.
-    Sécurité : le contenu est du texte brut ; le front doit l'afficher comme du texte, jamais comme
-    du HTML (protection contre le XSS). Un invité sans compte (guestName) n'a pas accès au chat.
+
+    Temps réel (WebSocket/STOMP, ADR-009) : non décrit par OpenAPI, résumé ici.
+    - Connexion : /ws via la passerelle ; le JWT est présenté dans l'en-tête Authorization de la
+      trame CONNECT. Connexion refusée sans jeton valide ; fermée quand le jeton expire (le front se
+      reconnecte avec un nouveau jeton, puis rattrape avec ?after=).
+    - Abonnement : /topic/matches/{matchId}. Le serveur vérifie à CHAQUE abonnement que
+      l'utilisateur participe au match (compte), sinon il refuse : sans ce contrôle, n'importe quel
+      compte pourrait lire en direct le chat d'un autre match.
+    - Le serveur diffuse des ChatEvent (schéma ci-dessous) : MESSAGE (nouveau message), TYPING
+      (« en train d'écrire », éphémère, jamais stocké, au plus un toutes les 3 s par utilisateur),
+      READ (un participant a lu jusqu'à un message).
+    - Le front signale qu'il écrit par SEND /app/matches/{matchId}/typing (sans contenu).
+    - Les messages s'envoient uniquement par POST /api/v1/matches/{matchId}/messages (un seul
+      chemin, idempotent), jamais par STOMP.
+
+    Sécurité :
+    - l'utilisateur est toujours lu dans le JWT (claim sub), jamais dans le corps ;
+    - seuls les participants avec un compte accèdent à une discussion ; un invité sans compte
+      (guestName) n'a pas accès au chat ;
+    - le contenu est du texte brut : le front l'affiche comme du texte, jamais comme du HTML (XSS) ;
+    - les réponses contiennent des données privées : Cache-Control: no-store, jamais de cache ;
+    - limitation de débit à l'envoi (429) contre le spam ;
+    - les curseurs sont opaques et validés par le serveur (400 s'ils sont illisibles).
+
+    Hors de cette version (ajouts possibles sans casser le contrat) : photos et vocaux,
+    modification et suppression de message, « Vu par » détaillé, discussion privée hors d'un match.
 servers:
   - url: http://localhost:8087
     description: Développement local (port à confirmer avec le service modèle)
 security:
   - bearerAuth: []
 tags:
+  - name: conversations
+    description: Mes discussions
   - name: messages
-    description: Chat d'un match
+    description: Messages d'une discussion de match
 paths:
+  /api/v1/conversations:
+    get:
+      tags: [conversations]
+      summary: Mes discussions
+      description: |
+        Une discussion par match dont l'utilisateur est participant (avec compte), de la plus
+        récemment active à la plus ancienne, avec l'aperçu du dernier message et le nombre de non-lus.
+      operationId: listMyConversations
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Une tranche de discussions
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationSlice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /api/v1/matches/{matchId}/messages:
     parameters:
       - { $ref: "#/components/parameters/MatchId" }
     get:
       tags: [messages]
-      summary: Historique du chat d'un match
-      description: Réservé aux participants du match qui ont un compte. Les messages les plus récents d'abord.
+      summary: Messages d'une discussion (historique et rattrapage)
+      description: |
+        Sans before ni after : les messages les plus récents (ouverture de la discussion).
+        before : les messages plus anciens (remonter dans l'historique).
+        after : les messages plus récents (rattrapage après une coupure ; répéter avec newerCursor
+        tant que la tranche n'est pas vide). before et after ensemble : 400.
+        Dans chaque tranche, items est trié du plus ancien au plus récent (ordre d'affichage).
       operationId: listMatchMessages
       parameters:
-        - { $ref: "#/components/parameters/Page" }
-        - { $ref: "#/components/parameters/Size" }
+        - name: before
+          in: query
+          required: false
+          description: Curseur olderCursor d'une réponse précédente
+          schema: { $ref: "#/components/schemas/Cursor" }
+        - name: after
+          in: query
+          required: false
+          description: Curseur newerCursor d'une réponse précédente
+          schema: { $ref: "#/components/schemas/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
       responses:
         "200":
-          description: Une page de messages
+          description: Une tranche de messages
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/MessagePage" }
+              schema: { $ref: "#/components/schemas/MessageSlice" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [messages]
-      summary: Envoyer un message dans le chat du match
+      summary: Envoyer un message
       description: |
-        Réservé aux participants du match qui ont un compte. L'expéditeur est le sub du JWT.
-        Le message est ensuite diffusé en direct aux participants connectés (STOMP).
+        Envoi idempotent : le front crée clientMessageId (UUID) et affiche le message tout de suite.
+        Renvoyer la même requête (même expéditeur, même clientMessageId) rend le message déjà
+        enregistré avec 200, sans doublon. Même clientMessageId avec un autre contenu : 409.
+        Le message est ensuite diffusé aux participants connectés (ChatEvent MESSAGE).
       operationId: sendMatchMessage
       requestBody:
         required: true
@@ -58,10 +123,45 @@ paths:
             schema: { $ref: "#/components/schemas/SendMessageRequest" }
       responses:
         "201":
-          description: Message enregistré
+          description: Message enregistré (✓ envoyé)
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Message" }
+        "200":
+          description: Message déjà reçu avec ce clientMessageId (renvoi), aucun doublon créé
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/matches/{matchId}/read:
+    parameters:
+      - { $ref: "#/components/parameters/MatchId" }
+    post:
+      tags: [messages]
+      summary: Accusé de lecture
+      description: |
+        Indique que l'utilisateur a lu la discussion jusqu'à ce message : remet à zéro son compteur
+        de non-lus jusqu'à ce point et diffuse un ChatEvent READ. Le repère ne recule jamais :
+        envoyer un message plus ancien que le repère actuel ne change rien (204).
+        Un message qui n'appartient pas à ce match : 400.
+      operationId: markConversationRead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReadMarkerRequest" }
+      responses:
+        "204":
+          description: Repère de lecture enregistré
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -78,19 +178,24 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
-    Page:
-      name: page
+    Cursor:
+      name: cursor
       in: query
       required: false
-      schema: { type: integer, minimum: 0, default: 0 }
-    Size:
-      name: size
+      description: Curseur nextCursor d'une réponse précédente ; absent pour la première tranche
+      schema: { $ref: "#/components/schemas/Cursor" }
+    Limit:
+      name: limit
       in: query
       required: false
-      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      schema: { type: integer, minimum: 1, maximum: 50, default: 30 }
+  headers:
+    NoStore:
+      description: Données privées, jamais mises en cache
+      schema: { type: string, example: no-store }
   responses:
     BadRequest:
-      description: Requête invalide (contenu vide ou trop long, page ou size hors limites)
+      description: Requête invalide (contenu vide ou trop long, curseur illisible, before et after ensemble, champ inconnu)
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/ProblemDetails" }
@@ -109,6 +214,20 @@ components:
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: clientMessageId déjà utilisé pour un autre contenu (type client-message-id-conflict)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    TooManyRequests:
+      description: Trop de messages en peu de temps, réessayer plus tard
+      headers:
+        Retry-After:
+          description: Nombre de secondes à attendre
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
   schemas:
     ProblemDetails:
       type: object
@@ -120,33 +239,104 @@ components:
         status: { type: integer }
         detail: { type: string }
         instance: { type: string }
+    Cursor:
+      type: string
+      description: Repère opaque fourni par le serveur ; le front le renvoie tel quel sans l'interpréter
+      minLength: 1
+      maxLength: 200
     SendMessageRequest:
       type: object
-      required: [content]
+      required: [clientMessageId, content]
       additionalProperties: false
       properties:
+        clientMessageId:
+          type: string
+          format: uuid
+          description: Créé par le front pour chaque message ; sert à éviter les doublons en cas de renvoi
         content:
           type: string
           minLength: 1
-          maxLength: 500
+          maxLength: 2000
           description: Texte brut, affiché comme du texte par le front (jamais interprété comme du HTML)
           example: "J'arrive 10 minutes en avance pour les chasubles."
+    ReadMarkerRequest:
+      type: object
+      required: [upToMessageId]
+      additionalProperties: false
+      properties:
+        upToMessageId: { type: string, format: uuid }
     Message:
       type: object
-      required: [id, matchId, senderId, content, sentAt]
+      required: [id, clientMessageId, matchId, senderId, content, sentAt]
       properties:
         id: { type: string, format: uuid }
+        clientMessageId: { type: string, format: uuid }
         matchId: { type: string, format: uuid }
         senderId: { type: string, format: uuid, description: Identifiant du compte de l'expéditeur (sub du JWT) }
-        content: { type: string, maxLength: 500 }
+        content: { type: string, maxLength: 2000 }
         sentAt: { type: string, format: date-time, example: "2026-11-20T17:45:00Z" }
-    MessagePage:
+    MessageSlice:
       type: object
-      required: [content, page, size, totalElements]
+      required: [items]
       properties:
-        content:
+        items:
           type: array
+          description: Du plus ancien au plus récent
           items: { $ref: "#/components/schemas/Message" }
-        page: { type: integer }
-        size: { type: integer }
-        totalElements: { type: integer, format: int64 }
+        olderCursor:
+          type: string
+          maxLength: 200
+          nullable: true
+          description: À passer dans before pour la tranche plus ancienne ; null au début de la discussion
+        newerCursor:
+          type: string
+          maxLength: 200
+          nullable: true
+          description: À passer dans after pour rattraper les messages plus récents
+    MessagePreview:
+      type: object
+      required: [senderId, contentPreview, sentAt]
+      properties:
+        senderId: { type: string, format: uuid }
+        contentPreview: { type: string, maxLength: 100, description: Début du message (100 caractères au plus) }
+        sentAt: { type: string, format: date-time }
+    Conversation:
+      type: object
+      required: [matchId, unreadCount, lastActivityAt]
+      properties:
+        matchId: { type: string, format: uuid }
+        lastMessage:
+          type: object
+          allOf: [{ $ref: "#/components/schemas/MessagePreview" }]
+          nullable: true
+          description: null tant qu'aucun message n'a été envoyé
+        unreadCount: { type: integer, minimum: 0 }
+        lastActivityAt: { type: string, format: date-time }
+    ConversationSlice:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Conversation" }
+        nextCursor:
+          type: string
+          maxLength: 200
+          nullable: true
+          description: null quand il n'y a plus de discussion
+    ChatEventType:
+      type: string
+      enum: [MESSAGE, TYPING, READ]
+    ChatEvent:
+      type: object
+      description: |
+        Événement diffusé en direct sur /topic/matches/{matchId} (STOMP). Défini ici pour que le front
+        ait les types ; aucune route HTTP ne le renvoie.
+        MESSAGE : message renseigné. TYPING : userId renseigné. READ : userId et upToMessageId renseignés.
+      required: [type, matchId]
+      properties:
+        type: { $ref: "#/components/schemas/ChatEventType" }
+        matchId: { type: string, format: uuid }
+        message: { $ref: "#/components/schemas/Message" }
+        userId: { type: string, format: uuid }
+        upToMessageId: { type: string, format: uuid }

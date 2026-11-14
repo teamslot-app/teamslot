@@ -65,6 +65,8 @@ export interface components {
             detail?: string;
             instance?: string;
         };
+        /** @description Repère opaque fourni par le serveur ; le front le renvoie tel quel sans l'interpréter */
+        Cursor: string;
         /**
          * @description Événement à l'origine de la notification. D'autres valeurs pourront être ajoutées
          *     (paiement, équipe) : le front doit ignorer un type qu'il ne connaît pas.
@@ -91,16 +93,15 @@ export interface components {
              */
             readAt?: string | null;
         };
-        NotificationPage: {
-            content: components["schemas"]["Notification"][];
-            page: number;
-            size: number;
-            /** Format: int64 */
-            totalElements: number;
+        NotificationSlice: {
+            /** @description De la plus récente à la plus ancienne */
+            items: components["schemas"]["Notification"][];
+            /** @description À passer dans cursor pour la tranche suivante ; null quand il n'y en a plus */
+            nextCursor?: string | null;
         };
     };
     responses: {
-        /** @description Requête invalide (page ou size hors limites) */
+        /** @description Requête invalide (limit hors limites, curseur illisible) */
         BadRequest: {
             headers: {
                 [name: string]: unknown;
@@ -130,11 +131,15 @@ export interface components {
     };
     parameters: {
         NotificationId: string;
-        Page: number;
-        Size: number;
+        /** @description Curseur nextCursor d'une réponse précédente ; absent pour la première tranche */
+        Cursor: components["schemas"]["Cursor"];
+        Limit: number;
     };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /** @description Données privées, jamais mises en cache */
+        NoStore: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -142,8 +147,9 @@ export interface operations {
     listMyNotifications: {
         parameters: {
             query?: {
-                page?: components["parameters"]["Page"];
-                size?: components["parameters"]["Size"];
+                /** @description Curseur nextCursor d'une réponse précédente ; absent pour la première tranche */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
             };
             header?: never;
             path?: never;
@@ -151,13 +157,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Une page de notifications */
+            /** @description Une tranche de notifications */
             200: {
                 headers: {
+                    "Cache-Control": components["headers"]["NoStore"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NotificationPage"];
+                    "application/json": components["schemas"]["NotificationSlice"];
                 };
             };
             400: components["responses"]["BadRequest"];
