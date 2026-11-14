@@ -5,6 +5,7 @@ export type { components as MatchComponents, paths as MatchPaths } from './gener
 export type { components as MessagingComponents, paths as MessagingPaths } from './generated/messaging';
 export type { components as NotificationComponents, paths as NotificationPaths } from './generated/notification';
 export type { components as PaymentComponents, paths as PaymentPaths } from './generated/payment';
+export type { components as ReviewComponents, paths as ReviewPaths } from './generated/review';
 export type { components as SearchComponents, paths as SearchPaths } from './generated/search';
 export type { components as TeamComponents, paths as TeamPaths } from './generated/team';
 export type { components as VenueComponents, paths as VenuePaths } from './generated/venue';
