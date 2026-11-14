@@ -203,6 +203,44 @@ kubectl logs job/postsync-test-smoke -n staging
 kubectl delete -n staging -f postsync-test-smoke.yaml
 ```
 
+## Test E2E après chaque déploiement (SCRUM-124)
+
+### Ce qu'il fait
+
+Après le test de fumée, Argo CD lance le Job `e2e-parcours-match` (hook `PostSync`, `sync-wave: "1"`, fichier `deploy/e2e/e2e-job.yaml`). Le script `deploy/e2e/parcours-match.sh`, monté depuis la ConfigMap `e2e-parcours-match`, joue le parcours « groupe d'amis » en passant par la passerelle (`http://gateway`). Le Job n'est inclus que par l'overlay staging, jamais par la production.
+
+Un E2E en échec met la synchronisation Argo CD en `Failed` et le statut GitHub `deploy/staging` en rouge. L'application ne passe pas en `Degraded` : ce n'est pas possible pour un hook `PostSync`.
+
+### Comptes de test créés à chaque passage
+
+À chaque exécution, le script crée dans le staging trois comptes jetables et un match :
+
+| Compte | Numéro | Nom affiché |
+|---|---|---|
+| Organisateur | `+2126` + suffixe | `E2E Orga <suffixe>` |
+| Ami | `+2127` + suffixe | `E2E Ami <suffixe>` |
+| Joueur extérieur | `+2125` + suffixe | `E2E Joueur <suffixe>` |
+
+- Le suffixe est tiré de l'heure (`date +%s`, 9 derniers chiffres) : il change à chaque passage, les numéros ne se répètent donc pas.
+- Le mot de passe est aléatoire (12 lettres générées à chaque passage). Il n'est jamais écrit dans un fichier ni affiché dans les logs.
+- Les matchs sont créés sur le terrain de démo « Guéliz » (profil `demo` de venue-service).
+- Les comptes et les matchs ne sont pas supprimés après le test : ils s'accumulent dans les bases du staging. Ce sont des données de démo, jamais présentes en production.
+
+### Où regarder
+
+- Résultat : `kubectl logs -n staging job/e2e-parcours-match | tail -5` (la dernière ligne donne `RÉSULTAT : N OK / M KO`).
+- Le Job est supprimé automatiquement (`ttlSecondsAfterFinished: 3600`, `hook-delete-policy: BeforeHookCreation`).
+- Le Job de vague 1 démarre après tous les hooks de la vague 0, dont `kafka-topics`, qui peut durer plusieurs minutes.
+
+### Lancer le script à la main
+
+```bash
+kubectl run e2e-match --rm -i --restart=Never -n staging --labels=job-name=smoke-test \
+  --image=curlimages/curl:8.10.1 --command -- sh -s < deploy/e2e/parcours-match.sh
+```
+
+Le label `job-name=smoke-test` emprunte la règle réseau du test de fumée (NetworkPolicies, SCRUM-125).
+
 ## Image du front (SCRUM-114)
 
 Le front a son propre workflow, `.github/workflows/web.yml` (ce n'est pas une application Maven : il n'appelle pas `java-service.yml`) :
