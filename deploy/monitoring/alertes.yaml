@@ -19,3 +19,13 @@ spec:
           annotations:
             summary: "Erreurs 5xx sur {{ $labels.job }}"
             description: "Plus de 3 réponses 5xx en 5 minutes sur {{ $labels.job }}."
+        - alert: TeamSlotConnexionsEchouees
+          # Seuil proposé : plus de 5 échecs de connexion (401) en 5 minutes, pendant 1 minute.
+          # 401 = identifiants faux (contrat docs/api/identity.yaml). Le 403 (e-mail non vérifié) n'est pas compté.
+          expr: sum by (job) (increase(http_server_requests_seconds_count{namespace="staging", uri="/api/v1/auth/login", status="401"}[5m])) > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Échecs de connexion répétés sur {{ $labels.job }}"
+            description: "Plus de 5 réponses 401 sur /api/v1/auth/login en 5 minutes sur {{ $labels.job }} (tentative de force brute possible)."
