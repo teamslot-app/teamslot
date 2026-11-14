@@ -23,6 +23,30 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Un compte existe déjà avec ce numéro ou cette adresse e-mail.");
     }
 
+    @ExceptionHandler(AuthErrors.EmailNotVerified.class)
+    ProblemDetail emailNotVerified() {
+        return problem(HttpStatus.FORBIDDEN, "email-not-verified", "E-mail non vérifié",
+                "Saisis le code reçu par e-mail pour activer ton compte.");
+    }
+
+    @ExceptionHandler(AuthErrors.InvalidCode.class)
+    ProblemDetail invalidCode() {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-code", "Code incorrect",
+                "Ce code n'est pas valide. Vérifie-le ou demande un nouveau code.");
+    }
+
+    @ExceptionHandler(AuthErrors.CodeExpired.class)
+    ProblemDetail codeExpired() {
+        return problem(HttpStatus.GONE, "code-expired", "Code expiré",
+                "Ce code a expiré. Demande un nouveau code.");
+    }
+
+    @ExceptionHandler(AuthErrors.TooManyAttempts.class)
+    ProblemDetail tooManyAttempts() {
+        return problem(HttpStatus.TOO_MANY_REQUESTS, "too-many-attempts", "Trop d'essais",
+                "Trop d'essais pour ce code. Demande un nouveau code.");
+    }
+
     @ExceptionHandler(AuthErrors.WeakPassword.class)
     ProblemDetail weakPassword(AuthErrors.WeakPassword e) {
         ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "weak-password", "Mot de passe trop faible",

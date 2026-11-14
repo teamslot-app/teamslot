@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import ma.teamslot.events.Outbox;
 import ma.teamslot.identity.adapter.out.persistence.UserEntity;
 import ma.teamslot.identity.adapter.out.persistence.UserRepository;
 import ma.teamslot.identity.domain.IndicatifsPays;
@@ -38,10 +39,15 @@ public class AuthService {
     private final Clock clock = Clock.systemUTC();
     /** Empreinte factice : vérifiée quand le téléphone est inconnu, pour que la réponse prenne le même temps. */
     private final String dummyHash;
+    private final Outbox outbox;
+    private final VerificationEmailService verificationEmail;
 
     public AuthService(UserRepository users, RefreshTokenStore refreshTokens,
                        PasswordEncoder passwordEncoder, TokenService tokens,
-                       @Value("${teamslot.jwt.refresh-token-ttl-days:30}") long refreshTokenTtlDays) {
+                       @Value("${teamslot.jwt.refresh-token-ttl-days:30}") long refreshTokenTtlDays,
+                       Outbox outbox, VerificationEmailService verificationEmail) {
+        this.outbox = outbox;
+        this.verificationEmail = verificationEmail;
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
@@ -76,8 +82,17 @@ public class AuthService {
             // deux inscriptions simultanées avec le même numéro ou e-mail : les contraintes UNIQUE tranchent
             throw new AuthErrors.AccountAlreadyExists();
         }
-        // TODO SCRUM-70 / SCRUM-133 : publier user.registered et identity.email_verification_requested par l'outbox
+        // SCRUM-133 (et SCRUM-70) : événements par l'outbox, dans la transaction de l'inscription (docs/events.md 1.5)
+        outbox.record(user.getId(), "user.registered",
+                new CompteCree(user.getId(), user.getDisplayName(), user.getPhone(), user.getEmail()));
+        if (user.getEmail() != null) {
+            verificationEmail.envoyerUnCode(user);
+        }
         return user;
+    }
+
+    /** Données de user.registered : champs du catalogue docs/events.md ; email absent pour les anciens clients. */
+    public record CompteCree(UUID userId, String displayName, String phone, String email) {
     }
 
     private void verifier(Inscription demande, String email, String displayName) {
@@ -102,6 +117,11 @@ public class AuthService {
                 user.map(UserEntity::getPasswordHash).orElse(dummyHash));
         if (user.isEmpty() || !passwordMatches) {
             throw new AuthErrors.InvalidCredentials();
+        }
+        // SCRUM-133 : seulement APRÈS un mot de passe correct, pour ne rien révéler aux autres. Les comptes sans
+        // e-mail (créés avant l'inscription v2, ou par apps/web) ne sont pas concernés.
+        if (user.get().getEmail() != null && !user.get().isEmailVerified()) {
+            throw new AuthErrors.EmailNotVerified();
         }
         return issueTokens(user.get().getId(), user.get().getPlatformRole());
     }
