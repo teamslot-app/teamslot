@@ -253,7 +253,7 @@ spec:
   - to: [{podSelector: {matchLabels: {app: identity-service}}}]
     ports: [{port: 8083}]
 ---
-# Test de fumée (hook PostSync) : appelle les 6 services sur leur port de conteneur
+# Test de fumée (hook PostSync) : appelle les 7 services sur leur port de conteneur
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: job-smoke-test-egress}
@@ -271,6 +271,8 @@ spec:
     ports: [{port: 8082}]
   - to: [{podSelector: {matchLabels: {app: payment-service}}}]
     ports: [{port: 8085}]
+  - to: [{podSelector: {matchLabels: {app: notification-service}}}]
+    ports: [{port: 8086}]
 ---
 # ... et chaque service accepte ce Job
 apiVersion: networking.k8s.io/v1

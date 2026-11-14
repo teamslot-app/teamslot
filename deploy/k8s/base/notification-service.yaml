@@ -1,0 +1,95 @@
+# notification-service (SCRUM-128) : même modèle que payment-service (non-root, rootfs en lecture seule,
+# capacités retirées, seccomp RuntimeDefault : compatible Pod Security « restricted »).
+# Base « notification » dans l'instance PostgreSQL existante (ADR-017) ; identifiants : SealedSecret notification-db.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: notification-service
+          image: ghcr.io/teamslot-app/notification-service
+          ports:
+            - name: http
+              containerPort: 8086
+          env:
+            - name: DB_URL
+              value: "jdbc:postgresql://postgres:5432/notification"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: notification-db
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: notification-db
+                  key: DB_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: JWT_JWK_SET_URI
+              value: "http://identity-service/.well-known/jwks.json"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          # Squelette sans métier (SCRUM-128) : moins que payment, pour la mémoire limitée du cluster (ADR-003).
+          # A réévaluer avec SCRUM-81 et SCRUM-134 (consommateurs Kafka, envoi d'e-mails).
+          resources:
+            requests:
+              cpu: 100m
+              memory: 320Mi
+            limits:
+              cpu: "1"
+              memory: 640Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8086
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8086
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  labels:
+    app: notification-service
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -14,6 +14,7 @@ resources:
 - sealed-secrets/identity-jwt.yaml
 - sealed-secrets/venue-db.yaml
 - sealed-secrets/payment-db.yaml
+- sealed-secrets/notification-db.yaml
 - sealed-secrets/mongodb-auth.yaml
 - sealed-secrets/mysql-auth.yaml
 - sealed-secrets/redis-auth.yaml

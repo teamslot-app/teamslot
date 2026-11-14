@@ -60,3 +60,13 @@
       name: smoke-test
     fieldPaths:
     - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_TEMPLATE].value
+- source:
+    kind: Deployment
+    name: notification-service
+    fieldPath: spec.template.spec.containers.[name=notification-service].image
+  targets:
+  - select:
+      kind: Job
+      name: smoke-test
+    fieldPaths:
+    - spec.template.spec.containers.[name=smoke].env.[name=IMAGE_NOTIFICATION].value
