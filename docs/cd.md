@@ -18,6 +18,7 @@ flowchart LR
 ```
 
 1. **PR** : relue par une autre personne ; la CI (tests, SonarCloud, Trivy, gitleaks) doit être verte (`ci-gate`).
+   `ci-gate` vérifie aussi (SCRUM-130) que **chaque workflow que la PR doit déclencher a démarré et réussi**. La liste vient des filtres `on.pull_request.paths` des workflows, appliqués aux fichiers de la PR (`.github/scripts/ci_gate_attendus.py`). Un workflow qui ne démarre pas (« startup failure », erreur dans son fichier) ne crée aucun check : sans cette vérification, la PR paraîtrait verte alors que rien n'a été testé. Une PR qui ne touche que la documentation n'attend que gitleaks, trivy-fs et kube-linter.
 2. **Fusion sur `main`** : le workflow du service (`<service>.yml`, qui appelle `java-service.yml`) construit et teste.
 3. **Job `image`** : image construite, scannée par Trivy, publiée sur GHCR, **signée** (cosign) et accompagnée de sa **SBOM** signée.
 4. **Job `deploy-staging`** : vérifie la signature et la SBOM, puis le bot écrit `tag@empreinte` dans `deploy/k8s/overlays/staging/kustomization.yaml` (commit `chore(deploy): staging <service> -> <commit>`).

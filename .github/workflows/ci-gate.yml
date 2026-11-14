@@ -1,18 +1,43 @@
 name: ci-gate
 on: [pull_request]
 
-# Lecture seule : le jeton peut lire les checks, rien modifier.
+# Lecture seule : le jeton peut lire les checks, les exécutions de workflows et les fichiers de la PR, rien modifier.
 permissions:
   contents: read
   checks: read
+  actions: read
+  pull-requests: read
 
 jobs:
   # "gate" est le seul check obligatoire du ruleset protect-main.
-  # Il attend tous les autres checks du commit et échoue si l'un d'eux est en échec.
+  # 1. Il attend tous les autres checks du commit et échoue si l'un d'eux est en échec.
+  # 2. SCRUM-130 : il vérifie aussi que chaque workflow que la PR DOIT déclencher (d'après les
+  #    fichiers modifiés et les filtres paths des workflows) a bien démarré et réussi.
+  #    Un workflow qui ne démarre pas (« startup failure ») ne crée aucun check : sans cette
+  #    vérification, la PR paraîtrait verte alors que rien n'a été testé.
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - name: Workflows attendus (d'après les fichiers modifiés)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/ci_gate_attendus.py --self-test
+          gh api "repos/$REPO/pulls/$PR/files?per_page=100" --paginate --jq '.[].filename' > "$RUNNER_TEMP/fichiers.txt"
+          python3 .github/scripts/ci_gate_attendus.py .github/workflows < "$RUNNER_TEMP/fichiers.txt" > "$RUNNER_TEMP/attendus.txt"
+          echo "Fichiers modifiés : $(wc -l < "$RUNNER_TEMP/fichiers.txt")"
+          echo "Workflows attendus :"
+          sed 's/^/  /' "$RUNNER_TEMP/attendus.txt"
+
       - name: Attendre et vérifier tous les checks du commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,3 +69,64 @@ jobs:
             exit 1
           fi
           echo "Tous les checks sont verts."
+
+      - name: Chaque workflow attendu a démarré et réussi (SCRUM-130)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Une exécution est créée dès le déclenchement (même « queued »). On réessaie pendant
+          # 5 min au plus : le temps qu'une exécution encore en cours se termine, ou qu'un retard
+          # de GitHub se résorbe. Au-delà, un workflow attendu absent n'a pas démarré.
+          essai=1
+          while :; do
+            # Dernière exécution de chaque workflow pour ce commit (triée par chemin puis par date).
+            gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request&per_page=100" --paginate \
+              --jq '.workflow_runs[] | [(.path | split("@")[0]), .status, (.conclusion // "aucune"), .created_at] | @tsv' \
+              | sort -t "$(printf '\t')" -k1,1 -k4,4 > "$RUNNER_TEMP/executions.txt"
+            manquants=0
+            en_cours=0
+            echecs=0
+            rapport=""
+            while IFS= read -r wf; do
+              [ -n "$wf" ] || continue
+              ligne=$(awk -F '\t' -v wf="$wf" '$1 == wf' "$RUNNER_TEMP/executions.txt" | tail -n 1)
+              if [ -z "$ligne" ]; then
+                manquants=$((manquants + 1))
+                rapport="$rapport\n  $wf : n'a pas démarré"
+                continue
+              fi
+              etat=$(printf '%s' "$ligne" | cut -f2)
+              conclusion=$(printf '%s' "$ligne" | cut -f3)
+              if [ "$etat" != completed ]; then
+                en_cours=$((en_cours + 1))
+                rapport="$rapport\n  $wf : $etat"
+              elif [ "$conclusion" != success ]; then
+                echecs=$((echecs + 1))
+                rapport="$rapport\n  $wf : $conclusion"
+              else
+                rapport="$rapport\n  $wf : success"
+              fi
+            done < "$RUNNER_TEMP/attendus.txt"
+            if [ "$manquants" -eq 0 ] && [ "$en_cours" -eq 0 ]; then
+              break
+            fi
+            if [ "$essai" -ge 15 ]; then
+              break
+            fi
+            echo "Essai $essai : $manquants absent(s), $en_cours en cours ; nouvel essai dans 20 s..."
+            essai=$((essai + 1))
+            sleep 20
+          done
+          printf 'Workflows attendus :%b\n' "$rapport"
+          if [ "$manquants" -gt 0 ]; then
+            echo "::error::$manquants workflow(s) attendu(s) n'ont pas démarré (erreur dans le fichier du workflow, « startup failure » ?) : fusion bloquée."
+            exit 1
+          fi
+          if [ "$en_cours" -gt 0 ] || [ "$echecs" -gt 0 ]; then
+            echo "::error::$en_cours workflow(s) encore en cours et $echecs en échec (startup_failure, failure, cancelled…) : fusion bloquée."
+            exit 1
+          fi
+          echo "Tous les workflows attendus ont démarré et réussi."
