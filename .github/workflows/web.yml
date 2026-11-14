@@ -1,13 +1,17 @@
 name: web
 on:
+  # SCRUM-148 : seulement apps/web et le client partagé. Les autres fronts ont leur propre workflow
+  # (teamslot.yml) : avant, toute modification d'un front reconstruisait et redéployait l'image web.
   pull_request:
     paths:
-      - 'frontend/**'
+      - 'frontend/apps/web/**'
+      - 'frontend/packages/shared/**'
       - '.github/workflows/web.yml'
   push:
     branches: [main]
     paths:
-      - 'frontend/**'
+      - 'frontend/apps/web/**'
+      - 'frontend/packages/shared/**'
   workflow_dispatch:
 permissions:
   contents: read

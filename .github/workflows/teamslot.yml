@@ -1,0 +1,22 @@
+name: teamslot
+# Plateforme joueur (frontend/apps/teamslot) : SCRUM-148.
+on:
+  pull_request:
+    paths:
+      - 'frontend/apps/teamslot/**'
+      - 'frontend/packages/shared/**'
+      - '.github/workflows/frontend-app.yml'
+      - '.github/workflows/teamslot.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/apps/teamslot/**'
+      - 'frontend/packages/shared/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: ./.github/workflows/frontend-app.yml
+    with:
+      app: teamslot
