@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: review-service
+  version: 1.0.0
+  description: |
+    Statistiques et fiabilité des joueurs. review-service calcule, à partir des événements Kafka
+    (docs/events.md), le nombre de matchs joués, le nombre de fois élu MVP et un score de fiabilité ;
+    il publie player.stats_updated. Le vote du MVP n'est pas ici : il est dans match-service
+    (POST /api/v1/matches/{id}/mvp-votes), qui publie match.mvp_elected.
+    Événements consommés : match.result_confirmed (match joué), match.mvp_elected (MVP),
+    match.no_show (absents), payment.collected_on_site (le groupe est venu).
+    Le score de fiabilité compense le risque d'absence du groupe (ADR-006) : il aide l'organisateur
+    à décider d'une demande de place (SCRUM-79).
+    Contrat sommaire (SCRUM-71), écrit à partir de docs/events.md, de l'ADR-006 et de match.yaml.
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
+
+    Sécurité et vie privée (la fiabilité touche à la réputation d'une personne) :
+    - connexion obligatoire ; réponses privées : Cache-Control: no-store ;
+    - les autres utilisateurs ne voient que les statistiques publiques (dont le score), jamais le
+      détail des absences, visible seulement par le joueur lui-même (/players/me/stats) ;
+    - aucun classement ni liste complète des joueurs ; requête groupée limitée à 20 joueurs ;
+    - joueur inconnu : 200 avec 0 match et un score null (nouveau joueur), jamais 404, pour ne pas
+      révéler quels identifiants correspondent à un compte ;
+    - ni surnom ni téléphone dans les réponses ;
+    - lecture seule : aucune route ne modifie un score ; il ne change que par les événements.
+servers:
+  - url: http://localhost:8089
+    description: Développement local (port à confirmer avec le service modèle)
+security:
+  - bearerAuth: []
+tags:
+  - name: players
+    description: Statistiques et fiabilité des joueurs
+paths:
+  /api/v1/players/me/stats:
+    get:
+      tags: [players]
+      summary: Mes statistiques, avec le détail de mes absences
+      description: |
+        L'utilisateur est le sub du JWT. À l'implémentation, cette route doit passer avant
+        /players/{userId}/stats (« me » n'est pas un UUID ; même cas que /matches/open, SCRUM-118).
+      operationId: getMyStats
+      responses:
+        "200":
+          description: Mes statistiques
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MyPlayerStats" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/players/{userId}/stats:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [players]
+      summary: Statistiques publiques d'un joueur
+      description: "Joueur inconnu ou nouveau : 200 avec matchesPlayed = 0 et reliabilityScore = null."
+      operationId: getPlayerStats
+      responses:
+        "200":
+          description: Statistiques publiques
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlayerStats" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/players/stats:
+    get:
+      tags: [players]
+      summary: Statistiques publiques de plusieurs joueurs (20 au plus)
+      description: |
+        Une seule requête pour une liste de joueurs (demandes de place, composition d'un match).
+        Un élément par identifiant demandé, dans le même ordre ; doublons ignorés.
+      operationId: getPlayersStats
+      parameters:
+        - name: userIds
+          in: query
+          required: true
+          description: Identifiants séparés par des virgules (20 au plus)
+          style: form
+          explode: false
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 20
+            items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Statistiques publiques des joueurs demandés
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PlayerStats" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    NoStore:
+      description: Données personnelles, jamais mises en cache
+      schema: { type: string, example: no-store }
+  responses:
+    BadRequest:
+      description: Requête invalide (identifiant mal formé, plus de 20 joueurs)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/too-many-players" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    PlayerStats:
+      type: object
+      description: Statistiques visibles par tout utilisateur connecté
+      required: [userId, matchesPlayed, mvpCount, reliabilityScore]
+      properties:
+        userId: { type: string, format: uuid }
+        matchesPlayed: { type: integer, minimum: 0 }
+        mvpCount: { type: integer, minimum: 0 }
+        reliabilityScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: 0 à 100 ; null pour un nouveau joueur (pas encore assez de matchs)
+    MyPlayerStats:
+      description: Mes statistiques, avec le détail de mes absences (visible par moi seule)
+      allOf:
+        - { $ref: "#/components/schemas/PlayerStats" }
+        - type: object
+          required: [noShowCount]
+          properties:
+            noShowCount: { type: integer, minimum: 0 }
+            lastNoShowAt: { type: string, format: date-time, nullable: true }

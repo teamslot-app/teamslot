@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: notification-service
+  version: 1.0.0
+  description: |
+    Notifications des joueurs : notification-service consomme les événements Kafka
+    (docs/events.md), enregistre une notification pour chaque utilisateur concerné et
+    le prévient (webhook Discord, SCRUM-81). Ce contrat ne décrit que ce que le front appelle :
+    la liste « Mes notifications » et le marquage comme lue. L'envoi vers Discord n'est pas une
+    route de l'API ; l'URL du webhook est un secret et n'est jamais exposée.
+    Contrat sommaire (SCRUM-71), écrit à partir de docs/events.md et de la planification du Sprint 3.
+    Pagination par curseur (comme un fil de messagerie) : une notification qui arrive pendant la
+    lecture ne crée ni doublon ni trou dans les tranches suivantes. Réponses privées : jamais en cache.
+    Conventions : préfixe /api/v1, erreurs Problem Details (RFC 9457), dates ISO 8601 UTC.
+    L'identifiant de l'utilisateur est toujours lu dans le JWT (claim sub), jamais dans l'URL ni dans le corps.
+    Minimisation des données : une notification ne contient ni texte libre ni donnée personnelle
+    (surnom, téléphone) ; le front construit le message à partir de type et matchId.
+servers:
+  - url: http://localhost:8086
+    description: Développement local (port à confirmer avec le service modèle)
+security:
+  - bearerAuth: []
+tags:
+  - name: notifications
+    description: Notifications de l'utilisateur connecté
+paths:
+  /api/v1/notifications:
+    get:
+      tags: [notifications]
+      summary: Mes notifications
+      description: |
+        Notifications de l'utilisateur connecté (sub du JWT), les plus récentes d'abord.
+        Un invité sans compte (guestName) n'a jamais de notification.
+      operationId: listMyNotifications
+      parameters:
+        - { $ref: "#/components/parameters/Cursor" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Une tranche de notifications
+          headers:
+            Cache-Control: { $ref: "#/components/headers/NoStore" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationSlice" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/notifications/{notificationId}/read:
+    parameters:
+      - { $ref: "#/components/parameters/NotificationId" }
+    post:
+      tags: [notifications]
+      summary: Marquer une notification comme lue
+      description: |
+        Idempotent : marquer deux fois une notification déjà lue répond aussi 204 et garde la première date.
+        Une notification qui appartient à un autre utilisateur répond 404 (et non 403),
+        pour ne pas révéler qu'elle existe.
+      operationId: markNotificationRead
+      responses:
+        "204":
+          description: Notification marquée comme lue
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Curseur nextCursor d'une réponse précédente ; absent pour la première tranche
+      schema: { $ref: "#/components/schemas/Cursor" }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+  headers:
+    NoStore:
+      description: Données privées, jamais mises en cache
+      schema: { type: string, example: no-store }
+  responses:
+    BadRequest:
+      description: Requête invalide (limit hors limites, curseur illisible)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Notification introuvable pour cet utilisateur
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Erreur au format RFC 9457
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: "https://teamslot.app/problems/notification-not-found" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    Cursor:
+      type: string
+      description: Repère opaque fourni par le serveur ; le front le renvoie tel quel sans l'interpréter
+      minLength: 1
+      maxLength: 200
+    NotificationType:
+      type: string
+      description: |
+        Événement à l'origine de la notification. D'autres valeurs pourront être ajoutées
+        (paiement, équipe) : le front doit ignorer un type qu'il ne connaît pas.
+        MATCH_PARTICIPANT_ADDED : match.participant_added (on m'a ajouté à un match) ;
+        MATCH_JOIN_ACCEPTED : match.join_accepted (ma demande de place est acceptée) ;
+        MATCH_CONFIRMED : match.confirmed (un match dont je fais partie est confirmé).
+      enum: [MATCH_PARTICIPANT_ADDED, MATCH_JOIN_ACCEPTED, MATCH_CONFIRMED]
+    Notification:
+      type: object
+      required: [id, type, matchId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/NotificationType" }
+        matchId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time, example: "2026-11-20T18:00:00Z" }
+        readAt: { type: string, format: date-time, nullable: true, description: Absent ou null tant que la notification n'est pas lue }
+    NotificationSlice:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: De la plus récente à la plus ancienne
+          items: { $ref: "#/components/schemas/Notification" }
+        nextCursor:
+          type: string
+          maxLength: 200
+          nullable: true
+          description: À passer dans cursor pour la tranche suivante ; null quand il n'y en a plus
