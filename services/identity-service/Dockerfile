@@ -11,6 +11,7 @@ COPY services/identity-service/pom.xml services/identity-service/
 COPY services/payment-service/pom.xml services/payment-service/
 COPY services/match-service/pom.xml services/match-service/
 COPY services/venue-service/pom.xml services/venue-service/
+COPY services/notification-service/pom.xml services/notification-service/
 # Sources : seulement le service et les modules dont il dépend (libs/events depuis SCRUM-147)
 COPY libs/events/src libs/events/src
 COPY services/identity-service/src services/identity-service/src
