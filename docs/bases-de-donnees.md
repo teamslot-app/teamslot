@@ -1,6 +1,6 @@
 # Bases de données
 
-Une instance PostgreSQL, trois bases (template, venue, payment), un utilisateur par base sans droit sur les autres (voir ADR-014). identity-service utilise MySQL et Redis (voir plus bas), match-service utilise MongoDB.
+Une instance PostgreSQL, quatre bases (template, venue, payment, notification), un utilisateur par base sans droit sur les autres (voir ADR-014 et ADR-017). identity-service utilise MySQL et Redis (voir plus bas), match-service utilise MongoDB.
 
 ## En local (docker-compose)
 1. Dans `deploy/`, copier `.env.example` en `.env` et remplir les mots de passe (valeurs aléatoires, jamais commitées).
@@ -11,6 +11,26 @@ Une instance PostgreSQL, trois bases (template, venue, payment), un utilisateur 
 ## Dans le cluster (staging)
 Les mots de passe sont des SealedSecrets (`deploy/k8s/overlays/staging/sealed-secrets/`), un par service (`<service>-db`, clés `DB_USER` et `DB_PASSWORD`). Ne jamais commiter un Secret en clair.
 Se connecter en administrateur : `kubectl exec -it -n staging deploy/postgres -- psql -U pgadmin -d postgres`.
+
+## Ajouter une base PostgreSQL dans le staging existant (exemple : notification, SCRUM-128)
+`init-databases.sh` ne s'exécute qu'à la création du volume de PostgreSQL : une base ajoutée ensuite se crée **une fois**, à la main, par une personne qui a le droit de lire les Secrets et d'exécuter dans le pod (Amira). Le mot de passe n'est **jamais affiché** : il est lu dans le Secret déchiffré par le cluster et passé à `psql` par l'entrée standard (ni à l'écran, ni dans l'historique, ni dans la liste des processus).
+
+1. Fusionner la PR qui ajoute le SealedSecret `<service>-db` et attendre la synchronisation d'Argo CD (`kubectl get secret notification-db -n staging` doit exister).
+2. Créer l'utilisateur et la base (le mot de passe ne contient que des lettres et des chiffres) :
+
+   ```bash
+   export KUBECONFIG=~/.kube/teamslot-staging.yaml
+   ( MDP=$(kubectl get secret notification-db -n staging -o jsonpath='{.data.DB_PASSWORD}' | base64 -d)
+     { printf '\\set pass %s\n' "$MDP"
+       printf '%s\n' "CREATE USER notification_user WITH PASSWORD :'pass';" \
+                     "CREATE DATABASE notification OWNER notification_user;" \
+                     "REVOKE ALL ON DATABASE notification FROM PUBLIC;"
+     } | kubectl exec -i -n staging deploy/postgres -- sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres' )
+   ```
+
+   Résultat attendu : `CREATE ROLE`, `CREATE DATABASE`, `REVOKE`.
+3. Redémarrer le service pour qu'il se connecte tout de suite : `kubectl rollout restart deploy/notification-service -n staging`, puis vérifier `kubectl get pods -n staging -l app=notification-service` (READY 1/1) et les logs du Job `smoke-test` après la synchronisation suivante.
+4. Sur un cluster neuf, ajouter aussi la base à `init-databases.sh` et la variable du mot de passe à `postgres.yaml` (non fait dans le staging existant : ce changement redémarrerait PostgreSQL pour rien).
 
 ## Ajouter une migration (Flyway)
 - Les fichiers vont dans `src/main/resources/db/migration` du service.

@@ -9,13 +9,13 @@ ok() { echo "OK  $1"; }
 ko() { echo "KO  $1"; echc=1; }
 
 echo "== Versions déployées (tags d'image écrits par la CI dans overlays/staging) =="
-for v in IMAGE_GATEWAY IMAGE_IDENTITY IMAGE_VENUE IMAGE_MATCH IMAGE_PAYMENT IMAGE_TEMPLATE; do
+for v in IMAGE_GATEWAY IMAGE_IDENTITY IMAGE_VENUE IMAGE_MATCH IMAGE_PAYMENT IMAGE_TEMPLATE IMAGE_NOTIFICATION; do
   eval "img=\${$v:-non renseignée}"
   echo "    $v=$img"
 done
 
 echo "== Santé (/actuator/health = UP, jusqu'à ~5 min par service) =="
-for svc in gateway identity-service venue-service match-service payment-service service-template; do
+for svc in gateway identity-service venue-service match-service payment-service service-template notification-service; do
   sante=0
   i=1
   while [ "$i" -le 30 ]; do
@@ -38,6 +38,7 @@ verifier_401 "http://gateway/api/v1/matches"           "passerelle /api/v1/match
 verifier_401 "http://venue-service/api/v1/venues"      "venue-service /api/v1/venues (SCRUM-87)"
 verifier_401 "http://match-service/api/v1/matches"     "match-service /api/v1/matches"
 verifier_401 "http://payment-service/api/v1/payments"  "payment-service /api/v1/payments"
+verifier_401 "http://notification-service/api/v1/notifications" "notification-service /api/v1/notifications (SCRUM-128)"
 
 if [ "$echc" = 0 ]; then
   echo "== RÉSULTAT : test de fumée réussi =="

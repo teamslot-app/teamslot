@@ -7,6 +7,7 @@ resources:
   - postgres.yaml
   - match-service.yaml
   - payment-service.yaml
+  - notification-service.yaml
   - venue-service.yaml
   - web.yaml
   - identity-service.yaml

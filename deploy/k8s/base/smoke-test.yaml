@@ -49,6 +49,8 @@ spec:
               value: "non renseignée"
             - name: IMAGE_TEMPLATE
               value: "non renseignée"
+            - name: IMAGE_NOTIFICATION
+              value: "non renseignée"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

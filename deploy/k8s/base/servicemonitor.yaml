@@ -18,6 +18,7 @@ spec:
           - match-service
           - payment-service
           - service-template
+          - notification-service
   endpoints:
     - port: http
       path: /actuator/prometheus
