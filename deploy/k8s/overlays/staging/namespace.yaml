@@ -3,7 +3,8 @@ kind: Namespace
 metadata:
   name: staging
   labels:
-    # SCRUM-126 : étape 1, on observe sans bloquer. enforce viendra après correction.
+    # SCRUM-126 : enforce actif après vérification (0 avertissement sur le rendu staging).
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/audit: restricted
   annotations:
