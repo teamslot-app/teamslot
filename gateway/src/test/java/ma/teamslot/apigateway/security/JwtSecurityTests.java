@@ -85,6 +85,19 @@ class JwtSecurityTests {
         client.get().uri("/actuator/health").exchange().expectStatus().isOk();
     }
 
+    @Test
+    void sansJeton_metriquesPrometheus_nonBloqueesParLaSecurite() {
+        // SCRUM-73 : Prometheus lit sans jeton. En test l export Prometheus est souvent désactivé (404 possible), mais jamais 401/403
+        client.get().uri("/actuator/prometheus").exchange()
+                .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
+    void sansJeton_autresEndpointsActuator_401() {
+        // seuls health et prometheus sont ouverts : tout le reste exige un jeton
+        client.get().uri("/actuator/env").exchange().expectStatus().isUnauthorized();
+    }
+
     // ---------- jeton valide ----------
 
     @Test
