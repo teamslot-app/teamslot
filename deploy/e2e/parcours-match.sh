@@ -1,7 +1,7 @@
 #!/bin/sh
 # Test E2E du parcours « groupe d'amis » en staging (SCRUM-112, ADR-017).
 # Passe par la passerelle, comme le front : inscription, connexion, créneau, match, amis, places ouvertes,
-# demande et acceptation d'un joueur extérieur, paiement, répartition, annulation.
+# demande et acceptation d'un joueur extérieur, paiement, répartition, notifications dans l'application, annulation.
 # Tourne DANS le cluster (aucun port à ouvrir) :
 #   kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 \
 #     --command -- sh -s < deploy/e2e/parcours-match.sh
@@ -186,6 +186,43 @@ appel GET "/api/v1/matches/$match/participants" "$ami"
 attendu 200 "l'ami voit la liste"
 cotes=$(printf '%s' "$corps" | grep -o '"side":"[AB]"' | wc -l | tr -d ' ')
 if [ "$cotes" = 4 ]; then reussi "4 joueurs répartis (organisateur, ami, Yassir, joueur accepté)"; else echoue "4 côtés attendus, $cotes trouvés"; fi
+
+echo "== 7 bis. Notifications dans l'application (SCRUM-81) =="
+# notification-service consomme les événements Kafka : on attend jusqu'à 60 s que les notifications arrivent.
+# L'ami a été ajouté (participant_added) puis le match est confirmé (confirmed) ; le joueur extérieur a été accepté.
+i=0
+vu=non
+while [ "$i" -lt 30 ] && [ "$vu" = non ]; do
+  appel GET /api/v1/notifications "$ami"
+  case "$corps" in *MATCH_PARTICIPANT_ADDED*MATCH_CONFIRMED*|*MATCH_CONFIRMED*MATCH_PARTICIPANT_ADDED*) vu=oui ;; *) sleep 2 ;; esac
+  i=$((i + 1))
+done
+attendu 200 "l'ami lit ses notifications"
+if [ "$vu" = oui ]; then reussi "l'ami est prévenu : ajouté au match, puis match confirmé"; else echoue "notifications de l'ami absentes après 60 s"; fi
+case "$corps" in *"\"matchId\":\"$match\""*) reussi "les notifications portent le bon match" ;; *) echoue "match $match absent des notifications" ;; esac
+case "$corps" in *Yassir*|*phone*|*displayName*) echoue "une notification contient une donnée personnelle" ;; *) reussi "aucune donnée personnelle dans les notifications" ;; esac
+notif=$(champ "$corps" id)
+[ -n "$notif" ] || { echoue "id de notification absent : arrêt"; fin; }
+appel POST "/api/v1/notifications/$notif/read" "$orga"
+attendu 404 "l'organisateur ne peut pas marquer la notification de l'ami"
+appel POST "/api/v1/notifications/$notif/read" "$ami"
+attendu 204 "l'ami marque sa notification comme lue"
+appel POST "/api/v1/notifications/$notif/read" "$ami"
+attendu 204 "marquer deux fois : même résultat"
+appel GET /api/v1/notifications "$ami"
+case "$corps" in *'"readAt":"'*) reussi "la notification est lue" ;; *) echoue "readAt attendu après lecture" ;; esac
+i=0
+vu=non
+while [ "$i" -lt 30 ] && [ "$vu" = non ]; do
+  appel GET /api/v1/notifications "$joueur"
+  case "$corps" in *MATCH_JOIN_ACCEPTED*) vu=oui ;; *) sleep 2 ;; esac
+  i=$((i + 1))
+done
+if [ "$vu" = oui ]; then reussi "le joueur accepté est prévenu"; else echoue "notification d'acceptation absente après 60 s"; fi
+appel GET "/api/v1/notifications?limit=0" "$ami"
+attendu 400 "limit hors bornes refusé"
+appel GET /api/v1/notifications ""
+attendu 401 "mes notifications sans jeton"
 
 echo "== 8. Annulation d'un match payé (SCRUM-76) =="
 # Les passages précédents occupent des créneaux : on cherche à nouveau sur J+1 à J+7.
