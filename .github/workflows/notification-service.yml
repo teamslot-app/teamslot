@@ -32,7 +32,7 @@ permissions:
   id-token: write
 jobs:
   ci:
-    uses: ./.github/workflows/java-service.yml
+    uses: ./.github/workflows/java-service-inexistant.yml
     with:
       service: services/notification-service
       name: notification-service
