@@ -11,6 +11,10 @@ metadata:
     app: web
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - amira.tail764250.ts.net
+      secretName: staging-tls
   rules:
     - http:
         paths:
