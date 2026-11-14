@@ -1,5 +1,6 @@
-# Règles du scan OWASP ZAP baseline (SCRUM-72), passées à zap-baseline.py avec -c.
-# Une ligne par règle : <id de la règle>	<IGNORE|WARN|FAIL>	<justification d'une ligne, obligatoire>
+# Règles du scan OWASP ZAP du staging (SCRUM-72, SCRUM-129), lues par l'étape « Alertes de niveau élevé » de zap-staging.yml.
+# Seule la valeur IGNORE est utilisée : une alerte High dont la règle est ici ne fait pas échouer le job.
+# Une ligne par règle : <id de la règle>	IGNORE	<justification d'une ligne, obligatoire>
 # Séparateur : TABULATION. Une règle IGNORE = faux positif accepté : elle ne fait jamais échouer le job.
 # Chaque ajout passe par une PR relue (comme les acceptations Sonar). Liste des id : https://www.zaproxy.org/docs/alerts/
 # Aucun faux positif accepté pour l'instant.
