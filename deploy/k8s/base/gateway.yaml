@@ -36,6 +36,8 @@ spec:
               value: "http://match-service"
             - name: PAYMENT_URL
               value: "http://payment-service"
+            - name: NOTIFICATION_URL
+              value: "http://notification-service"
             - name: JWT_JWK_SET_URI
               value: "http://identity-service/.well-known/jwks.json"
           securityContext:

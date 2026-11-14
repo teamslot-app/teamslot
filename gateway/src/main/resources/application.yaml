@@ -43,6 +43,12 @@ spring:
               predicates:
                 - Path=/api/v1/payments/**
 
+            # notification-service : « Mes notifications » et marquer comme lue (SCRUM-81)
+            - id: notification
+              uri: ${NOTIFICATION_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/notifications,/api/v1/notifications/**
+
 # SCRUM-67 : vérification des JWT émis par identity-service (RS256)
 teamslot:
   jwt:
