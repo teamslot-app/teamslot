@@ -15,38 +15,26 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.kafka.KafkaContainer;
 
 /**
- * SCRUM-81, avec un vrai Kafka, une vraie base et un faux Discord :
- * critère 1 (participant_added et confirmed consommés, message envoyé), critère 2 (un événement reçu deux fois
- * = un seul message), critère 3 (rien pour un invité sans compte), et l'URL du webhook jamais dans les logs.
+ * SCRUM-81, avec un vrai Kafka et une vraie base : critère 1 (participant_added et confirmed consommés,
+ * notification enregistrée pour la liste « Mes notifications »), critère 2 (un événement reçu deux fois
+ * = une seule notification), critère 3 (rien pour un invité sans compte).
  */
-@SpringBootTest(properties = {
-    "teamslot.notification.consumers.enabled=true",
-    "teamslot.notification.discord.intervalle-ms=200",
-    "teamslot.notification.discord.delai-initial-s=1"
-})
+@SpringBootTest(properties = "teamslot.notification.consumers.enabled=true")
 @ActiveProfiles("test")
 @Import({ConteneurKafka.class, NotificationConsumerTests.Topics.class})
-@ExtendWith(OutputCaptureExtension.class)
 class NotificationConsumerTests {
-
-    private static final FauxDiscord DISCORD = new FauxDiscord();
 
     /** Topics créés au démarrage (comme create-topics.sh en staging) : les consommateurs les trouvent tout de suite. */
     @TestConfiguration(proxyBeanMethods = false)
@@ -67,11 +55,6 @@ class NotificationConsumerTests {
         }
     }
 
-    @DynamicPropertySource
-    static void discord(DynamicPropertyRegistry proprietes) {
-        proprietes.add("teamslot.notification.discord.webhook-url", DISCORD::url);
-    }
-
     @Autowired KafkaTemplate<String, String> kafkaTemplate;
     @Autowired KafkaContainer kafka;
     @Autowired JdbcClient jdbc;
@@ -80,30 +63,23 @@ class NotificationConsumerTests {
     void repartirDeZero() {
         jdbc.sql("DELETE FROM notification").update();
         jdbc.sql("DELETE FROM match_participant").update();
-        jdbc.sql("DELETE FROM discord_message").update();
         jdbc.sql("DELETE FROM processed_event").update();
-        DISCORD.vider();
     }
 
     @Test
-    void critere_1_ajout_d_un_compte_cree_sa_notification_et_un_message_discord_sans_donnee_personnelle()
-            throws Exception {
+    void critere_1_ajout_d_un_compte_cree_sa_notification() throws Exception {
         UUID match = UUID.randomUUID();
         UUID joueur = UUID.randomUUID();
 
         envoyer("match.participant_added", participantAjoute(UUID.randomUUID(), match, joueur, null));
 
-        Attente.jusqua(() -> DISCORD.recus().size() == 1);
-        assertThat(notifications(joueur, "MATCH_PARTICIPANT_ADDED")).isEqualTo(1);
-        assertThat(DISCORD.recus()).hasSize(1);
-        String message = DISCORD.recus().getFirst();
-        assertThat(message).contains(match.toString().substring(0, 8))
-                .doesNotContain(joueur.toString())
-                .contains("\"allowed_mentions\"");
+        Attente.jusqua(() -> notifications(joueur, "MATCH_PARTICIPANT_ADDED") == 1);
+        assertThat(jdbc.sql("SELECT count(*) FROM notification WHERE user_id = :u AND match_id = :m AND read_at IS NULL")
+                .param("u", joueur).param("m", match).query(Long.class).single()).isEqualTo(1L);
     }
 
     @Test
-    void critere_2_le_meme_evenement_recu_deux_fois_n_envoie_qu_un_message() throws Exception {
+    void critere_2_le_meme_evenement_recu_deux_fois_ne_cree_qu_une_notification() throws Exception {
         UUID match = UUID.randomUUID();
         UUID joueur = UUID.randomUUID();
         String message = participantAjoute(UUID.randomUUID(), match, joueur, null);
@@ -114,9 +90,8 @@ class NotificationConsumerTests {
         UUID temoin = UUID.randomUUID();
         envoyer("match.participant_added", participantAjoute(UUID.randomUUID(), UUID.randomUUID(), temoin, null));
 
-        Attente.jusqua(() -> notifications(temoin, "MATCH_PARTICIPANT_ADDED") == 1 && DISCORD.recus().size() == 2);
+        Attente.jusqua(() -> notifications(temoin, "MATCH_PARTICIPANT_ADDED") == 1);
         assertThat(notifications(joueur, "MATCH_PARTICIPANT_ADDED")).isEqualTo(1);
-        assertThat(DISCORD.recus()).hasSize(2);
     }
 
     @Test
@@ -126,14 +101,13 @@ class NotificationConsumerTests {
         UUID temoin = UUID.randomUUID();
         envoyer("match.participant_added", participantAjoute(UUID.randomUUID(), UUID.randomUUID(), temoin, null));
 
-        Attente.jusqua(() -> DISCORD.recus().size() == 1);
+        Attente.jusqua(() -> notifications(temoin, "MATCH_PARTICIPANT_ADDED") == 1);
         assertThat(jdbc.sql("SELECT count(*) FROM notification").query(Long.class).single()).isEqualTo(1L);
         assertThat(jdbc.sql("SELECT count(*) FROM match_participant").query(Long.class).single()).isEqualTo(1L);
-        assertThat(DISCORD.recus()).hasSize(1).noneMatch(corps -> corps.contains("Yassir"));
     }
 
     @Test
-    void match_confirme_previent_chaque_compte_du_match_et_un_seul_message_discord() throws Exception {
+    void match_confirme_previent_chaque_compte_du_match() throws Exception {
         UUID match = UUID.randomUUID();
         UUID organisateurAjoute = UUID.randomUUID();
         UUID joueurAccepte = UUID.randomUUID();
@@ -144,29 +118,12 @@ class NotificationConsumerTests {
 
         envoyer("match.confirmed", matchConfirme(UUID.randomUUID(), match));
 
-        Attente.jusqua(() -> DISCORD.recus().size() == 3);
+        Attente.jusqua(() -> notifications(joueurAccepte, "MATCH_CONFIRMED") == 1);
         assertThat(notifications(organisateurAjoute, "MATCH_CONFIRMED")).isEqualTo(1);
-        assertThat(notifications(joueurAccepte, "MATCH_CONFIRMED")).isEqualTo(1);
         assertThat(notifications(joueurAccepte, "MATCH_JOIN_ACCEPTED")).isEqualTo(1);
-        assertThat(DISCORD.recus()).anyMatch(corps -> corps.contains("2 joueurs prévenus"));
-    }
-
-    @Test
-    void discord_en_panne_le_message_attend_puis_part_sans_que_l_url_soit_journalisee(CapturedOutput sortie)
-            throws Exception {
-        DISCORD.repondre(500);
-        envoyer("match.participant_added",
-                participantAjoute(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null));
-        Attente.jusqua(() -> essais() >= 1);
-        assertThat(DISCORD.recus()).isEmpty();
-        assertThat(jdbc.sql("SELECT count(*) FROM discord_message WHERE sent_at IS NULL").query(Long.class).single())
-                .isEqualTo(1L);
-
-        DISCORD.repondre(204);
-        Attente.jusqua(() -> DISCORD.recus().size() == 1);
-        assertThat(DISCORD.recus()).hasSize(1);
-        assertThat(sortie.getAll()).contains("Discord a r").contains("500")
-                .doesNotContain("jeton-secret-de-test").doesNotContain("/api/webhooks/");
+        // l'invité sans compte n'a rien : 2 notifications MATCH_CONFIRMED en tout
+        assertThat(jdbc.sql("SELECT count(*) FROM notification WHERE type = 'MATCH_CONFIRMED'")
+                .query(Long.class).single()).isEqualTo(2L);
     }
 
     @Test
@@ -217,10 +174,6 @@ class NotificationConsumerTests {
     private long participants(UUID match) {
         return jdbc.sql("SELECT count(*) FROM match_participant WHERE match_id = :m")
                 .param("m", match).query(Long.class).single();
-    }
-
-    private int essais() {
-        return jdbc.sql("SELECT coalesce(max(essais), 0) FROM discord_message").query(Integer.class).single();
     }
 
     /** Lit un topic depuis le début jusqu'à avoir le nombre attendu de messages, 20 secondes au maximum. */

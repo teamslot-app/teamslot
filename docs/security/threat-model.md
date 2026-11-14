@@ -49,7 +49,7 @@ flowchart LR
   end
   subgraph EXT["Services externes"]
     AWS["AWS : SNS/SQS, Lambda"]
-    MSG["Discord / e-mail via n8n"]
+    MSG["E-mail : relais SMTP (SCRUM-134)"]
   end
   subgraph SC["Chaîne logicielle"]
     GH["GitHub + GHCR<br/>code, images, manifestes"]
@@ -66,7 +66,7 @@ flowchart LR
 |---|---|---|
 | **TB1** | Internet et le cluster | Tout ce qui vient d'un navigateur est non fiable |
 | **TB2** | Les services et les données | Chaque service n'accède qu'à **sa propre base** ; aucune base partagée |
-| **TB3** | Le cluster et les services externes (AWS, Discord, e-mail) | Identifiants limités aux services utilisés, stockés en secret scellé |
+| **TB3** | Le cluster et les services externes (AWS, relais e-mail) | Identifiants limités aux services utilisés, stockés en secret scellé |
 | **TB4** | La chaîne logicielle et le cluster | Seuls le code relu et les images analysées et signées arrivent en production |
 
 ## 4. Menaces et contre-mesures (STRIDE)
