@@ -28,6 +28,12 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
 		</dependency>
+		<!-- SCRUM-73 : métriques lues par Prometheus -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 		<!-- SCRUM-67 : vérification des JWT (Spring Security, serveur de ressources) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         // sonde de santé pour Kubernetes
                         .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // métriques lues par Prometheus (aucune route Ingress vers /actuator)
+                        .pathMatchers("/actuator/prometheus").permitAll()
                         // inscription, connexion, renouvellement : pas encore de jeton
                         .pathMatchers("/api/v1/auth/**").permitAll()
                         // service modèle de la démo du Sprint 0 (walking skeleton)
