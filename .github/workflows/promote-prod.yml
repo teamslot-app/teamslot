@@ -77,6 +77,8 @@ jobs:
             # Le front a son propre workflow ; les services Java passent par java-service.yml.
             case "$nom" in
               */web) FLUX=web.yml ;;
+              # SCRUM-148 : plateforme joueur, signée par le workflow réutilisable des fronts
+              */teamslot) FLUX=frontend-app.yml ;;
               *) FLUX=java-service.yml ;;
             esac
             IDENTITE="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/${FLUX}@refs/heads/main"
