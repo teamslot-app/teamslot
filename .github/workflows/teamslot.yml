@@ -15,8 +15,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  packages: write
+  # Plafond nécessaire pour que frontend-app.yml signe avec cosign sans clé (seul le job « image » l'utilise).
+  id-token: write
 jobs:
   ci:
     uses: ./.github/workflows/frontend-app.yml
     with:
       app: teamslot
+    # Le robot de déploiement (CI_BOT_PRIVATE_KEY) a besoin des secrets du dépôt
+    secrets: inherit
