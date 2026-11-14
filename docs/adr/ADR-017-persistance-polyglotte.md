@@ -16,6 +16,7 @@ On choisit la base d'après la forme des données de chaque service :
 | match | MongoDB | un match, ses participants et leurs côtés = un document |
 | payment | PostgreSQL (inchangé) | argent : transactions ACID et contraintes strictes |
 | search | DynamoDB (inchangé, ADR-012) | recherche par proximité avec geohash ; DynamoDB Local en développement, AWS Always Free en fin de projet |
+| notification | PostgreSQL (base `notification` dans l'instance existante, ajout du Sprint 3, SCRUM-128) | notifications = lignes simples ; réutilise `libs/events` tel quel (outbox et `processed_event` pour l'idempotence) ; aucun pod de plus sur un PC limité à 6 Go |
 
 Ce qui ne change pas : les contrats REST (`docs/api`) et les événements Kafka (`docs/events.md`). Seuls les adaptateurs `adapter/out/persistence` changent ; les ports hexagonaux et les services d'application restent identiques.
 
@@ -37,7 +38,8 @@ Chaque migration est une PR. Si le staging casse : `git revert` du commit fusion
 - Plus de mémoire sur un PC limité à 6 Go : chaque nouvelle base a des `resources.limits`.
 - L'outbox doit exister aussi pour MongoDB dans `libs/events` (SCRUM-111). Les transactions MongoDB, nécessaires pour écrire l'état et l'événement ensemble, demandent un replica set (SCRUM-115).
 - Plus d'images à épingler et à analyser (Trivy, Dependabot).
-- ADR-014 ne couvre plus que venue et payment (et la base `template`).
+- ADR-014 ne couvre plus que venue, payment et notification (et la base `template`).
+- notification (Sprint 3) : une base et un utilisateur de plus dans l'instance PostgreSQL existante, avec le même modèle de sécurité (utilisateur dédié sans droit sur les autres bases, mot de passe en secret scellé). Une base ajoutée après la création du volume n'est pas créée par `init-databases.sh` (exécuté une seule fois) : elle se crée une seule fois dans le staging existant, au moment du déploiement du service (procédure à ajouter alors dans `docs/bases-de-donnees.md`).
 
 ## Alternatives écartées
 - **Paiement en NoSQL** : perte des transactions ACID et des contraintes strictes sur l'argent.
