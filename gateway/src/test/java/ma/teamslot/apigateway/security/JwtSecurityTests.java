@@ -109,6 +109,23 @@ class JwtSecurityTests {
     }
 
     @Test
+    void sansJeton_mesNotifications_401() {
+        // SCRUM-81 : données privées, la passerelle refuse avant même d'appeler notification-service
+        client.get().uri("/api/v1/notifications").exchange().expectStatus().isUnauthorized();
+        client.post().uri("/api/v1/notifications/0b9f3c1e-0000-4000-8000-000000000001/read").exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void jetonValide_mesNotifications_passeLaPasserelle() {
+        // notification-service n'est pas lancé : ni 401 ni 403, la passerelle a bien laissé passer vers la route
+        client.get().uri("/api/v1/notifications")
+                .headers(h -> h.setBearerAuth(token(IDENTITY_KEY, ISSUER, inMinutes(15))))
+                .exchange()
+                .expectStatus().value(status -> assertThat(status).isNotIn(401, 403));
+    }
+
+    @Test
     void jetonValide_endpointInterne_refuse() {
         client.post().uri("/api/v1/slot-reservations")
                 .headers(h -> h.setBearerAuth(token(IDENTITY_KEY, ISSUER, inMinutes(15))))
