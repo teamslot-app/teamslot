@@ -58,6 +58,22 @@ class JdbcOutboxTests {
         assertThat(ligne.get("data_match_id")).isEqualTo(matchId.toString());
     }
 
+    /** SCRUM-89 : l'identifiant de la requête (MDC) est écrit dans l'enveloppe stockée en JSONB. */
+    @Test
+    void record_ecrit_l_identifiant_de_correlation_de_la_requete() {
+        String id = "7d9f3a2e-1b4c-4e8f-9a6d-2c5b8e1f0a37";
+        org.slf4j.MDC.put("correlationId", id);
+        try {
+            transaction.executeWithoutResult(status ->
+                    outbox.record(UUID.randomUUID(), "match.created", Map.of()));
+        } finally {
+            org.slf4j.MDC.remove("correlationId");
+        }
+
+        String stocke = jdbc.sql("SELECT payload->>'correlationId' FROM outbox_event").query(String.class).single();
+        assertThat(stocke).isEqualTo(id);
+    }
+
     @Test
     void transaction_annulee_aucun_evenement() {
         transaction.executeWithoutResult(status -> {

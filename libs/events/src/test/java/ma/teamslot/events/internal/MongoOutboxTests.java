@@ -79,6 +79,22 @@ class MongoOutboxTests {
         assertThat(enveloppe.data().get("matchId").toString()).contains(matchId.toString());
     }
 
+    /** SCRUM-89 : même enveloppe qu'avec PostgreSQL, avec l'identifiant de la requête. */
+    @Test
+    void record_ecrit_l_identifiant_de_correlation_de_la_requete() {
+        String id = "7d9f3a2e-1b4c-4e8f-9a6d-2c5b8e1f0a37";
+        org.slf4j.MDC.put("correlationId", id);
+        try {
+            transaction.executeWithoutResult(status ->
+                    outbox.record(UUID.randomUUID(), "match.created", Map.of()));
+        } finally {
+            org.slf4j.MDC.remove("correlationId");
+        }
+
+        String payload = mongo.findAll(Document.class, MongoOutbox.COLLECTION).get(0).getString("payload");
+        assertThat(lecteur.lire(payload).correlationId()).isEqualTo(id);
+    }
+
     @Test
     void transaction_annulee_aucun_evenement() {
         transaction.executeWithoutResult(status -> {

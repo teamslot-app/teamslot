@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Ticket** | SCRUM-24 |
-| **Version** | 1.5 — Sprint 3 (`identity.email_verification_requested` ; `user.registered` enrichi, SCRUM-131) |
+| **Version** | 1.5 — Sprint 3 (`identity.email_verification_requested` ; `user.registered` enrichi, SCRUM-131 ; `correlationId` dans l'enveloppe depuis 1.4, SCRUM-89) |
 | **Source** | Conception TeamSlot, section 7.3 ; contrats `docs/api/*.yaml` |
 
 Les services communiquent par événements (ADR-002). Ce catalogue est **la référence** : un producteur n'émet que des événements listés ici, avec ces noms et ces champs, et tout nouvel événement est ajouté dans ce fichier **dans la même pull request** que le code qui le produit.
@@ -39,6 +39,7 @@ Tous les événements ont la même enveloppe ; seul `data` change.
   "version": 1,
   "occurredAt": "2026-10-12T20:02:00Z",
   "producer": "match-service",
+  "correlationId": "7d9f3a2e-1b4c-4e8f-9a6d-2c5b8e1f0a37",
   "data": {
     "matchId": "3f0c9b2a-7e41-4d8a-b1c6-2a9e5f7d4c10",
     "strategy": "random",
@@ -55,6 +56,7 @@ Tous les événements ont la même enveloppe ; seul `data` change.
 | `version` | entier | Version du schéma de `data` ; commence à 1 |
 | `occurredAt` | date-heure UTC | Moment où le fait s'est produit |
 | `producer` | texte | Service émetteur (`match-service`) |
+| `correlationId` | UUID, **facultatif** | Identifiant de la requête HTTP d'origine (`X-Correlation-Id`, SCRUM-89). Absent si l'événement n'a pas été produit pendant une requête, et dans les événements écrits avant. Un consommateur ignore une valeur qui n'est pas un UUID, sans rejeter l'événement |
 | `data` | objet | Contenu propre à l'événement (tableaux ci-dessous) |
 
 ## 3. Événements par service
@@ -176,6 +178,7 @@ sequenceDiagram
 | Version | Changement | Raison |
 |---|---|---|
 | 1.5 | `identity.email_verification_requested` (nouveau) ; champ `email` ajouté à `user.registered` (SCRUM-131). | Inscription v2 : e-mail vérifié par code avant la première connexion. Nouvel événement et ajout de champ : aucun consommateur existant cassé. |
+| 1.4 | Champ facultatif `correlationId` (UUID) dans l'enveloppe, rempli par `libs/events` depuis le MDC de la requête (SCRUM-89). Absent du JSON quand il n'y en a pas. | Suivre une requête d'un service à l'autre à travers l'outbox et Kafka. Ajout d'un champ facultatif : compatible avec tous les consommateurs (règle d'évolution). |
 | 1.3 | `match.join_requested` et `match.join_accepted` produits par match-service (SCRUM-79) ; topics et `.dlt` dans `create-topics.sh`. L'acceptation ne publie **pas** `match.participant_added` : notification-service doit consommer `match.join_accepted` pour prévenir le joueur accepté. | Un joueur demande une place, l'organisateur accepte. Nouveaux événements : aucun consommateur existant touché. |
 | 1.2 | `match.spots_opened` produit par match-service (SCRUM-78) ; topic et `.dlt` ajoutés à `create-topics.sh`. Aucun consommateur ce sprint (search-service n'existe pas, ADR-012). | L'organisateur ouvre des places pour compléter son groupe. Nouvel événement : aucun consommateur existant n'est touché (`match.participant_added` et `match.confirmed` inchangés pour notification). |
 | 1.1 | Champ `acceptsOnSitePayment` (booléen) ajouté dans `match.created` | payment-service doit savoir si le terrain accepte le paiement sur place (SCRUM-62). match-service le reçoit de venue dans la réponse de réservation. Ajout de champ : compatible avec les consommateurs existants. |

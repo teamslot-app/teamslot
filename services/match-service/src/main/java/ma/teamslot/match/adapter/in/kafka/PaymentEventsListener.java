@@ -3,6 +3,7 @@ package ma.teamslot.match.adapter.in.kafka;
 import java.util.Set;
 import ma.teamslot.match.application.ConfirmMatchService;
 import ma.teamslot.events.EventEnvelope;
+import ma.teamslot.events.Correlation;
 import ma.teamslot.events.EventReader;
 import ma.teamslot.events.IdempotentProcessor;
 import org.slf4j.Logger;
@@ -48,6 +49,8 @@ public class PaymentEventsListener {
             return;
         }
         PaymentEventData data = json.treeToValue(evenement.data(), PaymentEventData.class);
-        processeur.traiterUneFois(evenement.eventId(), () -> service.surPaiement(data.matchId(), evenement.type()));
+        // SCRUM-89 : l'identifiant de corrélation du paiement suit dans les logs et dans match.confirmed
+        Correlation.pendant(evenement.correlationId(), () -> processeur.traiterUneFois(evenement.eventId(),
+                () -> service.surPaiement(data.matchId(), evenement.type())));
     }
 }

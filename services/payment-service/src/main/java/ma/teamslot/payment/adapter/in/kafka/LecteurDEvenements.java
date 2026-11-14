@@ -35,10 +35,11 @@ class LecteurDEvenements {
             LOG.info("Evenement ignore {} ({} v{})", evenement.eventId(), evenement.type(), evenement.version());
             return Optional.empty();
         }
-        return Optional.of(new Recu<>(evenement.eventId(), json.treeToValue(evenement.data(), typeData)));
+        return Optional.of(new Recu<>(evenement.eventId(), evenement.correlationId(),
+                json.treeToValue(evenement.data(), typeData)));
     }
 
-    /** Événement accepté : son identifiant (pour l'idempotence) et sa data. */
-    record Recu<T>(UUID eventId, T data) {
+    /** Événement accepté : son identifiant (idempotence), son identifiant de corrélation (SCRUM-89) et sa data. */
+    record Recu<T>(UUID eventId, String correlationId, T data) {
     }
 }

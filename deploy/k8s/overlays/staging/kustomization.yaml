@@ -21,22 +21,22 @@ images:
   name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
   newTag: 61b05708a1c5a7679562faa1b30c13fe090e8143
-- digest: sha256:f105557210574477d5d57cae8a0c7a9e7b4112c51ca93f9c8a6ad5d212988a88
+- digest: sha256:645cd4c6e3af8889445d337909f1c65a2d29c4dba8c75271cfe1a46de55e0f51
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
-  newTag: ec94ada03659ffb92950033accee35240fedc73e
-- digest: sha256:05c0af94db1a888fbf7a7feb59e7afe5deb8e1b5d93b0d7e5c8ca52aa6d14894
+  newTag: 195930a09fe4c339e55a3182eb9bfc42fd7c336e
+- digest: sha256:b062a3de9e6b956ea0f4bba4feed8550d95582a03294532dfd8d9aa9b0b3599a
   name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
-  newTag: 1177a56fe00059bc8dc466be9f663f2e8af6a6f5
+  newTag: 195930a09fe4c339e55a3182eb9bfc42fd7c336e
 - digest: sha256:98eca6bcd8525264e3e50a21c68e039478b26824724205c77a2d58a6c214a16d
   name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
   newTag: ec94ada03659ffb92950033accee35240fedc73e
-- digest: sha256:ca18ceb75bc6ea05d24bb1ee2cb1db41f911ac4e5b2f94852f0b6cad0b1c9c9a
+- digest: sha256:338007b955c6f8840638950ac82363b3e33abb4176d4f598476cacfb7a2f8dcb
   name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
-  newTag: ec94ada03659ffb92950033accee35240fedc73e
+  newTag: 195930a09fe4c339e55a3182eb9bfc42fd7c336e
 - digest: sha256:5ece2010fe6e209ea999f85105ed62ad8b0b9bedbaa1316aecabc7a161db7681
   name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
