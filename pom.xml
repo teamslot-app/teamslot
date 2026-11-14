@@ -27,6 +27,7 @@
 		<module>services/payment-service</module>
 		<module>services/match-service</module>
 		<module>services/venue-service</module>
+		<module>services/notification-service</module>
 	</modules>
 
 	<properties>
