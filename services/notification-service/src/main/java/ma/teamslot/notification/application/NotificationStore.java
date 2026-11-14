@@ -2,6 +2,8 @@ package ma.teamslot.notification.application;
 
 import java.util.List;
 import java.util.UUID;
+import ma.teamslot.notification.domain.Notification;
+import ma.teamslot.notification.domain.Repere;
 import ma.teamslot.notification.domain.TypeNotification;
 
 /** Port de persistance des notifications (adaptateur : JdbcNotificationStore). */
@@ -15,17 +17,19 @@ public interface NotificationStore {
 
     void enregistrerNotification(UUID userId, TypeNotification type, UUID matchId);
 
-    /** Message à publier plus tard dans Discord (envoi par EnvoiDiscordEnAttente). */
-    void enregistrerMessageDiscord(String contenu);
+    /**
+     * Notifications de cet utilisateur, les plus récentes d'abord.
+     *
+     * @param apres null pour la première tranche, sinon la dernière notification déjà renvoyée
+     * @param nombre nombre maximum de notifications renvoyées
+     */
+    List<Notification> notificationsDe(UUID userId, Repere apres, int nombre);
 
-    /** Messages dont l'heure d'essai est passée, verrouillés pour cet envoi (SKIP LOCKED). */
-    List<MessageAEnvoyer> messagesAEnvoyer(int limite);
-
-    void marquerEnvoye(UUID messageId);
-
-    /** Échec : nouvel essai plus tard (délai croissant), ou abandon après le dernier essai. */
-    void noterEchec(UUID messageId, int essaisDejaFaits);
-
-    record MessageAEnvoyer(UUID id, String contenu, int essais) {
-    }
+    /**
+     * Marque la notification comme lue si elle appartient à cet utilisateur (une notification déjà lue garde
+     * sa première date).
+     *
+     * @return false si elle n'existe pas ou appartient à quelqu'un d'autre
+     */
+    boolean marquerLue(UUID notificationId, UUID userId);
 }

@@ -4,10 +4,10 @@ info:
   version: 1.0.0
   description: |
     Notifications des joueurs : notification-service consomme les événements Kafka
-    (docs/events.md), enregistre une notification pour chaque utilisateur concerné et
-    le prévient (webhook Discord, SCRUM-81). Ce contrat ne décrit que ce que le front appelle :
-    la liste « Mes notifications » et le marquage comme lue. L'envoi vers Discord n'est pas une
-    route de l'API ; l'URL du webhook est un secret et n'est jamais exposée.
+    (docs/events.md) et enregistre une notification pour chaque utilisateur concerné.
+    Le joueur est prévenu dans l'application (SCRUM-81, décision d'équipe du 14/11/2026) :
+    le front affiche la liste « Mes notifications » (cloche avec le nombre de non lues) grâce
+    aux deux routes de ce contrat. Aucun envoi vers un service externe pour ces notifications.
     Contrat sommaire (SCRUM-71), écrit à partir de docs/events.md et de la planification du Sprint 3.
     Pagination par curseur (comme un fil de messagerie) : une notification qui arrive pendant la
     lecture ne crée ni doublon ni trou dans les tranches suivantes. Réponses privées : jamais en cache.

@@ -10,7 +10,7 @@
 	</parent>
 	<artifactId>notification-service</artifactId>
     <name>notification-service</name>
-    <description>Notifications des joueurs TeamSlot (SCRUM-128 : squelette ; Discord SCRUM-81, e-mail SCRUM-134)</description>
+    <description>Notifications des joueurs TeamSlot (SCRUM-128 : squelette ; notifications dans l'application SCRUM-81, e-mail SCRUM-134)</description>
 	<url/>
 	<licenses>
 		<license/>
