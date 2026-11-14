@@ -25,6 +25,16 @@
 		<url/>
 	</scm>
 	<dependencies>
+		<!-- SCRUM-147 : outbox, relais et idempotence partagés (ADR-015), en mode MySQL (teamslot.events.sql=mysql) -->
+		<dependency>
+			<groupId>ma.teamslot</groupId>
+			<artifactId>events</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-kafka</artifactId>
+		</dependency>
     	<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-redis</artifactId>
@@ -109,6 +119,13 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
+		</dependency>
+		<!-- CVE-2026-108106 et CVE-2026-93451 (HIGH) : snappy-java via kafka-clients (SCRUM-147), version corrigée forcée comme dans les autres services. -->
+		<dependency>
+			<groupId>org.xerial.snappy</groupId>
+			<artifactId>snappy-java</artifactId>
+			<version>1.1.10.9</version>
+			<scope>runtime</scope>
 		</dependency>
 	</dependencies>
 

@@ -38,7 +38,7 @@ class OutboxRelayErreursTest {
 
     private void lignesEnAttente(OutboxRelay.LigneOutbox... lignes) {
         when(jdbc.sql(startsWith("SELECT")).param(anyString(), any())
-                .query(OutboxRelay.LigneOutbox.class).list())
+                .query(OutboxRelay.LIGNE).list())
                 .thenReturn(List.of(lignes));
     }
 

@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,34 +26,37 @@ class OutboxRelay {
     // Plus long que delivery.timeout.ms (10 s) : c est l erreur de Kafka, avec sa cause, qui remonte.
     private static final long DELAI_ENVOI_SECONDES = 15;
 
-    /** SKIP LOCKED + un seul pod par service : avec plusieurs pods, deux événements du même agrégat pourraient partir dans le désordre (docs/outbox-howto.md). */
-    private static final String SELECT_A_PUBLIER = """
-            SELECT id, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
-            FROM outbox_event
-            WHERE published_at IS NULL
-            ORDER BY position
-            LIMIT :taille
-            FOR UPDATE SKIP LOCKED
-            """;
+    // SKIP LOCKED + un seul pod par service : avec plusieurs pods, deux événements du même agrégat pourraient
+    // partir dans le désordre (docs/outbox-howto.md).
 
-    private static final String MARQUER_PUBLIE =
-            "UPDATE outbox_event SET published_at = now() WHERE id = :id";
+    /** Lecture des identifiants en texte : UUID natif en PostgreSQL, CHAR(36) en MySQL (SCRUM-147). */
+    static final RowMapper<LigneOutbox> LIGNE = (resultat, numero) -> new LigneOutbox(
+            UUID.fromString(resultat.getString("id")),
+            UUID.fromString(resultat.getString("aggregate_id")),
+            resultat.getString("event_type"),
+            resultat.getString("payload"));
 
     private final JdbcClient jdbc;
     private final KafkaTemplate<String, String> kafka;
+    private final DialecteSql dialecte;
 
     OutboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka) {
+        this(jdbc, kafka, DialecteSql.POSTGRESQL);
+    }
+
+    OutboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka, DialecteSql dialecte) {
         this.jdbc = jdbc;
         this.kafka = kafka;
+        this.dialecte = dialecte;
     }
 
     /** Toutes les secondes (si la planification est active, voir EventsAutoConfiguration.PlanificationDuRelais). */
     @Scheduled(fixedDelayString = "${teamslot.outbox.relay.delay-ms:1000}")
     @Transactional
     public void publierEnAttente() {
-        List<LigneOutbox> lignes = jdbc.sql(SELECT_A_PUBLIER)
+        List<LigneOutbox> lignes = jdbc.sql(dialecte.selectionnerAPublier)
                 .param("taille", TAILLE_LOT)
-                .query(LigneOutbox.class)
+                .query(LIGNE)
                 .list();
 
         for (LigneOutbox ligne : lignes) {
@@ -60,7 +64,7 @@ class OutboxRelay {
                 // On s'arrête pour garder l'ordre : la suite repartira au prochain passage.
                 break;
             }
-            jdbc.sql(MARQUER_PUBLIE).param("id", ligne.id()).update();
+            jdbc.sql(dialecte.marquerPublie).param("id", dialecte.identifiant(ligne.id())).update();
         }
     }
 

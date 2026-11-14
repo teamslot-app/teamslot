@@ -11,7 +11,8 @@ COPY services/identity-service/pom.xml services/identity-service/
 COPY services/payment-service/pom.xml services/payment-service/
 COPY services/match-service/pom.xml services/match-service/
 COPY services/venue-service/pom.xml services/venue-service/
-# Sources : seulement le service (identity n'utilise pas libs/events)
+# Sources : seulement le service et les modules dont il dépend (libs/events depuis SCRUM-147)
+COPY libs/events/src libs/events/src
 COPY services/identity-service/src services/identity-service/src
 # Cache BuildKit des dépendances Maven : réutilisé d'un build à l'autre, jamais copié dans l'image
 RUN --mount=type=cache,target=/root/.m2 \
