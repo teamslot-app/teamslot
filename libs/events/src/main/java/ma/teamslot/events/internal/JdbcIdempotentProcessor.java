@@ -12,15 +12,16 @@ import org.springframework.transaction.annotation.Transactional;
  */
 class JdbcIdempotentProcessor implements IdempotentProcessor {
 
-    private static final String MARQUER_TRAITE = """
-            INSERT INTO processed_event (event_id) VALUES (:eventId)
-            ON CONFLICT (event_id) DO NOTHING
-            """;
-
     private final JdbcClient jdbc;
+    private final DialecteSql dialecte;
 
     JdbcIdempotentProcessor(JdbcClient jdbc) {
+        this(jdbc, DialecteSql.POSTGRESQL);
+    }
+
+    JdbcIdempotentProcessor(JdbcClient jdbc, DialecteSql dialecte) {
         this.jdbc = jdbc;
+        this.dialecte = dialecte;
     }
 
     @Override
@@ -29,7 +30,7 @@ class JdbcIdempotentProcessor implements IdempotentProcessor {
         Objects.requireNonNull(eventId, "eventId est obligatoire");
         Objects.requireNonNull(traitement, "traitement est obligatoire");
 
-        int inseres = jdbc.sql(MARQUER_TRAITE).param("eventId", eventId).update();
+        int inseres = jdbc.sql(dialecte.marquerTraite).param("eventId", dialecte.identifiant(eventId)).update();
         if (inseres == 0) {
             return false;
         }

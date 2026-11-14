@@ -70,7 +70,10 @@ public class EventsAutoConfiguration {
         return gestionnaire;
     }
 
-    /** Services PostgreSQL : tables outbox_event et processed_event (V2__outbox.sql). */
+    /**
+     * Services JDBC : tables outbox_event et processed_event. PostgreSQL (V2__outbox.sql) par défaut ;
+     * MySQL (identity, SCRUM-147) avec teamslot.events.sql=mysql et la migration MySQL du service.
+     */
     @Configuration(proxyBeanMethods = false)
     @Conditional(ChoixDuStockage.Jdbc.class)
     static class StockageJdbc {
@@ -79,19 +82,20 @@ public class EventsAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(Outbox.class)
         Outbox outbox(JdbcClient jdbc, JsonMapper jsonMapper, Environment environnement) {
-            return new JdbcOutbox(jdbc, jsonMapper, environnement.getRequiredProperty(NOM_DU_SERVICE));
+            return new JdbcOutbox(jdbc, jsonMapper, environnement.getRequiredProperty(NOM_DU_SERVICE),
+                    DialecteSql.depuis(environnement));
         }
 
         @Bean
         @ConditionalOnMissingBean
-        OutboxRelay outboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka) {
-            return new OutboxRelay(jdbc, kafka);
+        OutboxRelay outboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka, Environment environnement) {
+            return new OutboxRelay(jdbc, kafka, DialecteSql.depuis(environnement));
         }
 
         @Bean
         @ConditionalOnMissingBean(IdempotentProcessor.class)
-        IdempotentProcessor idempotentProcessor(JdbcClient jdbc) {
-            return new JdbcIdempotentProcessor(jdbc);
+        IdempotentProcessor idempotentProcessor(JdbcClient jdbc, Environment environnement) {
+            return new JdbcIdempotentProcessor(jdbc, DialecteSql.depuis(environnement));
         }
     }
 

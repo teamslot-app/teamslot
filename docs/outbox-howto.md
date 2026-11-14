@@ -85,6 +85,23 @@ Pour suivre une requête : chercher son `correlationId` dans les logs JSON de to
 
 `V2__outbox.sql` est déjà appliquée en staging : elle n'est **jamais** modifiée (test d'empreinte `MigrationOutboxTest` dans `libs/events`). Une évolution de l'outbox = une nouvelle migration.
 
+## Service MySQL : identity-service (SCRUM-147, ADR-017)
+
+`libs/events` a été écrit pour PostgreSQL. Pour un service MySQL, le même code tourne avec un autre SQL :
+
+| Réglage / fichier | PostgreSQL (venue, payment) | MySQL (identity) |
+|---|---|---|
+| Propriété `teamslot.events.sql` | `postgresql` (défaut, rien à écrire) | `mysql` |
+| Migration de l'outbox | `V2__outbox.sql`, livrée par `libs/events` dans `db/migration` | `db/identity/V5__outbox.sql`, dans le service |
+| Identifiants | type `UUID` | `CHAR(36)` |
+| Payload | `JSONB` | `JSON` (MySQL réordonne les clés : sans effet pour les consommateurs) |
+| Doublon (idempotence) | `ON CONFLICT DO NOTHING` | `INSERT IGNORE` |
+| Horodatages | `timestamptz` | `DATETIME(6)`, toujours en UTC |
+
+- identity range ses migrations dans **`db/identity`** (`spring.flyway.locations=classpath:db/identity`) : la `V2__outbox.sql` PostgreSQL de `libs/events` n'est pas lue, et elle n'entre pas en collision avec la `V2` d'identity. Les migrations déjà appliquées gardent leur nom et leur contenu : Flyway ne voit aucune différence.
+- Le relais lit les identifiants en texte (`OutboxRelay.LIGNE`) : la même lecture marche en PostgreSQL et en MySQL.
+- Tests : `MySqlStockageTests` (libs/events, vrai MySQL 8.4) et `OutboxIdentityTests` (identity-service).
+
 ## Service MongoDB (SCRUM-111, ADR-017)
 
 `libs/events` choisit le stockage tout seul (`ChoixDuStockage`) :

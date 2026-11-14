@@ -75,6 +75,17 @@
 			<artifactId>testcontainers-kafka</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- SCRUM-147 : tests du SQL MySQL (identity-service) sur un vrai MySQL -->
+		<dependency>
+			<groupId>com.mysql</groupId>
+			<artifactId>mysql-connector-j</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mysql</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!-- MongoDB en replica set (withReplicaSet, voir MongoDeTest) : les transactions marchent dans les tests -->
 		<dependency>
 			<groupId>org.testcontainers</groupId>
