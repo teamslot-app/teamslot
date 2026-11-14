@@ -45,6 +45,11 @@
 			<artifactId>testcontainers-postgresql</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- SCRUM-134 : e-mail de vérification par SMTP -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 		<!-- SCRUM-81 : consommateurs Kafka des événements de match -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
