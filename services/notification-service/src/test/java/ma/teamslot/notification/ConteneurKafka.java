@@ -7,7 +7,7 @@ import org.testcontainers.kafka.KafkaContainer;
 
 /** Vrai Kafka pour les tests des consommateurs (un seul conteneur, contexte Spring partagé entre les classes). */
 @TestConfiguration(proxyBeanMethods = false)
-public class KafkaDeTest {
+public class ConteneurKafka {
 
     @Bean
     @ServiceConnection

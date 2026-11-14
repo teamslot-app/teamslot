@@ -35,7 +35,11 @@ class DiscordWebhook implements EnvoiDiscord {
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
         factory.setReadTimeout(Duration.ofSeconds(5));
         this.rest = RestClient.builder().requestFactory(factory).build();
-        LOG.info(this.url == null ? "Envoi Discord désactivé : aucune URL de webhook" : "Envoi Discord activé");
+        if (this.url == null) {
+            LOG.info("Envoi Discord désactivé : aucune URL de webhook");
+        } else {
+            LOG.info("Envoi Discord activé");
+        }
     }
 
     @Override

@@ -18,6 +18,9 @@ class JdbcNotificationStore implements NotificationStore {
     /** Premier délai avant un nouvel essai, doublé à chaque échec : 30 s, 1 min, 2 min, 4 min… */
     private final long delaiInitialS;
 
+    /** Nom du paramètre :match dans les requêtes SQL. */
+    private static final String P_MATCH = "match";
+
     JdbcNotificationStore(JdbcClient jdbc,
                           @Value("${teamslot.notification.discord.delai-initial-s:30}") long delaiInitialS) {
         this.jdbc = jdbc;
@@ -29,20 +32,20 @@ class JdbcNotificationStore implements NotificationStore {
         jdbc.sql("""
                 INSERT INTO match_participant (match_id, user_id) VALUES (:match, :user)
                 ON CONFLICT DO NOTHING
-                """).param("match", matchId).param("user", userId).update();
+                """).param(P_MATCH, matchId).param("user", userId).update();
     }
 
     @Override
     public List<UUID> participants(UUID matchId) {
         return jdbc.sql("SELECT user_id FROM match_participant WHERE match_id = :match ORDER BY user_id")
-                .param("match", matchId).query(UUID.class).list();
+                .param(P_MATCH, matchId).query(UUID.class).list();
     }
 
     @Override
     public void enregistrerNotification(UUID userId, TypeNotification type, UUID matchId) {
         jdbc.sql("INSERT INTO notification (id, user_id, type, match_id) VALUES (:id, :user, :type, :match)")
                 .param("id", UUID.randomUUID()).param("user", userId).param("type", type.name())
-                .param("match", matchId).update();
+                .param(P_MATCH, matchId).update();
     }
 
     @Override
