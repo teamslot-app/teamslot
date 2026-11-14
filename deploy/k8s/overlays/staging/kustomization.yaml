@@ -9,6 +9,7 @@ resources:
 - network-policies.yaml
 - ingress-api.yaml
 - ingress-web.yaml
+- teamslot.yaml
 - sealed-secrets/postgres-admin.yaml
 - sealed-secrets/service-template-db.yaml
 - sealed-secrets/identity-jwt.yaml
