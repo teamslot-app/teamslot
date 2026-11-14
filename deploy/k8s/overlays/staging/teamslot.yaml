@@ -1,0 +1,93 @@
+# SCRUM-148 : plateforme joueur (frontend/apps/teamslot), à côté de web.
+# Décision d'équipe (14/11) : web garde l'adresse du staging ; teamslot n'a pas d'Ingress et se teste par port-forward :
+#   kubectl port-forward -n staging svc/teamslot 5180:80   puis http://localhost:5180
+# Seulement dans l'overlay de staging : la prod ne change pas.
+# L'image (tag@empreinte signée) est écrite par le robot de frontend-app.yml dans kustomization.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teamslot
+  labels:
+    app: teamslot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teamslot
+  template:
+    metadata:
+      labels:
+        app: teamslot
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        # Sans fsGroup, nginx ne peut pas écrire sa configuration dans les volumes emptyDir (voir web, SCRUM-114)
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: teamslot
+          image: ghcr.io/teamslot-app/teamslot
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # /api/ est renvoyé par nginx vers la passerelle (Service sur le port 80)
+            - name: API_UPSTREAM
+              value: "http://gateway"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: conf
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teamslot
+  labels:
+    app: teamslot
+spec:
+  selector:
+    app: teamslot
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

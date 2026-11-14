@@ -319,3 +319,24 @@ spec:
     ports: [{port: 9092}]
   - to: [{podSelector: {matchLabels: {app: identity-service}}}]
     ports: [{port: 8083}]
+---
+# SCRUM-148 : plateforme joueur (sans Ingress, testée par port-forward) -> passerelle pour /api/
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: teamslot-egress}
+spec:
+  podSelector: {matchLabels: {app: teamslot}}
+  policyTypes: [Egress]
+  egress:
+  - to: [{podSelector: {matchLabels: {app: gateway}}}]
+    ports: [{port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-teamslot-to-gateway}
+spec:
+  podSelector: {matchLabels: {app: gateway}}
+  policyTypes: [Ingress]
+  ingress:
+  - from: [{podSelector: {matchLabels: {app: teamslot}}}]
+    ports: [{port: 8080}]
