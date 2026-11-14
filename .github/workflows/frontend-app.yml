@@ -1,0 +1,81 @@
+name: frontend-app
+# Workflow réutilisable pour les fronts React de frontend/apps (SCRUM-148).
+# Appelé par teamslot.yml ; SCRUM-142 pourra l'appeler pour apps/gerant.
+# Étape 1 : lint, tests et build ; sur une PR, image construite et scannée sans publication.
+# Étape 2 (à venir) : publication GHCR, signature cosign, SBOM et déploiement en staging.
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "Dossier dans frontend/apps (contient package.json, Dockerfile, nginx.conf.template), ex. teamslot"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      APP: ${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/apps/${{ inputs.app }}/package-lock.json
+            frontend/packages/shared/package-lock.json
+
+      # Le front importe le client généré de packages/shared (alias @teamslot/shared) : ses dépendances aussi.
+      - name: Dépendances du client partagé
+        working-directory: frontend/packages/shared
+        run: npm ci
+
+      - name: Dépendances de l'app
+        working-directory: frontend/apps/${{ inputs.app }}
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend/apps/${{ inputs.app }}
+        run: npm run lint
+
+      # Comprend gardeFou.test.ts : pas de couleur en dur, pas de style inline, pas d'URL externe, pas de stockage navigateur.
+      - name: Tests
+        working-directory: frontend/apps/${{ inputs.app }}
+        run: npm test
+
+      - name: Build
+        working-directory: frontend/apps/${{ inputs.app }}
+        run: npm run build
+
+  # Sur une PR : construire et scanner l'image sans la publier (faille vue avant la fusion)
+  image-scan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      IMAGE: pr-scan/${{ inputs.app }}:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image (PR, sans publication)
+        env:
+          APP: ${{ inputs.app }}
+        run: docker build -f "frontend/apps/$APP/Dockerfile" -t "$IMAGE" frontend
+
+      - name: Scanner l'image avec Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
