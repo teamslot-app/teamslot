@@ -3,11 +3,13 @@ package ma.teamslot.venue.application;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import ma.teamslot.events.Outbox;
 import ma.teamslot.venue.adapter.out.persistence.SlotEntity;
 import ma.teamslot.venue.adapter.out.persistence.SlotRepository;
+import ma.teamslot.venue.adapter.out.persistence.SlotReservationRepository;
 import ma.teamslot.venue.adapter.out.persistence.VenueEntity;
 import ma.teamslot.venue.adapter.out.persistence.VenueRepository;
 import ma.teamslot.venue.application.CreateVenueCommand.EquipmentCommand;
@@ -29,14 +31,21 @@ public class VenueAdminService {
 
   private final VenueRepository venues;
   private final SlotRepository slots;
+  private final SlotReservationRepository reservations;
   private final JdbcTemplate jdbc;
   private final Clock clock;
   private final Outbox outbox;
 
   public VenueAdminService(
-      VenueRepository venues, SlotRepository slots, JdbcTemplate jdbc, Clock clock, Outbox outbox) {
+      VenueRepository venues,
+      SlotRepository slots,
+      SlotReservationRepository reservations,
+      JdbcTemplate jdbc,
+      Clock clock,
+      Outbox outbox) {
     this.venues = venues;
     this.slots = slots;
+    this.reservations = reservations;
     this.jdbc = jdbc;
     this.clock = clock;
     this.outbox = outbox;
@@ -116,6 +125,21 @@ public class VenueAdminService {
     return created.stream()
         .map(slot -> new SlotView(slot.getId(), slot.getStartAt(), slot.getEndAt(), true, price))
         .toList();
+  }
+
+  /** SCRUM-139 : le droit est vérifié (rôle puis propriétaire = sub) avant de lire les réservations. */
+  @Transactional(readOnly = true)
+  public List<VenueReservationView> listReservations(
+      UUID callerId, String role, UUID venueId, LocalDate date) {
+    requireManager(role);
+    VenueEntity venue =
+        venues.findById(venueId).orElseThrow(() -> new NotFoundException("Terrain inconnu"));
+    if (!venue.getOwnerId().equals(callerId)) {
+      throw new ForbiddenException("Ce terrain ne vous appartient pas.");
+    }
+    Instant from = date.atStartOfDay(SlotService.VENUE_ZONE).toInstant();
+    Instant to = date.plusDays(1).atStartOfDay(SlotService.VENUE_ZONE).toInstant();
+    return reservations.findOfVenueAndPeriod(venueId, from, to);
   }
 
   private static void requireManager(String role) {
