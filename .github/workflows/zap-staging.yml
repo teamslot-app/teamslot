@@ -155,7 +155,7 @@ jobs:
 
       - name: Conserver le rapport
         if: always() && steps.verification.outcome == 'success'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: zap-rapport-${{ github.run_number }}
           path: |
