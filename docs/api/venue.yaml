@@ -130,6 +130,32 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/venues/{id}/reservations:
+    parameters:
+      - { $ref: '#/components/parameters/VenueId' }
+    get:
+      tags: [venues]
+      summary: Réservations d'un jour sur mon terrain (gérant du terrain)
+      description: |
+        Réservé au gérant propriétaire du terrain (rôle VENUE_MANAGER, propriétaire = sub du JWT vérifié).
+        Un gérant d'un autre terrain ou un joueur reçoit 403, sans jeton 401.
+        Le droit est vérifié avant toute lecture des données. La réponse ne contient aucune donnée personnelle de joueur.
+        Le jour demandé est une journée locale Africa/Casablanca, convertie en intervalle UTC.
+      operationId: listVenueReservations
+      parameters:
+        - { name: date, in: query, required: true, description: Jour demandé (ISO 8601, AAAA-MM-JJ), schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Réservations actives du jour, triées par heure de début
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VenueReservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/slot-reservations:
     post:
       tags: [internal]
@@ -320,6 +346,20 @@ components:
         equipmentIds:
           type: array
           items: { type: string, format: uuid }
+    VenueReservation:
+      type: object
+      description: Réservation vue par le gérant du terrain (sans donnée personnelle de joueur)
+      required: [slotId, matchId, startsAt, endsAt, status]
+      properties:
+        slotId: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time, description: Début (UTC) }
+        endsAt: { type: string, format: date-time, description: Fin (UTC) }
+        status: { type: string, enum: [RESERVED, RELEASED] }
+        paymentStatus:
+          type: string
+          nullable: true
+          description: État du paiement si connu. Appartient à payment-service ; null tant que venue ne le connaît pas.
     SlotReservation:
       type: object
       required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status, startsAt, endsAt]
