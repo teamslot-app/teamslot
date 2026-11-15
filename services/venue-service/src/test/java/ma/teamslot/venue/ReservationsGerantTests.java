@@ -37,8 +37,8 @@ class ReservationsGerantTests {
   @Test
   void gerant_du_terrain_200_avec_la_reservation_et_sans_telephone() throws Exception {
     UUID gerant = UUID.randomUUID();
-    UUID venueId = terrainAvecReservation(gerant, UUID.randomUUID());
-    UUID matchId = jdbc.queryForObject("select match_id from slot_reservation limit 1", UUID.class);
+    UUID matchId = UUID.randomUUID();
+    UUID venueId = terrainAvecReservation(gerant, matchId);
     mockMvc.perform(get(VENUES + "/" + venueId + "/reservations").param("date", JOUR).with(jeton(gerant, "VENUE_MANAGER")))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
