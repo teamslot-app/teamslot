@@ -62,20 +62,31 @@ spec:
             limits:
               cpu: "1"
               memory: 640Mi
+          # Sondes (remarque d'Amira, 15/11 : liveness « context deadline exceeded » ×7 en 4 min).
+          # Sans timeoutSeconds, Kubernetes n'attend qu'1 s : trop court pendant le démarrage (~50 s)
+          # ou une pause du ramasse-miettes. startupProbe couvre le démarrage (jusqu'à 2 min) ;
+          # tant qu'elle n'a pas réussi, readiness et liveness ne sont pas appliquées.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8086
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: 8086
-            initialDelaySeconds: 40
             periodSeconds: 10
+            timeoutSeconds: 3
             failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8086
-            initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 6
+            timeoutSeconds: 3
+            failureThreshold: 4
       volumes:
         - name: tmp
           emptyDir: {}
