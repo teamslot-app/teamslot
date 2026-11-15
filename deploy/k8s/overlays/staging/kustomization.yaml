@@ -37,10 +37,10 @@ images:
   name: ghcr.io/teamslot-app/notification-service
   newName: ghcr.io/teamslot-app/notification-service
   newTag: 38c66210d58b385cc6f561c9b4dd2e4196c16772
-- digest: sha256:c7c3d59dfa54f4002d02c734eb4bb54cc349d35d653fead118f74b2f06cb30e3
+- digest: sha256:401aa36ca0f9540389feb85577ecda39f9764ad1eea69ebc265f56e4335634a9
   name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
-  newTag: 622e9fa999d75de69bdc934b53ff648658794147
+  newTag: 923d4687a69515f3d43cefbb5183418416f1d490
 - digest: sha256:64001eda60ca7451a7ad62f47ec3ef5e65f9678fdba7f7d42b21aca0bbba16da
   name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
