@@ -88,11 +88,16 @@ Le staging est joignable en HTTPS sur `https://amira.tail764250.ts.net:8443`, av
 - Renouveler (dossier temporaire hors du dépôt, jamais commité) :
 
         mkdir -p ~/secrets-tmp/tls && cd ~/secrets-tmp/tls
+        umask 077
         tailscale cert --cert-file staging.crt --key-file staging.key amira.tail764250.ts.net
         cd ~/projetdevsecops/teamslot
         kubectl create secret tls staging-tls --cert=$HOME/secrets-tmp/tls/staging.crt --key=$HOME/secrets-tmp/tls/staging.key --namespace staging --dry-run=client -o yaml | kubeseal --cert ~/pub-cert.pem --format yaml > deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml
         grep -c 'BEGIN' deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml
         rm -rf ~/secrets-tmp/tls
+        umask 022
+        ls ~/secrets-tmp/tls
+
+  Le dernier `ls` doit répondre `No such file or directory` : le dossier de la clé a bien disparu. Sinon, le supprimer à la main avant de continuer.
 
   Le `grep` doit afficher **0** (rien en clair). Puis PR et fusion : Argo CD déploie le nouveau secret.
 - Le nom de la machine apparaît dans les journaux publics de transparence des certificats.
