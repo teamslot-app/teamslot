@@ -54,6 +54,19 @@ jobs:
             ./mvnw -B verify
           fi
 
+      # SCRUM-19 : rapports des tests gardés en artefact du run, même (et surtout) quand un test échoue.
+      # Contenu : noms, durées et sorties des tests (données de test seulement, aucun secret réel).
+      - name: Conserver les rapports de tests
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: rapports-tests-${{ inputs.name }}
+          path: |
+            ${{ inputs.service }}/target/surefire-reports/
+            libs/*/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Analyse SonarCloud
         if: inputs.sonar_project_key != '' && github.event.pull_request.user.login != 'dependabot[bot]'
         env:

@@ -34,6 +34,25 @@ Argo CD · Grafana · GitHub Actions / GHCR · Jira (Scrum)
 | C. Contrats et cadrage | Laila |
 | D. Squelette applicatif | Aya |
 
+## Avant ton premier commit : activer Gitleaks (SCRUM-17)
+
+Un secret (mot de passe, jeton, clé, URL de webhook) poussé sur GitHub est **compromis pour toujours** : il reste dans l'historique Git même après suppression. Gitleaks le bloque **avant** le commit, sur ton PC. La CI le vérifie aussi sur tout l'historique (`gitleaks.yml`), mais le plus tôt est le mieux.
+
+Une seule fois, à la racine du dépôt :
+
+```bash
+pip install pre-commit      # ou : py -m pip install pre-commit (Windows)
+pre-commit install          # branche le hook sur « git commit »
+pre-commit run --all-files  # premier passage sur tout le dépôt (télécharge Gitleaks v8.30.0)
+```
+
+Ensuite, chaque `git commit` affiche `Detect hardcoded secrets ... Passed`. Si Gitleaks trouve un secret, **le commit est refusé** :
+- retire le secret du fichier et remplace-le par une variable d'environnement ou un secret scellé ;
+- ne contourne **jamais** le contrôle avec `git commit --no-verify` ;
+- pour un faux positif, ajoute une exception **la plus étroite possible** dans `.gitleaks.toml`, avec une justification, et fais-la relire en PR.
+
+La configuration est dans `.pre-commit-config.yaml` (version de Gitleaks) et `.gitleaks.toml` (règles et exceptions).
+
 ## Conventions techniques
 
 Valables pour tous les services. En cas de doute, `services/service-template` fait foi.
@@ -48,6 +67,7 @@ Valables pour tous les services. En cas de doute, `services/service-template` fa
 | identity-service | 8083 |
 | team-service | 8084 |
 | payment-service | 8085 |
+| notification-service | 8086 |
 | front (Vite / nginx dans compose) | 5173 / 3000 |
 
 `service-template` écoute aussi sur 8081 mais ne tourne qu'en conteneur (modèle et démo). Dans Docker et Kubernetes, chaque conteneur a son propre réseau : les doublons ne comptent que pour les lancements depuis l'IDE.
