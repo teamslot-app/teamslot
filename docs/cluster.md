@@ -54,12 +54,12 @@ Commandes lancées par Amira (terminaux à laisser ouverts) :
 
 ```bash
 kubectl port-forward --address 0.0.0.0 svc/monitoring-grafana -n monitoring 3001:80
-kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 8443:443
+kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 8444:443
 ```
 
 Côté équipe :
 - Grafana : http://100.x.y.z:3001
-- Argo CD : https://100.x.y.z:8443
+- Argo CD : https://100.x.y.z:8444
 
 Le cluster n'est accessible que lorsque le PC d'Amira est allumé et le cluster démarré.
 Créneaux où le cluster est allumé : à compléter.
@@ -74,9 +74,9 @@ Le staging est joignable en HTTPS sur `https://amira.tail764250.ts.net:8443`, av
 - Section `tls` sur les Ingress `api` et `web` (classe `traefik`, sans `host` : l'HTTP sur le port 8080 continue de fonctionner).
 - Port 8443 du load balancer k3d lié à l'adresse Tailscale, publié sans recréer le cluster :
 
-        k3d cluster edit teamslot --port-add "100.89.116.27:8443:443@loadbalancer"
+        k3d cluster edit teamslot --port-add "$(tailscale ip -4):8443:443@loadbalancer"
 
-  Si le cluster est recréé, ajouter `-p "100.89.116.27:8443:443@loadbalancer"` à la commande de la section « Création ».
+  Si le cluster est recréé, ajouter `-p "$(tailscale ip -4):8443:443@loadbalancer"` à la commande de la section « Création ».
 
 ### Expiration et renouvellement
 
