@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public record EmailDeVerification(UUID userId, String destinataire, String nomAffiche, String code, Instant expireA) {
 
     public static final String SUJET = "Ton code TeamSlot";
-    private static final Pattern CODE = Pattern.compile("\\d{6}");
+    private static final Pattern FORMAT_CODE = Pattern.compile("\\d{6}");
     private static final ZoneId MAROC = ZoneId.of("Africa/Casablanca");
     private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -25,7 +25,7 @@ public record EmailDeVerification(UUID userId, String destinataire, String nomAf
         if (destinataire == null || destinataire.isBlank()) {
             throw new IllegalArgumentException("e-mail du destinataire absent");
         }
-        if (code == null || !CODE.matcher(code).matches()) {
+        if (code == null || !FORMAT_CODE.matcher(code).matches()) {
             throw new IllegalArgumentException("code de vérification invalide (6 chiffres attendus)");
         }
         nomAffiche = nomAffiche == null || nomAffiche.isBlank() ? "joueur" : nomAffiche.strip();
