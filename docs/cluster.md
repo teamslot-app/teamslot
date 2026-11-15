@@ -87,8 +87,8 @@ Le staging est joignable en HTTPS sur `https://amira.tail764250.ts.net:8443`, av
 
 - Renouveler (dossier temporaire hors du dépôt, jamais commité) :
 
-        mkdir -p ~/secrets-tmp/tls && cd ~/secrets-tmp/tls
         umask 077
+        mkdir -p ~/secrets-tmp/tls && cd ~/secrets-tmp/tls
         tailscale cert --cert-file staging.crt --key-file staging.key amira.tail764250.ts.net
         cd ~/projetdevsecops/teamslot
         kubectl create secret tls staging-tls --cert=$HOME/secrets-tmp/tls/staging.crt --key=$HOME/secrets-tmp/tls/staging.key --namespace staging --dry-run=client -o yaml | kubeseal --cert ~/pub-cert.pem --format yaml > deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml
@@ -129,3 +129,29 @@ Tableau de bord : `deploy/monitoring/dashboard-teamslot.json` (import via Dashbo
 ## Walking skeleton (SCRUM-36)
 
 Chaîne validée : modification d'une ligne → PR → fusion → CI → tag mis à jour dans `deploy/` → Argo CD synchronise → Grafana affiche la nouvelle version.
+
+## Pare-feu des ports 6550 et 8080 (SCRUM-123)
+
+Le cluster a été créé avec les ports 6550 (API Kubernetes) et 8080 (Ingress) sur `0.0.0.0` : ils étaient joignables depuis tout le réseau local du PC. Les lier à l'adresse Tailscale oblige à recréer le cluster, ce qui détruit les volumes des bases, Argo CD et la supervision. Pour un correctif d'un point, ce risque est inutile : on bloque donc ces ports par pare-feu, et la vraie correction est faite à la prochaine recréation du cluster.
+
+Règle Windows (PowerShell administrateur), qui bloque 6550 et 8080 sur les cartes Wi-Fi et réseau local, tous profils. L'accès local (`localhost`, `kubectl`) et Tailscale ne sont pas concernés :
+
+    New-NetFirewallRule -DisplayName "TeamSlot : bloquer 6550/8080 hors Tailscale (SCRUM-123)" -Direction Inbound -Protocol TCP -LocalPort 6550,8080 -InterfaceAlias "Wi-Fi","Connexion au réseau local" -Action Block -Profile Any
+
+Si le PC a d'autres cartes réseau physiques, ajouter leur nom dans `-InterfaceAlias`. Pour retirer la règle :
+
+    Remove-NetFirewallRule -DisplayName "TeamSlot : bloquer 6550/8080 hors Tailscale (SCRUM-123)"
+
+Preuve : depuis un téléphone sur le même Wi-Fi, sans Tailscale, `http://<IP locale du PC>:8080` et `https://<IP locale du PC>:6550` ne répondent pas.
+
+### Prochaine recréation du cluster
+
+Lier les ports à l'adresse Tailscale (Git Bash, après `tailscale up`) :
+
+    k3d cluster create teamslot --agents 1 -p "$(tailscale ip -4):8080:80@loadbalancer" -p "$(tailscale ip -4):8443:443@loadbalancer" --api-port "$(tailscale ip -4):6550"
+
+Avant toute recréation : sauvegarder les clés de scellement (Sealed Secrets), hors du dépôt, et prévenir l'équipe. Si Tailscale n'est pas démarré, la liaison échoue.
+
+### Accès Grafana et Argo CD
+
+Les `port-forward` de Grafana (3001) et d'Argo CD (8444) utilisent `--address 0.0.0.0` : ils sont exposés au réseau local tant qu'ils tournent. Les arrêter après usage, ou utiliser `--address "$(tailscale ip -4)"`.
