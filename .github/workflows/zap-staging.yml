@@ -1,7 +1,8 @@
 name: zap-staging
-# SCRUM-72 : scan OWASP ZAP « baseline » (passif) du staging.
+# SCRUM-72 : scan OWASP ZAP passif du staging. SCRUM-129 : authentifié (compte de test dédié),
+# AJAX spider pour le front React, ZAP 2.17.0 épinglé et suivi par Dependabot (.zap/Dockerfile).
 # Déclenché chaque soir et à la main, jamais sur une PR : impossible à lancer depuis un fork,
-# et les secrets Tailscale ne sont disponibles que sur la branche par défaut.
+# et les secrets (Tailscale, compte de test) ne sont disponibles que sur la branche par défaut.
 on:
   schedule:
     # Tous les jours à 19 h 47 UTC (20 h 47 au Maroc) : à caler sur les créneaux d'allumage de docs/cluster.md
@@ -13,22 +14,20 @@ concurrency:
   group: zap-staging
   cancel-in-progress: false
 env:
-  # Cibles fixes : le staging uniquement (PC d'Amira, adresse Tailscale, port 8080). Jamais la production.
-  # Le front (Ingress /, SCRUM-114) et la passerelle (Ingress /api).
-  STAGING: http://100.89.116.27:8080
-  CIBLE_WEB: http://100.89.116.27:8080/
-  CIBLE_API: http://100.89.116.27:8080/api/v1/template/version
-  # Image ZAP épinglée par version ET par empreinte (SCRUM-84)
-  IMAGE_ZAP: ghcr.io/zaproxy/zaproxy:2.16.1@sha256:7840969c7c9fead565bf9734b12f49f6886db90b1d35b1f74d79710bbd081dab
+  # Cible fixe : le staging uniquement (PC d'Amira, HTTPS par Tailscale, SCRUM-34). Jamais la production.
+  # Le front (Ingress /) et la passerelle (Ingress /api) sont derrière la même adresse.
+  STAGING: https://amira.tail764250.ts.net:8443
 jobs:
-  baseline:
+  scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       # Le runner rejoint le réseau Tailscale avec l'étiquette tag:ci. L'ACL n'autorise tag:ci
-      # que vers le PC d'Amira, port 8080. Client OAuth créé par Amira, valeurs dans les secrets GitHub.
+      # que vers le PC d'Amira, port 8443. Client OAuth créé par Amira, valeurs dans les secrets GitHub.
       - name: Rejoindre le réseau Tailscale (tag:ci)
         uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
         with:
@@ -38,26 +37,20 @@ jobs:
 
       # Le staging tourne sur un PC qui n'est pas toujours allumé : s'il ne répond pas,
       # on le signale sans faire échouer le job (pas une faille, juste pas de scan ce soir).
-      # Un nœud qui vient de rejoindre Tailscale n'est pas joignable tout de suite (carte du réseau à
-      # recevoir par le PC d'Amira, relais DERP) : plusieurs essais espacés avant de conclure.
-      # Diagnostic sans secret : état Tailscale vers la cible et code de sortie de curl.
+      # Plusieurs essais espacés : un nœud qui vient de rejoindre Tailscale n'est pas joignable tout de suite.
+      # Pas d'adresse IP dans les logs : seulement le nom de la cible et le code HTTP.
       - name: Le staging répond-il ?
         id: joignable
         run: |
-          HOTE=$(echo "$STAGING" | sed -E 's#^https?://([^:/]+).*#\1#')
-          # Pas d'adresse IP publique dans les logs : tailscale status et ping l'afficheraient (connexion directe).
-          if tailscale status | grep -qF "$HOTE"; then echo "Cible $HOTE présente dans le réseau Tailscale"; else echo "La cible $HOTE n'apparaît pas dans tailscale status (ACL, machine hors ligne ou mauvais tailnet ?)"; fi
-          if tailscale ping -c 5 --timeout 5s "$HOTE" >/dev/null 2>&1; then echo "Tunnel Tailscale vers $HOTE : OK"; else echo "tailscale ping sans réponse (diagnostic seulement)"; fi
           CODE=000
           for essai in 1 2 3 4 5 6; do
-            CODE=$(curl -sS -o /dev/null -m 15 -w '%{http_code}' "$CIBLE_API" 2>curl.err || true)
-            echo "Essai $essai : HTTP $CODE $(cat curl.err)"
+            CODE=$(curl -sS -o /dev/null -m 15 -w '%{http_code}' "$STAGING/api/v1/template/version" 2>/dev/null || true)
+            echo "Essai $essai : HTTP $CODE"
             [ "$CODE" != "000" ] && break
             sleep 10
           done
-          rm -f curl.err
           if [ "$CODE" = "000" ]; then
-            echo "::warning::Staging injoignable ($STAGING) : PC d'Amira éteint ou cluster arrêté. Scan non effectué."
+            echo "::warning::Staging injoignable : PC d'Amira éteint, cluster arrêté ou ACL Tailscale (port 8443). Scan non effectué."
             echo "Staging injoignable : scan non effectué." >> "$GITHUB_STEP_SUMMARY"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
@@ -65,26 +58,84 @@ jobs:
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Scan passif : ZAP visite la cible et analyse les réponses, sans envoyer d'attaque.
-      # -I : un avertissement (WARN) ne fait pas échouer ZAP ; l'échec est décidé à l'étape suivante.
-      # Deux scans : le front (pages HTML, en-têtes de nginx) et la passerelle (réponses JSON, 401).
-      - name: Scan ZAP baseline (passif)
+      # Compte DÉDIÉ au scan (créé au premier passage), identifiants dans les secrets GitHub.
+      # Le jeton est masqué dans les logs et gardé dans un fichier temporaire du runner (droits 600).
+      - name: Compte de test du scan (connexion)
+        if: steps.joignable.outputs.ok == 'true'
+        env:
+          TELEPHONE: ${{ secrets.ZAP_TEST_PHONE }}
+          MOT_DE_PASSE: ${{ secrets.ZAP_TEST_PASSWORD }}
+        run: python3 .zap/compte_test.py "$STAGING" "$RUNNER_TEMP"
+
+      # Routes GET des contrats docs/api (aucune écriture) et plan ZAP. Avant le scan, on vérifie
+      # que les routes protégées répondent bien 200 avec le jeton : sinon le scan ne verrait que des 401.
+      - name: Routes GET et plan du scan
         if: steps.joignable.outputs.ok == 'true'
         run: |
           mkdir -p zap && cp .zap/rules.tsv zap/ && chmod 777 zap
-          for cible in "web $CIBLE_WEB" "api $CIBLE_API"; do
-            set -- $cible
-            echo "== Scan $1 : $2"
-            docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" "$IMAGE_ZAP" \
-              zap-baseline.py -t "$2" -c rules.tsv -m 2 -I \
-              -r "rapport-$1.html" -J "rapport-$1.json" -w "rapport-$1.md"
+          python3 .zap/plan.py "$STAGING" zap
+          protegees_200=0
+          echo "| Route GET | Accès | Code avec le jeton du compte de test |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          while IFS="$(printf '\t')" read -r url acces; do
+            code=$(curl -sS -o /dev/null -m 15 -w '%{http_code}' -H @"$RUNNER_TEMP/zap-entete" "$url" 2>/dev/null || true)
+            chemin=${url#"$STAGING"}
+            echo "  GET $chemin ($acces) -> $code"
+            echo "| \`$chemin\` | $acces | $code |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$acces" = protegee ] && [ "$code" = 200 ]; then protegees_200=$((protegees_200 + 1)); fi
+          done < zap/routes.tsv
+          if [ "$protegees_200" -eq 0 ]; then
+            echo "::error::Aucune route protégée ne répond 200 avec le jeton : le scan ne serait pas authentifié."
+            exit 1
+          fi
+          echo "$protegees_200 route(s) protégée(s) en 200 avec le jeton du compte de test."
+
+      # Image épinglée par version et empreinte dans .zap/Dockerfile (Dependabot la tient à jour).
+      # Scan PASSIF : ZAP lit les réponses, n'envoie aucune attaque et seulement des GET (plan.py).
+      # Le jeton est passé par variable d'environnement (-e sans valeur : il n'apparaît pas dans la
+      # ligne de commande), et ZAP ne l'ajoute qu'aux requêtes vers le staging (ZAP_AUTH_HEADER_SITE).
+      - name: Scan ZAP authentifié (passif, GET seulement, AJAX spider)
+        if: steps.joignable.outputs.ok == 'true'
+        run: |
+          docker build -q -t zap-teamslot .zap
+          ZAP_AUTH_HEADER_VALUE=$(sed -n 's/^Authorization: //p' "$RUNNER_TEMP/zap-entete")
+          ZAP_AUTH_HEADER_SITE=$(echo "$STAGING" | sed -E 's#^https?://([^:/]+).*#\1#')
+          export ZAP_AUTH_HEADER_VALUE ZAP_AUTH_HEADER_SITE
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" \
+            -e ZAP_AUTH_HEADER_VALUE -e ZAP_AUTH_HEADER_SITE \
+            zap-teamslot zap.sh -cmd -autorun /zap/wrk/plan.json
+
+      # Le rapport sera publié en artefact : il ne doit contenir ni le jeton ni le mot de passe.
+      # Toujours exécutée (même si le scan a échoué après avoir écrit un rapport) : seul un rapport
+      # vérifié ici est publié (condition de l'étape « Conserver le rapport »).
+      - name: Aucun secret dans le rapport
+        id: verification
+        if: always() && steps.joignable.outputs.ok == 'true'
+        env:
+          MOT_DE_PASSE: ${{ secrets.ZAP_TEST_PASSWORD }}
+        run: |
+          jeton=$(sed -n 's/^Authorization: Bearer //p' "$RUNNER_TEMP/zap-entete" 2>/dev/null || true)
+          fuite=0
+          for f in zap/rapport.html zap/rapport.json zap/rapport.md; do
+            [ -f "$f" ] || continue
+            for secret in "$jeton" "$MOT_DE_PASSE"; do
+              if [ -n "$secret" ] && grep -qF -- "$secret" "$f"; then
+                echo "::error::Secret trouvé dans $f : rapport non publié."
+                fuite=1
+              fi
+            done
           done
+          if [ "$fuite" -ne 0 ]; then
+            rm -f zap/rapport.*
+            exit 1
+          fi
+          echo "Rapport vérifié : ni jeton ni mot de passe."
 
       # Une alerte de niveau élevé (riskcode 3) non acceptée dans .zap/rules.tsv fait échouer le job.
       - name: Alertes de niveau élevé
         if: steps.joignable.outputs.ok == 'true'
         run: |
-          cat zap/rapport-web.md zap/rapport-api.md >> "$GITHUB_STEP_SUMMARY"
+          cat zap/rapport.md >> "$GITHUB_STEP_SUMMARY"
           python3 - <<'PY'
           import json, sys
           ignorees = set()
@@ -93,11 +144,9 @@ jobs:
                   champs = ligne.rstrip("\n").split("\t")
                   if len(champs) >= 2 and champs[1].strip() == "IGNORE":
                       ignorees.add(champs[0].strip())
-          hautes = []
-          for nom in ("web", "api"):
-              rapport = json.load(open(f"zap/rapport-{nom}.json", encoding="utf-8"))
-              hautes += [a for site in rapport.get("site", []) for a in site.get("alerts", [])
-                         if str(a.get("riskcode")) == "3" and str(a.get("pluginid")) not in ignorees]
+          rapport = json.load(open("zap/rapport.json", encoding="utf-8"))
+          hautes = [a for site in rapport.get("site", []) for a in site.get("alerts", [])
+                    if str(a.get("riskcode")) == "3" and str(a.get("pluginid")) not in ignorees]
           for a in hautes:
               print(f"::error::ZAP, alerte élevée : {a.get('name')} (règle {a.get('pluginid')})")
           print(f"{len(hautes)} alerte(s) de niveau élevé non acceptée(s).")
@@ -105,12 +154,18 @@ jobs:
           PY
 
       - name: Conserver le rapport
-        if: always() && steps.joignable.outputs.ok == 'true'
+        if: always() && steps.verification.outcome == 'success'
         uses: actions/upload-artifact@v5
         with:
           name: zap-rapport-${{ github.run_number }}
           path: |
-            zap/rapport-*.html
-            zap/rapport-*.json
-            zap/rapport-*.md
+            zap/rapport.html
+            zap/rapport.json
+            zap/rapport.md
+          if-no-files-found: ignore
           retention-days: 30
+
+      # Le jeton ne survit pas au job (le runner est jetable, mais on ne compte pas dessus).
+      - name: Effacer le jeton
+        if: always()
+        run: rm -f "$RUNNER_TEMP/zap-entete"

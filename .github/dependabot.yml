@@ -38,6 +38,8 @@ updates:
       - "/gateway"
       - "/services/*"
       - "/frontend/apps/web"
+      # SCRUM-129 : image du scan ZAP (fichier .zap/Dockerfile, utilisé par zap-staging.yml)
+      - "/.zap"
     schedule:
       interval: "weekly"
       day: "monday"
