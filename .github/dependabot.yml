@@ -18,6 +18,17 @@ updates:
     labels: ["dependencies"]
     commit-message:
       prefix: "chore(deps)"
+    # libs/* et services/* héritent du pom racine (ADR-015) : sans regroupement, une même version
+    # (ex. lz4-java, forcée dans le pom racine) ouvrait une PR par dossier, toutes identiques
+    # (8 PR le 15/11, et autant de CI qui encombraient les runners). Avec un groupe, Dependabot ouvre
+    # UNE seule PR pour tous les dossiers. Les montées majeures restent à part (à relire de près).
+    groups:
+      maven-mineures-et-correctifs:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      maven-majeures:
+        patterns: ["*"]
+        update-types: ["major"]
 
   # npm : le front React
   - package-ecosystem: "npm"
