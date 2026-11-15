@@ -66,6 +66,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/venues/{id}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du terrain */
+                id: components["parameters"]["VenueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Réservations d'un jour sur mon terrain (gérant du terrain)
+         * @description Réservé au gérant propriétaire du terrain (rôle VENUE_MANAGER, propriétaire = sub du JWT vérifié).
+         *     Un gérant d'un autre terrain ou un joueur reçoit 403, sans jeton 401.
+         *     Le droit est vérifié avant toute lecture des données. La réponse ne contient aucune donnée personnelle de joueur.
+         *     Le jour demandé est une journée locale Africa/Casablanca, convertie en intervalle UTC.
+         */
+        get: operations["listVenueReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/slot-reservations": {
         parameters: {
             query?: never;
@@ -205,6 +231,27 @@ export interface components {
             /** Format: uuid */
             matchId: string;
             equipmentIds?: string[];
+        };
+        /** @description Réservation vue par le gérant du terrain (sans donnée personnelle de joueur) */
+        VenueReservation: {
+            /** Format: uuid */
+            slotId: string;
+            /** Format: uuid */
+            matchId: string;
+            /**
+             * Format: date-time
+             * @description Début (UTC)
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description Fin (UTC)
+             */
+            endsAt: string;
+            /** @enum {string} */
+            status: "RESERVED" | "RELEASED";
+            /** @description État du paiement si connu. Appartient à payment-service ; null tant que venue ne le connaît pas. */
+            paymentStatus?: string | null;
         };
         SlotReservation: {
             /** Format: uuid */
@@ -431,6 +478,36 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVenueReservations: {
+        parameters: {
+            query: {
+                /** @description Jour demandé (ISO 8601 */
+                date: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du terrain */
+                id: components["parameters"]["VenueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservations actives du jour, triées par heure de début */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueReservation"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };
