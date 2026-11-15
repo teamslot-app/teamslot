@@ -54,15 +54,61 @@ Commandes lancées par Amira (terminaux à laisser ouverts) :
 
 ```bash
 kubectl port-forward --address 0.0.0.0 svc/monitoring-grafana -n monitoring 3001:80
-kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 8443:443
+kubectl port-forward --address 0.0.0.0 svc/argocd-server -n argocd 8444:443
 ```
 
 Côté équipe :
 - Grafana : http://100.x.y.z:3001
-- Argo CD : https://100.x.y.z:8443
+- Argo CD : https://100.x.y.z:8444
 
 Le cluster n'est accessible que lorsque le PC d'Amira est allumé et le cluster démarré.
 Créneaux où le cluster est allumé : à compléter.
+
+## HTTPS du staging (SCRUM-34)
+
+Le staging est joignable en HTTPS sur `https://amira.tail764250.ts.net:8443`, avec un certificat Let's Encrypt émis par Tailscale (nom en `*.ts.net`).
+
+### Ce qui est en place
+
+- Secret scellé `staging-tls` (type `kubernetes.io/tls`) : `deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml`.
+- Section `tls` sur les Ingress `api` et `web` (classe `traefik`, sans `host` : l'HTTP sur le port 8080 continue de fonctionner).
+- Port 8443 du load balancer k3d lié à l'adresse Tailscale, publié sans recréer le cluster :
+
+        k3d cluster edit teamslot --port-add "$(tailscale ip -4):8443:443@loadbalancer"
+
+  Si le cluster est recréé, ajouter `-p "$(tailscale ip -4):8443:443@loadbalancer"` à la commande de la section « Création ».
+
+### Expiration et renouvellement
+
+- Le certificat est valable jusqu'au **12 février 2027**. Rappel au calendrier : **12 janvier 2027**.
+- Lire la date de fin (certificat public, la clé n'est pas affichée) :
+
+        kubectl get secret staging-tls -n staging -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -noout -enddate
+
+- Renouveler (dossier temporaire hors du dépôt, jamais commité) :
+
+        mkdir -p ~/secrets-tmp/tls && cd ~/secrets-tmp/tls
+        umask 077
+        tailscale cert --cert-file staging.crt --key-file staging.key amira.tail764250.ts.net
+        cd ~/projetdevsecops/teamslot
+        kubectl create secret tls staging-tls --cert=$HOME/secrets-tmp/tls/staging.crt --key=$HOME/secrets-tmp/tls/staging.key --namespace staging --dry-run=client -o yaml | kubeseal --cert ~/pub-cert.pem --format yaml > deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml
+        grep -c 'BEGIN' deploy/k8s/overlays/staging/sealed-secrets/staging-tls.yaml
+        rm -rf ~/secrets-tmp/tls
+        umask 022
+        ls ~/secrets-tmp/tls
+
+  Le dernier `ls` doit répondre `No such file or directory` : le dossier de la clé a bien disparu. Sinon, le supprimer à la main avant de continuer.
+
+  Le `grep` doit afficher **0** (rien en clair). Puis PR et fusion : Argo CD déploie le nouveau secret.
+- Le nom de la machine apparaît dans les journaux publics de transparence des certificats.
+
+### Argo CD : sondes de repo-server
+
+Le pod `argocd-repo-server` était tué par sa sonde liveness (le healthcheck répondait en environ 5 s pour une limite de 5 s, plus de 600 redémarrages). Les délais ont été augmentés à la main, hors Git :
+
+        kubectl patch deployment argocd-repo-server -n argocd --type strategic -p '{"spec":{"template":{"spec":{"containers":[{"name":"argocd-repo-server","livenessProbe":{"timeoutSeconds":10,"failureThreshold":5},"readinessProbe":{"timeoutSeconds":10}}]}}}}'
+
+Ce réglage est perdu si Argo CD est réinstallé ou mis à jour : le refaire.
 
 ## Supervision (Prometheus et Grafana)
 
