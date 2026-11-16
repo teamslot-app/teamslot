@@ -356,10 +356,6 @@ components:
         startsAt: { type: string, format: date-time, description: Début (UTC) }
         endsAt: { type: string, format: date-time, description: Fin (UTC) }
         status: { type: string, enum: [RESERVED, RELEASED] }
-        paymentStatus:
-          type: string
-          nullable: true
-          description: État du paiement si connu. Appartient à payment-service ; null tant que venue ne le connaît pas.
     SlotReservation:
       type: object
       required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status, startsAt, endsAt]
