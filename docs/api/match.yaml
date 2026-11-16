@@ -28,6 +28,30 @@ security:
   - bearerAuth: []
 paths:
   /api/v1/matches:
+    get:
+      tags: [matches]
+      summary: Mes matchs à venir (SCRUM-77)
+      description: |
+        Matchs dont l'appelant (sub du JWT) est l'organisateur ou un participant avec compte
+        (INVITED ou CONFIRMED), et dont le créneau n'est pas terminé (startsAt + 1 h > maintenant).
+        Les matchs annulés (CANCELLED) sont inclus : le joueur doit voir qu'un match a été annulé.
+        Tri par startsAt croissant, 50 matchs au maximum.
+        Aucun paramètre d'identité : on ne peut jamais lister les matchs d'un autre joueur.
+      operationId: listMyMatches
+      responses:
+        '200':
+          description: Mes matchs à venir (liste vide s'il n'y en a aucun)
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+              description: Données personnelles, jamais mises en cache
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 50
+                items: { $ref: '#/components/schemas/Match' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
     post:
       tags: [matches]
       summary: Réserver un créneau et créer le match de groupe
@@ -59,6 +83,30 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
+  /api/v1/matches/{id}:
+    parameters:
+      - $ref: '#/components/parameters/MatchId'
+    get:
+      tags: [matches]
+      summary: Détail d'un match (SCRUM-77)
+      description: |
+        Réservé à l'organisateur et aux participants avec compte (INVITED ou CONFIRMED).
+        Pour tout autre utilisateur, la réponse est 404 et non 403 : on ne révèle pas
+        l'existence d'un match à quelqu'un qui n'y participe pas.
+      operationId: getMatch
+      responses:
+        '200':
+          description: Le match
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+              description: Données personnelles, jamais mises en cache
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Match' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/matches/{id}/participants:
     parameters:
       - { $ref: '#/components/parameters/MatchId' }
