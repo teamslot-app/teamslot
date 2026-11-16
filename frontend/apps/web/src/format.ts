@@ -20,6 +20,16 @@ export function formatHeure(iso: string): string {
   }).format(new Date(iso))
 }
 
+/** SCRUM-77 : jour d'un instant ISO (UTC) à Marrakech, quel que soit le fuseau du navigateur : « mardi 17 novembre ». */
+export function formatJour(iso: string): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: FUSEAU,
+  }).format(new Date(iso))
+}
+
 /** Date du jour à Marrakech, au format AAAA-MM-JJ (valeur d'un <input type="date">). */
 export function dateDuJour(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: FUSEAU })
