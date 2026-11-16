@@ -49,10 +49,10 @@ images:
   name: ghcr.io/teamslot-app/teamslot
   newName: ghcr.io/teamslot-app/teamslot
   newTag: 6d3304afdf69dd59cb4f4387fc6a05d7c6650930
-- digest: sha256:3bb1e3dc40e4f5e2a3ff93855790d76f6cb40ec48e80f84b563b6b492c586233
+- digest: sha256:1e10fc4987970119f0a69d9751ff5c04cb93b7edba58cf9f9ff8ce535ed173c9
   name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: 4897322927cf7ef5777630583f8eb016a75b0461
+  newTag: 23ed8bbd1bd7a806cd02b8e98149d2c3fac62c62
 - digest: sha256:131b049e5af52fbbe20b0edbd2af3f1ce3a8a4d6bb277506af656d6ff067087b
   name: ghcr.io/teamslot-app/web
   newName: ghcr.io/teamslot-app/web
