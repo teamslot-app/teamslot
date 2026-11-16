@@ -250,8 +250,6 @@ export interface components {
             endsAt: string;
             /** @enum {string} */
             status: "RESERVED" | "RELEASED";
-            /** @description État du paiement si connu. Appartient à payment-service ; null tant que venue ne le connaît pas. */
-            paymentStatus?: string | null;
         };
         SlotReservation: {
             /** Format: uuid */
