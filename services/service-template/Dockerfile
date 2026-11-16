@@ -19,11 +19,7 @@ COPY services/service-template/src services/service-template/src
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl services/service-template -am package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
-# SCRUM-119 (suite, 11/11) : correctifs Alpine absents de l'image de base (Trivy : brotli-libs
-# CRITICAL, libexpat et musl HIGH). apk upgrade de tous les paquets, comme match-service.
-# A retirer avec la nouvelle empreinte de l'image de base (SCRUM-121).
-RUN apk upgrade --no-cache
+FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/service-template/target/*.jar app.jar
