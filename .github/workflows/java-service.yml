@@ -216,8 +216,11 @@ jobs:
       contents: read
       # SCRUM-104 : lire l'image et sa signature sur GHCR
       packages: read
+    # SCRUM-122 : un groupe par service. Avec un groupe commun, GitHub ne garde qu'un seul déploiement
+    # en attente : quand une fusion touchait plusieurs services, les suivants annulaient celui qui
+    # attendait (16/11, #239 : deploy-staging d'identity-service annulé, relancé à la main).
     concurrency:
-      group: deploy-staging
+      group: deploy-staging-${{ inputs.name }}
       cancel-in-progress: false
     steps:
       - name: Jeton temporaire du robot (1 heure, écriture du contenu seulement)
@@ -297,13 +300,19 @@ jobs:
             exit 1
           fi
           git commit -m "chore(deploy): staging ${SERVICE} -> ${SHA}"
-          for i in 1 2 3; do
+          # SCRUM-122 : les déploiements des services tournent maintenant en parallèle et poussent tous
+          # ce fichier. Chacun ne modifie que la ligne de son image : le rebase les combine sans conflit.
+          # Pause aléatoire (2 à 10 s) pour que les robots refusés ne réessaient pas tous en même temps.
+          for i in 1 2 3 4 5 6; do
             if git pull --rebase origin main && git push origin HEAD:main; then
               echo "Staging : ${SERVICE} -> ${SHA}" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            echo "Push refusé, nouvel essai dans 5 s ($i/3)"
-            sleep 5
+            # Un rebase interrompu bloquerait les essais suivants
+            git rebase --abort 2>/dev/null || true
+            pause=$(( RANDOM % 9 + 2 ))
+            echo "Push refusé, nouvel essai dans ${pause} s ($i/6)"
+            sleep "$pause"
           done
-          echo "::error::Impossible de pousser le nouveau tag après 3 essais"
+          echo "::error::Impossible de pousser le nouveau tag après 6 essais"
           exit 1
