@@ -9,12 +9,15 @@ import java.util.List;
 import java.util.UUID;
 import ma.teamslot.match.application.CancelMatchService;
 import ma.teamslot.match.application.CreateMatchService;
+import ma.teamslot.match.application.ListMyMatchesService;
 import ma.teamslot.match.application.OpenSpotsService;
 import ma.teamslot.match.domain.Match;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,11 +32,33 @@ public class MatchController {
     private final CreateMatchService service;
     private final CancelMatchService annulation;
     private final OpenSpotsService places;
+    private final ListMyMatchesService consultation;
 
-    public MatchController(CreateMatchService service, CancelMatchService annulation, OpenSpotsService places) {
+    public MatchController(CreateMatchService service, CancelMatchService annulation, OpenSpotsService places,
+                           ListMyMatchesService consultation) {
         this.service = service;
         this.annulation = annulation;
         this.places = places;
+        this.consultation = consultation;
+    }
+
+    /** SCRUM-77 : mes matchs à venir. Identité lue dans le JWT seulement ; données personnelles, jamais en cache. */
+    @GetMapping
+    public ResponseEntity<List<MatchResponse>> mesMatchs(@AuthenticationPrincipal Jwt jeton) {
+        List<MatchResponse> matchs = consultation.aVenir(Appelant.de(jeton)).stream()
+                .map(MatchResponse::from)
+                .toList();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(matchs);
+    }
+
+    /**
+     * SCRUM-77 : détail d'un match pour l'organisateur et les participants avec compte ; 404 pour les autres.
+     * « /open » (OpenMatchesController) est un chemin fixe : Spring le préfère toujours à « /{matchId} ».
+     */
+    @GetMapping("/{matchId}")
+    public ResponseEntity<MatchResponse> detail(@PathVariable UUID matchId, @AuthenticationPrincipal Jwt jeton) {
+        Match match = consultation.detail(Appelant.de(jeton), matchId);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(MatchResponse.from(match));
     }
 
     /** SCRUM-78 : l'organisateur fixe le nombre de places ouvertes à des joueurs extérieurs. */
