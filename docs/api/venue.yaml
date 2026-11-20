@@ -24,15 +24,15 @@ paths:
   /api/v1/venues:
     get:
       tags: [venues]
-      summary: Terrains à proximité
-      description: 'Terrains publies. Sans position (lat et lon absents) : tous les terrains tries par nom. Avec position : tries par distance, distanceMeters renseigne, radius applique. radius est ignore sans position. Un seul de lat/lon, ou size superieur a 50 : 400.'
+      summary: Terrains publiés (à proximité si une position est donnée)
+      description: 'Terrains publiés. Sans position (lat et lon absents) : tous les terrains, triés par nom puis par id. Avec position : triés par distance puis par id, distanceMeters renseigné, radius appliqué. radius est ignoré sans position. Un seul de lat/lon, ou size supérieur à 50 : 400.'
       operationId: listVenues
       parameters:
-        - { name: lat, in: query, required: false, description: 'Latitude. A fournir avec lon (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -90, maximum: 90 } }
-        - { name: lon, in: query, required: false, description: 'Longitude. A fournir avec lat (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -180, maximum: 180 } }
+        - { name: lat, in: query, required: false, description: 'Latitude. À fournir avec lon (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -90, maximum: 90 } }
+        - { name: lon, in: query, required: false, description: 'Longitude. À fournir avec lat (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -180, maximum: 180 } }
         - { name: radius, in: query, required: false, description: Rayon de recherche en mètres, schema: { type: integer, minimum: 1, default: 5000 } }
         - { $ref: '#/components/parameters/Page' }
-        - { name: size, in: query, required: false, description: 'Taille de page (20 par defaut, 50 maximum, au dela 400)', schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { name: size, in: query, required: false, description: 'Taille de page (20 par défaut, 50 maximum, au-delà 400)', schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
       responses:
         '200':
           description: Page de terrains
