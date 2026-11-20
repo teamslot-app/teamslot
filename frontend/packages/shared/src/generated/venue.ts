@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Terrains à proximité */
+        /**
+         * Terrains à proximité
+         * @description Terrains publies. Sans position (lat et lon absents) : tous les terrains tries par nom. Avec position : tries par distance, distanceMeters renseigne, radius applique. radius est ignore sans position. Un seul de lat/lon, ou size superieur a 50 : 400.
+         */
         get: operations["listVenues"];
         put?: never;
         /** Publier un terrain (gérant) */
@@ -331,13 +334,16 @@ export type $defs = Record<string, never>;
 export interface operations {
     listVenues: {
         parameters: {
-            query: {
-                lat: number;
-                lon: number;
+            query?: {
+                /** @description Latitude. A fournir avec lon (les deux ou aucun, sinon 400) */
+                lat?: number;
+                /** @description Longitude. A fournir avec lat (les deux ou aucun, sinon 400) */
+                lon?: number;
                 /** @description Rayon de recherche en mètres */
                 radius?: number;
                 page?: components["parameters"]["Page"];
-                size?: components["parameters"]["Size"];
+                /** @description Taille de page (20 par defaut, 50 maximum, au dela 400) */
+                size?: number;
             };
             header?: never;
             path?: never;
