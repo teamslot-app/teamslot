@@ -80,6 +80,17 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 "Le jeton de renouvellement n'est plus valide. Reconnectez-vous.");
     }
 
+    @ExceptionHandler(AuthErrors.AccountNotFound.class)
+    ProblemDetail accountNotFound() {
+        return problem(HttpStatus.UNAUTHORIZED, "unauthenticated", "Authentification requise",
+                "Ce compte n'existe plus. Reconnecte-toi.");
+    }
+
+    @ExceptionHandler(AuthErrors.InvalidProfile.class)
+    ProblemDetail invalidProfile(AuthErrors.InvalidProfile e) {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-profile", "Profil invalide", e.getMessage());
+    }
+
     private static ProblemDetail problem(HttpStatus status, String type, String title, String detail) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
         problem.setType(URI.create("https://teamslot.app/problems/" + type));
