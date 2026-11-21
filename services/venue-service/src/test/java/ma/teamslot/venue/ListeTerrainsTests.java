@@ -124,6 +124,19 @@ class ListeTerrainsTests {
             .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("ownerId"))));
   }
 
+  @Test
+  void page_negative_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("page", "-1").with(joueur()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void page_au_dela_du_total_200_liste_vide() throws Exception {
+    mockMvc.perform(get(VENUES).param("page", "1000").with(joueur()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content").isEmpty());
+  }
+
   private UUID creerTerrain(String nom, double lat, double lon) throws Exception {
     String corps =
         "{\"name\":\"" + nom + "\",\"latitude\":" + lat + ",\"longitude\":" + lon
