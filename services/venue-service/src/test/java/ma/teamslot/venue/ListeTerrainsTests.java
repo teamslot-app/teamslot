@@ -137,6 +137,21 @@ class ListeTerrainsTests {
         .andExpect(jsonPath("$.content").isEmpty());
   }
 
+  @Test
+  void position_invalide_400() throws Exception {
+    String[][] positions = {{"-91", "10"}, {"NaN", "10"}, {"40", "NaN"}, {"40", "-181"}, {"40", "181"}};
+    for (String[] position : positions) {
+      mockMvc.perform(get(VENUES).param("lat", position[0]).param("lon", position[1]).with(joueur()))
+          .andExpect(status().isBadRequest());
+    }
+  }
+
+  @Test
+  void size_zero_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("size", "0").with(joueur()))
+        .andExpect(status().isBadRequest());
+  }
+
   private UUID creerTerrain(String nom, double lat, double lon) throws Exception {
     String corps =
         "{\"name\":\"" + nom + "\",\"latitude\":" + lat + ",\"longitude\":" + lon
