@@ -47,10 +47,9 @@ public class VenueListService {
     if ((lat == null) != (lon == null)) {
       throw new InvalidRequestException("lat et lon vont ensemble : les deux ou aucun.");
     }
-    if (lat != null) {
-      if (!Double.isFinite(lat) || lat < -90 || lat > 90 || !Double.isFinite(lon) || lon < -180 || lon > 180) {
-        throw new InvalidRequestException("Position invalide.");
-      }
+    if (lat != null
+        && (!Double.isFinite(lat) || lat < -90 || lat > 90 || !Double.isFinite(lon) || lon < -180 || lon > 180)) {
+      throw new InvalidRequestException("Position invalide.");
     }
     if (radius < 1) {
       throw new InvalidRequestException("Le rayon doit être au moins 1 mètre.");
