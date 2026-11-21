@@ -76,6 +76,20 @@ public final class AuthErrors {
         }
     }
 
+    /** SCRUM-95 : jeton valide mais compte introuvable (supprimé depuis) : 401, il faut se reconnecter. */
+    public static final class AccountNotFound extends RuntimeException {
+        public AccountNotFound() {
+            super("account not found");
+        }
+    }
+
+    /** SCRUM-95 : modification du profil refusée (400). Le message ne contient jamais la valeur envoyée. */
+    public static final class InvalidProfile extends RuntimeException {
+        public InvalidProfile(String message) {
+            super(message);
+        }
+    }
+
     /** 5 essais déjà faits pour ce code (429) : il faut en demander un nouveau. */
     public static final class TooManyAttempts extends RuntimeException {
         public TooManyAttempts() {
