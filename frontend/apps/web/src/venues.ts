@@ -40,4 +40,12 @@ export const TERRAINS: Terrain[] = [
   },
 ]
 
-export const terrainParId = (id: string | undefined) => TERRAINS.find((t) => t.id === id)
+// SCRUM-138 : terrains reçus de l'API (cache en mémoire), prioritaires sur la liste temporaire ci-dessus.
+const recus = new Map<string, Terrain>()
+
+export const memoriserTerrains = (terrains: Terrain[]) => {
+  for (const t of terrains) recus.set(t.id, t)
+}
+
+export const terrainParId = (id: string | undefined) =>
+  (id ? recus.get(id) : undefined) ?? TERRAINS.find((t) => t.id === id)

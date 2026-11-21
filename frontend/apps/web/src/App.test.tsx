@@ -155,6 +155,7 @@ describe('inscription', () => {
     expect(reseau.mock.calls.map(([e]) => cheminDe(e))).toEqual([
       '/api/v1/auth/register',
       '/api/v1/auth/login',
+      '/api/v1/venues',
     ])
   })
 })
