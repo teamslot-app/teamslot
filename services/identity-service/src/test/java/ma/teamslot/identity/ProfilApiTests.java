@@ -77,10 +77,10 @@ class ProfilApiTests {
 
         assertThat(reponse.statusCode()).isEqualTo(200);
         Map<String, Object> profil = json(reponse);
-        assertThat(profil.get("id")).isEqualTo(compte.id());
-        assertThat(profil.get("phone")).isEqualTo(compte.phone());
-        assertThat(profil.get("displayName")).isEqualTo("Yassir");
-        assertThat(profil.get("platformRole")).isEqualTo("PLAYER");
+        assertThat(profil).containsEntry("id", compte.id());
+        assertThat(profil).containsEntry("phone", compte.phone());
+        assertThat(profil).containsEntry("displayName", "Yassir");
+        assertThat(profil).containsEntry("platformRole", "PLAYER");
         assertThat(reponse.body()).doesNotContain(PASSWORD).doesNotContainIgnoringCase("password").doesNotContain("$2");
         assertThat(reponse.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
     }
@@ -95,9 +95,9 @@ class ProfilApiTests {
                 "{\"displayName\":\"  Karim  \"}");
 
         assertThat(reponse.statusCode()).isEqualTo(200);
-        assertThat(json(reponse).get("displayName")).isEqualTo("Karim");
+        assertThat(json(reponse)).containsEntry("displayName", "Karim");
         assertThat(reponse.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
-        assertThat(json(appel("GET", "/api/v1/users/me", compte.jeton(), null)).get("displayName")).isEqualTo("Karim");
+        assertThat(json(appel("GET", "/api/v1/users/me", compte.jeton(), null))).containsEntry("displayName", "Karim");
         assertThat(users.findByPhone(compte.phone()).orElseThrow().getDisplayName()).isEqualTo("Karim");
     }
 
@@ -111,7 +111,7 @@ class ProfilApiTests {
                 "\"Kar\\u0000im\""}) {
             HttpResponse<String> reponse = patch(compte, "{\"displayName\":" + refuse + "}");
             assertThat(reponse.statusCode()).as(refuse).isEqualTo(400);
-            assertThat(json(reponse).get("type")).isEqualTo("https://teamslot.app/problems/invalid-profile");
+            assertThat(json(reponse)).containsEntry("type", "https://teamslot.app/problems/invalid-profile");
         }
         assertThat(patch(compte, "{}").statusCode()).isEqualTo(400);
         assertThat(patch(compte, "pas du json").statusCode()).isEqualTo(400);
@@ -129,10 +129,10 @@ class ProfilApiTests {
         }
 
         Map<String, Object> profil = json(appel("GET", "/api/v1/users/me", compte.jeton(), null));
-        assertThat(profil.get("displayName")).isEqualTo("Yassir");
-        assertThat(profil.get("platformRole")).isEqualTo("PLAYER");
-        assertThat(profil.get("managerStatus")).isEqualTo("NONE");
-        assertThat(profil.get("phone")).isEqualTo(compte.phone());
+        assertThat(profil).containsEntry("displayName", "Yassir");
+        assertThat(profil).containsEntry("platformRole", "PLAYER");
+        assertThat(profil).containsEntry("managerStatus", "NONE");
+        assertThat(profil).containsEntry("phone", compte.phone());
     }
 
     @Test
@@ -142,8 +142,8 @@ class ProfilApiTests {
 
         patch(moi, "{\"displayName\":\"Karim\"}");
 
-        assertThat(json(appel("GET", "/api/v1/users/me", autre.jeton(), null)).get("displayName")).isEqualTo("Yassir");
-        assertThat(json(appel("GET", "/api/v1/users/me", moi.jeton(), null)).get("id")).isEqualTo(moi.id());
+        assertThat(json(appel("GET", "/api/v1/users/me", autre.jeton(), null))).containsEntry("displayName", "Yassir");
+        assertThat(json(appel("GET", "/api/v1/users/me", moi.jeton(), null))).containsEntry("id", moi.id());
     }
 
     // ---------- outils ----------

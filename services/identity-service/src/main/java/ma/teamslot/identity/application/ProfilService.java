@@ -37,7 +37,8 @@ public class ProfilService {
         if (propre.chars().anyMatch(Character::isISOControl)) {
             throw new AuthErrors.InvalidProfile("Le surnom contient un caractère non autorisé.");
         }
-        UserEntity user = monProfil(moi);
+        // Lecture directe par le dépôt (pas this.monProfil) : un appel interne ignorerait son @Transactional
+        UserEntity user = users.findById(moi).orElseThrow(AuthErrors.AccountNotFound::new);
         user.changerSurnom(propre); // enregistré à la fin de la transaction (entité gérée par JPA)
         return user;
     }

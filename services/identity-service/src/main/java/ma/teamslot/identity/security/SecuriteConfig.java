@@ -1,5 +1,8 @@
 package ma.teamslot.identity.security;
 
+import java.text.ParseException;
+
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import ma.teamslot.identity.application.TokenService;
@@ -34,14 +37,17 @@ public class SecuriteConfig {
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(serveur -> serveur.jwt(Customizer.withDefaults()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // API sans cookie de session : jeton dans l'en-tête Authorization, CSRF sans objet.
+                // API sans cookie ni session : le jeton est dans l'en-tête Authorization, que le navigateur n'ajoute
+                // jamais tout seul à une requête venant d'un autre site. Une attaque CSRF est donc impossible ici
+                // (même choix que match-service et les autres services, ADR-013).
                 .csrf(csrf -> csrf.disable());
         return http.build();
     }
 
     /** RS256 seulement (refuse aussi « alg: none »), émetteur imposé, expiration vérifiée. */
     @Bean
-    JwtDecoder jwtDecoder(TokenService jetons, @Value("${teamslot.jwt.issuer}") String emetteur) throws Exception {
+    JwtDecoder jwtDecoder(TokenService jetons, @Value("${teamslot.jwt.issuer}") String emetteur)
+            throws ParseException, JOSEException {
         RSAKey cle = (RSAKey) JWKSet.parse(jetons.publicJwks()).getKeys().get(0);
         NimbusJwtDecoder decodeur = NimbusJwtDecoder.withPublicKey(cle.toRSAPublicKey())
                 .signatureAlgorithm(SignatureAlgorithm.RS256)
