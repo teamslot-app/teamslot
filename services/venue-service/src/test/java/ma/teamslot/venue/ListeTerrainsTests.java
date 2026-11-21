@@ -101,6 +101,57 @@ class ListeTerrainsTests {
     mockMvc.perform(get(VENUES)).andExpect(status().isUnauthorized());
   }
 
+  @Test
+  void latitude_hors_limites_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("lat", "91").param("lon", "10").with(joueur()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void rayon_zero_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("lat", "40.0").param("lon", "10.0").param("radius", "0").with(joueur()))
+        .andExpect(status().isBadRequest());
+    mockMvc.perform(get(VENUES).param("radius", "0").with(joueur())).andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void la_reponse_ne_contient_aucune_donnee_privee() throws Exception {
+    creerTerrain("Prive-" + suffixe(), 46.0, 10.0);
+    mockMvc.perform(get(VENUES).param("size", "50").with(joueur()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content[0].id").exists())
+        .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+            .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("ownerId"))));
+  }
+
+  @Test
+  void page_negative_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("page", "-1").with(joueur()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void page_au_dela_du_total_200_liste_vide() throws Exception {
+    mockMvc.perform(get(VENUES).param("page", "1000").with(joueur()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content").isEmpty());
+  }
+
+  @Test
+  void position_invalide_400() throws Exception {
+    String[][] positions = {{"-91", "10"}, {"NaN", "10"}, {"40", "NaN"}, {"40", "-181"}, {"40", "181"}};
+    for (String[] position : positions) {
+      mockMvc.perform(get(VENUES).param("lat", position[0]).param("lon", position[1]).with(joueur()))
+          .andExpect(status().isBadRequest());
+    }
+  }
+
+  @Test
+  void size_zero_400() throws Exception {
+    mockMvc.perform(get(VENUES).param("size", "0").with(joueur()))
+        .andExpect(status().isBadRequest());
+  }
+
   private UUID creerTerrain(String nom, double lat, double lon) throws Exception {
     String corps =
         "{\"name\":\"" + nom + "\",\"latitude\":" + lat + ",\"longitude\":" + lon
