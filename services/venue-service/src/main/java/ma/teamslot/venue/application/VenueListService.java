@@ -1,7 +1,6 @@
 package ma.teamslot.venue.application;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +32,9 @@ public class VenueListService {
           + " * 2 * asin(sqrt(least(1.0, power(sin(radians((v.latitude - ?) / 2)), 2)"
           + " + cos(radians(?)) * cos(radians(v.latitude))"
           + " * power(sin(radians((v.longitude - ?) / 2)), 2))))";
+
+  private static final String SQL_EQUIPEMENTS =
+      "select id, venue_id, name, price_cents from equipment where venue_id = any(?) order by name, id";
 
   private final JdbcTemplate jdbc;
 
@@ -89,19 +91,17 @@ public class VenueListService {
       return items;
     }
     List<UUID> ids = items.stream().map(VenueListItem::id).toList();
-    String marques = String.join(",", Collections.nCopies(ids.size(), "?"));
     Map<UUID, List<EquipmentLigne>> parTerrain =
         jdbc
             .query(
-                "select id, venue_id, name, price_cents from equipment where venue_id in ("
-                    + marques + ") order by name, id",
+                SQL_EQUIPEMENTS,
+                ps -> ps.setArray(1, ps.getConnection().createArrayOf("uuid", ids.toArray())),
                 (rs, n) ->
                     new EquipmentLigne(
                         rs.getObject("venue_id", UUID.class),
                         rs.getObject("id", UUID.class),
                         rs.getString("name"),
-                        rs.getLong("price_cents")),
-                ids.toArray())
+                        rs.getLong("price_cents")))
             .stream()
             .collect(Collectors.groupingBy(EquipmentLigne::venueId));
     List<VenueListItem> resultat = new ArrayList<>();
