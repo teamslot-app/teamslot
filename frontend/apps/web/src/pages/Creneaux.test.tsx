@@ -34,11 +34,33 @@ afterEach(() => {
 })
 
 describe('terrains et créneaux', () => {
-  it('liste les terrains, un lien chacun', () => {
+  it('liste les terrains reçus de l’API, un lien chacun', async () => {
+    const terrain = (id: string, name: string) => ({
+      id,
+      name,
+      latitude: 31.6,
+      longitude: -8,
+      pricePerHour: { amount: 15000, currency: 'MAD' },
+      acceptsOnSitePayment: true,
+      equipment: [],
+    })
+    const urls: string[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (entree) => {
+      urls.push(urlDe(entree))
+      return json({ content: [terrain('t1', 'Terrain A'), terrain('t2', 'Terrain B')], page: 0, size: 50, totalElements: 2 })
+    })
     rendre('/')
-    expect(screen.getAllByRole('link').filter((l) => l.getAttribute('href')?.startsWith('/terrains/'))).toHaveLength(
-      TERRAINS.length,
-    )
+
+    expect(await screen.findByRole('link', { name: 'Terrain A' })).toBeTruthy()
+    const liens = screen.getAllByRole('link').filter((l) => l.getAttribute('href')?.startsWith('/terrains/'))
+    expect(liens).toHaveLength(2)
+    expect(urls.some((u) => u.includes('/api/v1/venues'))).toBe(true)
+  })
+
+  it('affiche une erreur si la liste des terrains ne se charge pas', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({}, 500))
+    rendre('/')
+    expect(await screen.findByRole('alert')).toBeTruthy()
   })
 
   it('affiche les créneaux libres et pris, avec leur prix en MAD', async () => {
