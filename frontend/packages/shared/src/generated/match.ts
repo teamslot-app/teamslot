@@ -11,7 +11,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Mes matchs à venir (SCRUM-77)
+         * @description Matchs dont l'appelant (sub du JWT) est l'organisateur ou un participant avec compte
+         *     (INVITED ou CONFIRMED), et dont le créneau n'est pas terminé (startsAt + 1 h > maintenant).
+         *     Les matchs annulés (CANCELLED) sont inclus : le joueur doit voir qu'un match a été annulé.
+         *     Tri par startsAt croissant, 50 matchs au maximum.
+         *     Aucun paramètre d'identité : on ne peut jamais lister les matchs d'un autre joueur.
+         */
+        get: operations["listMyMatches"];
         put?: never;
         /**
          * Réserver un créneau et créer le match de groupe
@@ -20,6 +28,31 @@ export interface paths {
          *     Le match est créé en statut PENDING_PAYMENT. Publie match.created.
          */
         post: operations["createMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Détail d'un match (SCRUM-77)
+         * @description Réservé à l'organisateur et aux participants avec compte (INVITED ou CONFIRMED).
+         *     Pour tout autre utilisateur, la réponse est 404 et non 403 : on ne révèle pas
+         *     l'existence d'un match à quelqu'un qui n'y participe pas.
+         */
+        get: operations["getMatch"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -567,6 +600,29 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listMyMatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mes matchs à venir (liste vide s'il n'y en a aucun) */
+            200: {
+                headers: {
+                    /** @description Données personnelles, jamais mises en cache */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Match"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     createMatch: {
         parameters: {
             query?: never;
@@ -606,6 +662,34 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
+        };
+    };
+    getMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du match */
+                id: components["parameters"]["MatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le match */
+            200: {
+                headers: {
+                    /** @description Données personnelles, jamais mises en cache */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Match"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listParticipants: {

@@ -1,7 +1,8 @@
 #!/bin/sh
 # Test E2E du parcours « groupe d'amis » en staging (SCRUM-112, ADR-017).
 # Passe par la passerelle, comme le front : inscription, connexion, créneau, match, amis, places ouvertes,
-# demande et acceptation d'un joueur extérieur, paiement, répartition, notifications dans l'application, annulation.
+# demande et acceptation d'un joueur extérieur, mes matchs, paiement, répartition, notifications dans l'application,
+# annulation.
 # Tourne DANS le cluster (aucun port à ouvrir) :
 #   kubectl run e2e-match --rm -i --restart=Never -n staging --image=curlimages/curl:8.10.1 \
 #     --command -- sh -s < deploy/e2e/parcours-match.sh
@@ -70,6 +71,11 @@ appel POST /api/v1/auth/login "" "{\"phone\":\"+2127$suffixe\",\"password\":\"$m
 attendu 200 "connexion de l'ami"
 ami=$(champ "$corps" accessToken)
 [ -n "$orga" ] && [ -n "$ami" ] && [ -n "$ami_id" ] || { echoue "jetons ou id de l'ami absents : arrêt"; fin; }
+
+echo "== 1b. Liste des terrains (SCRUM-138) =="
+appel GET "/api/v1/venues?size=50" "$orga"
+attendu 200 "liste des terrains publiés"
+if printf '%s' "$corps" | grep -q "\"id\":\"$TERRAIN\""; then reussi "le terrain de démo apparaît dans la liste"; else echoue "terrain de démo absent de GET /api/v1/venues"; fi
 
 echo "== 2. Créneau libre (terrain de démo, jours J+1 à J+7) =="
 creneau=""
@@ -155,6 +161,21 @@ appel POST "/api/v1/matches/$match/join-requests/$joueur_id/accept" "$orga"
 attendu 404 "accepter deux fois : plus de demande"
 appel POST "/api/v1/matches/$match/join" ""
 attendu 401 "demander sans jeton"
+
+echo "== 4 quinquies. Mes matchs à venir (SCRUM-77) =="
+appel GET /api/v1/matches "$orga"
+attendu 200 "l'organisateur lit ses matchs à venir"
+case "$corps" in *"\"id\":\"$match\""*) reussi "le match est dans les matchs de l'organisateur" ;; *) echoue "match $match absent des matchs de l'organisateur" ;; esac
+case "$corps" in *Yassir*|*guestName*|*participants*|*joinRequests*) echoue "mes matchs contient des données d'autres joueurs" ;; *) reussi "aucune donnée d'autres joueurs dans mes matchs" ;; esac
+appel GET /api/v1/matches "$joueur"
+attendu 200 "le joueur accepté lit ses matchs à venir"
+case "$corps" in *"\"id\":\"$match\""*) reussi "le joueur accepté voit le match" ;; *) echoue "match $match absent des matchs du joueur accepté" ;; esac
+appel GET "/api/v1/matches/$match" "$ami"
+attendu 200 "l'ami ouvre le détail du match"
+appel GET /api/v1/matches ""
+attendu 401 "mes matchs sans jeton"
+appel GET "/api/v1/matches/$match" ""
+attendu 401 "détail d'un match sans jeton"
 
 echo "== 5. Paiement en ligne (payment-service, puis événement Kafka vers match-service) =="
 i=0
@@ -255,6 +276,17 @@ appel POST "/api/v1/matches/$match2/cancel" "$orga"
 attendu 204 "annulation par l'organisateur"
 appel POST "/api/v1/matches/$match2/cancel" "$orga"
 attendu 409 "un match déjà annulé ne peut pas l'être deux fois"
+# SCRUM-77 : le match annulé reste dans les matchs de l'organisateur ; l'ami n'en fait pas partie
+appel GET /api/v1/matches "$orga"
+if printf '%s' "$corps" | tr '{' '\n' | grep "\"id\":\"$match2\"" | grep -q '"status":"CANCELLED"'; then
+  reussi "le match annulé reste affiché dans mes matchs"
+else
+  echoue "match annulé $match2 absent ou pas CANCELLED dans mes matchs"
+fi
+appel GET "/api/v1/matches/$match2" "$ami"
+attendu 404 "l'ami n'a pas accès au détail d'un match dont il ne fait pas partie"
+appel GET /api/v1/matches "$ami"
+case "$corps" in *"$match2"*) echoue "l'ami voit un match dont il ne fait pas partie" ;; *) reussi "jamais les matchs des autres" ;; esac
 i=0
 rembourse=non
 while [ "$i" -lt 30 ] && [ "$rembourse" = non ]; do

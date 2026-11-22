@@ -8,11 +8,23 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
+  # SCRUM-120 : pas de version de nginx dans l'en-tête Server (alerte ZAP Low)
+  server_tokens off;
+
   # SCRUM-114 : en-têtes de sécurité. « always » les envoie aussi sur les erreurs (404, 502...).
-  add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'" always;
+  # Attention : un add_header dans un bloc location remplacerait TOUS ceux-ci pour ce bloc (héritage nginx).
+  # SCRUM-120 : form-action 'self' (une CSP sans form-action laisse un formulaire poster ailleurs, alerte ZAP Medium).
+  add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
   add_header X-Content-Type-Options "nosniff" always;
   add_header X-Frame-Options "DENY" always;
   add_header Referrer-Policy "no-referrer" always;
+  # SCRUM-120 : fonctions du navigateur dont TeamSlot n'a pas besoin, refusées à la page et à tout cadre (alerte ZAP Low)
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()" always;
+  # SCRUM-120 : isolation contre Spectre (alerte ZAP Low). Tout est servi par la même origine (front, /api, polices,
+  # textures 3D) : aucune ressource d'une autre origine n'est chargée, require-corp ne bloque donc rien.
+  add_header Cross-Origin-Opener-Policy "same-origin" always;
+  add_header Cross-Origin-Embedder-Policy "require-corp" always;
+  add_header Cross-Origin-Resource-Policy "same-origin" always;
 
   location /api/ {
     proxy_pass ${API_UPSTREAM};

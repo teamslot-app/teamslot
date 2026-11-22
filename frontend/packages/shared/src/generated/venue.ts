@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Terrains à proximité */
+        /**
+         * Terrains publiés (à proximité si une position est donnée)
+         * @description Terrains publiés. Sans position (lat et lon absents) : tous les terrains, triés par nom puis par id. Avec position : triés par distance puis par id, distanceMeters renseigné, radius appliqué. radius est ignoré sans position. Un seul de lat/lon, ou size supérieur à 50 : 400.
+         */
         get: operations["listVenues"];
         put?: never;
         /** Publier un terrain (gérant) */
@@ -58,6 +61,32 @@ export interface paths {
          * @description Le prix est toujours calculé par le serveur, jamais repris du client.
          */
         get: operations["getPrice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/venues/{id}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du terrain */
+                id: components["parameters"]["VenueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Réservations d'un jour sur mon terrain (gérant du terrain)
+         * @description Réservé au gérant propriétaire du terrain (rôle VENUE_MANAGER, propriétaire = sub du JWT vérifié).
+         *     Un gérant d'un autre terrain ou un joueur reçoit 403, sans jeton 401.
+         *     Le droit est vérifié avant toute lecture des données. La réponse ne contient aucune donnée personnelle de joueur.
+         *     Le jour demandé est une journée locale Africa/Casablanca, convertie en intervalle UTC.
+         */
+        get: operations["listVenueReservations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -206,6 +235,25 @@ export interface components {
             matchId: string;
             equipmentIds?: string[];
         };
+        /** @description Réservation vue par le gérant du terrain (sans donnée personnelle de joueur) */
+        VenueReservation: {
+            /** Format: uuid */
+            slotId: string;
+            /** Format: uuid */
+            matchId: string;
+            /**
+             * Format: date-time
+             * @description Début (UTC)
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description Fin (UTC)
+             */
+            endsAt: string;
+            /** @enum {string} */
+            status: "RESERVED" | "RELEASED";
+        };
         SlotReservation: {
             /** Format: uuid */
             slotId: string;
@@ -286,13 +334,16 @@ export type $defs = Record<string, never>;
 export interface operations {
     listVenues: {
         parameters: {
-            query: {
-                lat: number;
-                lon: number;
+            query?: {
+                /** @description Latitude. À fournir avec lon (les deux ou aucun, sinon 400) */
+                lat?: number;
+                /** @description Longitude. À fournir avec lat (les deux ou aucun, sinon 400) */
+                lon?: number;
                 /** @description Rayon de recherche en mètres */
                 radius?: number;
                 page?: components["parameters"]["Page"];
-                size?: components["parameters"]["Size"];
+                /** @description Taille de page (20 par défaut, 50 maximum, au-delà 400) */
+                size?: number;
             };
             header?: never;
             path?: never;
@@ -431,6 +482,36 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVenueReservations: {
+        parameters: {
+            query: {
+                /** @description Jour demandé (ISO 8601 */
+                date: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du terrain */
+                id: components["parameters"]["VenueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Réservations actives du jour, triées par heure de début */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueReservation"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

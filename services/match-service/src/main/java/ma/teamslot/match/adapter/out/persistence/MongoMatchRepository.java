@@ -142,6 +142,44 @@ public class MongoMatchRepository implements MatchRepository {
                 .toList();
     }
 
+    /**
+     * SCRUM-77 : l'appelant est l'organisateur, ou un participant avec compte INVITED ou CONFIRMED.
+     * $elemMatch : le compte ET le statut doivent appartenir au MÊME participant (une invitation refusée,
+     * DECLINED, ne donne pas accès au match). Une branche du $or par index : idx_matches_owner et
+     * idx_matches_participant_compte (CollectionMatches).
+     */
+    private static Criteria deLAppelant(UUID appelant) {
+        return new Criteria().orOperator(
+                Criteria.where(ORGANISATEUR).is(appelant.toString()),
+                Criteria.where(PARTICIPANTS).elemMatch(Criteria.where(P_COMPTE).is(appelant.toString())
+                        .and(P_STATUT).in("INVITED", "CONFIRMED")));
+    }
+
+    /** Projection sans participants ni demandes : les données des autres joueurs ne sortent pas de la base. */
+    private static Query sansLesAutresJoueurs(Query query) {
+        query.fields().exclude(PARTICIPANTS, MatchDocuments.DEMANDES);
+        return query;
+    }
+
+    @Override
+    public List<Match> mesMatchs(UUID appelant, Instant depuis, int limite) {
+        Query query = Query.query(new Criteria().andOperator(deLAppelant(appelant),
+                        Criteria.where(DEBUT).gt(Date.from(depuis))))
+                .with(Sort.by(Sort.Direction.ASC, DEBUT))
+                .limit(limite);
+        return mongo.find(sansLesAutresJoueurs(query), Document.class, COLLECTION).stream()
+                .map(MongoMatchRepository::versMatch)
+                .toList();
+    }
+
+    @Override
+    public Optional<Match> pourParticipant(UUID matchId, UUID appelant) {
+        Query query = Query.query(new Criteria().andOperator(Criteria.where(ID).is(matchId.toString()),
+                deLAppelant(appelant)));
+        return Optional.ofNullable(mongo.findOne(sansLesAutresJoueurs(query), Document.class, COLLECTION))
+                .map(MongoMatchRepository::versMatch);
+    }
+
     static Match versMatch(Document d) {
         return new Match(UUID.fromString(d.getString(ID)), d.getString("kind"), d.getString(STATUT),
                 d.getString("visibility"), (int) MatchDocuments.nombre(d, PLACES_OUVERTES, 0),

@@ -5,13 +5,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.UUID;
 
-/** Lecture seule pour SCRUM-58 ; SCRUM-93 ajoutera les colonnes d'écriture. */
+/** Lecture seule (SCRUM-58, SCRUM-139) ; SCRUM-93 ajoutera les colonnes d'écriture. */
 @Entity
 @Table(name = "slot_reservation")
 public class SlotReservationEntity {
 
   @Id private UUID id;
   private UUID slotId;
+  private UUID matchId;
   private String status;
 
   protected SlotReservationEntity() {}
@@ -22,6 +23,10 @@ public class SlotReservationEntity {
 
   public UUID getSlotId() {
     return slotId;
+  }
+
+  public UUID getMatchId() {
+    return matchId;
   }
 
   public String getStatus() {

@@ -19,12 +19,9 @@ COPY services/venue-service/src services/venue-service/src
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl services/venue-service -am package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine@sha256:51ab5e3302e7141ce665ca3ea85e8b5cd648eafbc3c0c90dd79d6537684e4555
-# CVE-2026-77214 (libexpat, HIGH) et CVE-2026-111497 (brotli-libs, CRITICAL) : correctifs Alpine, à retirer quand l’image de base les embarque
-# SCRUM-119 (suite, 11/11) : apk upgrade de TOUS les paquets, comme match-service. La liste fixe
-# (libexpat brotli-libs) laissait passer les nouveaux CVE Alpine (musl CVE-2026-107891 HIGH).
-# A retirer avec la nouvelle empreinte de l'image de base (SCRUM-121).
-RUN apk upgrade --no-cache
+FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+# CVE-2026-109908 (libfontenc, HIGH) : corrigé en 1.1.10-r0, absent de l image de base épinglée. Provisoire.
+RUN apk upgrade --no-cache libfontenc
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/venue-service/target/*.jar app.jar

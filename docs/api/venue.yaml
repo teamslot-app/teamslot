@@ -24,14 +24,15 @@ paths:
   /api/v1/venues:
     get:
       tags: [venues]
-      summary: Terrains à proximité
+      summary: Terrains publiés (à proximité si une position est donnée)
+      description: 'Terrains publiés. Sans position (lat et lon absents) : tous les terrains, triés par nom puis par id. Avec position : triés par distance puis par id, distanceMeters renseigné, radius appliqué. radius est ignoré sans position. Un seul de lat/lon, ou size supérieur à 50 : 400.'
       operationId: listVenues
       parameters:
-        - { name: lat, in: query, required: true, schema: { type: number, format: double, minimum: -90, maximum: 90 } }
-        - { name: lon, in: query, required: true, schema: { type: number, format: double, minimum: -180, maximum: 180 } }
+        - { name: lat, in: query, required: false, description: 'Latitude. À fournir avec lon (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -90, maximum: 90 } }
+        - { name: lon, in: query, required: false, description: 'Longitude. À fournir avec lat (les deux ou aucun, sinon 400)', schema: { type: number, format: double, minimum: -180, maximum: 180 } }
         - { name: radius, in: query, required: false, description: Rayon de recherche en mètres, schema: { type: integer, minimum: 1, default: 5000 } }
         - { $ref: '#/components/parameters/Page' }
-        - { $ref: '#/components/parameters/Size' }
+        - { name: size, in: query, required: false, description: 'Taille de page (20 par défaut, 50 maximum, au-delà 400)', schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
       responses:
         '200':
           description: Page de terrains
@@ -129,6 +130,32 @@ paths:
               schema: { $ref: '#/components/schemas/Price' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/venues/{id}/reservations:
+    parameters:
+      - { $ref: '#/components/parameters/VenueId' }
+    get:
+      tags: [venues]
+      summary: Réservations d'un jour sur mon terrain (gérant du terrain)
+      description: |
+        Réservé au gérant propriétaire du terrain (rôle VENUE_MANAGER, propriétaire = sub du JWT vérifié).
+        Un gérant d'un autre terrain ou un joueur reçoit 403, sans jeton 401.
+        Le droit est vérifié avant toute lecture des données. La réponse ne contient aucune donnée personnelle de joueur.
+        Le jour demandé est une journée locale Africa/Casablanca, convertie en intervalle UTC.
+      operationId: listVenueReservations
+      parameters:
+        - { name: date, in: query, required: true, description: Jour demandé (ISO 8601, AAAA-MM-JJ), schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Réservations actives du jour, triées par heure de début
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VenueReservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/slot-reservations:
     post:
@@ -320,6 +347,16 @@ components:
         equipmentIds:
           type: array
           items: { type: string, format: uuid }
+    VenueReservation:
+      type: object
+      description: Réservation vue par le gérant du terrain (sans donnée personnelle de joueur)
+      required: [slotId, matchId, startsAt, endsAt, status]
+      properties:
+        slotId: { type: string, format: uuid }
+        matchId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time, description: Début (UTC) }
+        endsAt: { type: string, format: date-time, description: Fin (UTC) }
+        status: { type: string, enum: [RESERVED, RELEASED] }
     SlotReservation:
       type: object
       required: [slotId, matchId, totalPrice, acceptsOnSitePayment, status, startsAt, endsAt]

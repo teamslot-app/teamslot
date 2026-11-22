@@ -39,4 +39,16 @@ public interface MatchRepository {
      * par heure de début, au plus limite.
      */
     List<MatchOuvert> ouverts(Instant depuis, Instant jusqua, int limite);
+
+    /**
+     * SCRUM-77 : matchs dont appelant est l'organisateur ou un participant avec compte (INVITED ou CONFIRMED),
+     * avec startsAt > depuis, tous statuts (annulés compris), par heure de début, au plus limite.
+     */
+    List<Match> mesMatchs(UUID appelant, Instant depuis, int limite);
+
+    /**
+     * SCRUM-77 : le match si appelant en est l'organisateur ou un participant avec compte (INVITED ou CONFIRMED) ;
+     * vide si le match n'existe pas OU si appelant n'y participe pas (les deux cas donnent la même réponse).
+     */
+    Optional<Match> pourParticipant(UUID matchId, UUID appelant);
 }
