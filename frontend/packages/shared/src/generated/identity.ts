@@ -144,15 +144,46 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Mon profil */
+        /**
+         * Mon profil
+         * @description SCRUM-95 : le profil du compte du jeton (claim sub), jamais celui d'un autre : aucun identifiant dans l'URL.
+         *     Le mot de passe (même haché) n'est jamais renvoyé.
+         */
         get: operations["getMe"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Modifier mon profil */
+        /**
+         * Modifier mon profil
+         * @description SCRUM-95 : seul le surnom (displayName) est modifiable ici. Téléphone, e-mail, rôle et statut de gérant
+         *     ne se changent pas par cette route : un champ inconnu est refusé (400), il n'est jamais appliqué.
+         */
         patch: operations["updateMe"];
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chercher un joueur par son surnom
+         * @description SCRUM-82 : pour inviter un joueur qui a un compte. Recherche du surnom qui COMMENCE par le texte
+         *     (sans tenir compte de la casse), 20 résultats au plus, triés par surnom.
+         *     Réponse minimale (UserSummary) : identifiant et surnom seulement, jamais le téléphone ni l'e-mail.
+         *     Limitation de débit par compte (claim sub) : 30 recherches par minute, puis 429.
+         */
+        get: operations["searchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -179,7 +210,10 @@ export interface components {
          * @enum {string}
          */
         ManagerStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
-        /** @description Le mot de passe n'est jamais renvoyé. */
+        /**
+         * @description Le mot de passe n'est jamais renvoyé. Données personnelles : uniquement pour le propriétaire du compte
+         *     (GET/PATCH /api/v1/users/me). Pour un autre joueur, utiliser UserSummary.
+         */
         User: {
             /** Format: uuid */
             id: string;
@@ -287,8 +321,23 @@ export interface components {
         JwkSet: {
             keys: components["schemas"]["Jwk"][];
         };
+        /**
+         * @description Seul le surnom se modifie (SCRUM-95). Espaces au début et à la fin retirés par le serveur ;
+         *     un surnom vide ou fait seulement d'espaces est refusé (400).
+         */
         UpdateUserRequest: {
-            displayName?: string;
+            /** @example Yassir */
+            displayName: string;
+        };
+        /**
+         * @description Un autre joueur, tel que la recherche le montre (SCRUM-82) : identifiant et surnom seulement.
+         *     Jamais de téléphone, d'e-mail, de date de naissance ni de rôle.
+         */
+        UserSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @example Yassir */
+            displayName: string;
         };
     };
     responses: {
@@ -539,6 +588,8 @@ export interface operations {
             /** @description Profil */
             200: {
                 headers: {
+                    /** @description Données personnelles, jamais mises en cache */
+                    "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -564,6 +615,8 @@ export interface operations {
             /** @description Profil mis à jour */
             200: {
                 headers: {
+                    /** @description Données personnelles, jamais mises en cache */
+                    "Cache-Control"?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -572,6 +625,44 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    searchUsers: {
+        parameters: {
+            query: {
+                /** @description Début du surnom, 3 caractères au moins (moins de 3 → 400) */
+                displayName: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joueurs trouvés (liste vide si aucun) */
+            200: {
+                headers: {
+                    /** @description Résultat lié au compte qui cherche, jamais mis en cache */
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSummary"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Trop de recherches (plus de 30 par minute pour ce compte) */
+            429: {
+                headers: {
+                    /** @description Secondes à attendre avant de recommencer */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
 }

@@ -33,10 +33,10 @@ images:
   name: ghcr.io/teamslot-app/match-service
   newName: ghcr.io/teamslot-app/match-service
   newTag: e37b4891ab1110a397f3183d3a212ee9592a93f8
-- digest: sha256:4a5a6c075afd7d6d50308085200217dd59d77327887a9a66a7a98bb3928973b7
+- digest: sha256:33629a768a462583ff3b3e87ddb2768af1573c667ebcd2981c99583a831f10d2
   name: ghcr.io/teamslot-app/notification-service
   newName: ghcr.io/teamslot-app/notification-service
-  newTag: 4897322927cf7ef5777630583f8eb016a75b0461
+  newTag: 42d2267386e5492241a0e298a1d2c332c65cf27b
 - digest: sha256:9424ca52bae700928f4d65989272c7039d6b818a4a86d2c4afce0f58e91b7e4e
   name: ghcr.io/teamslot-app/payment-service
   newName: ghcr.io/teamslot-app/payment-service
@@ -45,18 +45,18 @@ images:
   name: ghcr.io/teamslot-app/service-template
   newName: ghcr.io/teamslot-app/service-template
   newTag: 41e73994dd5ffcc359af32f9ccd57d0357f916eb
-- digest: sha256:37ba5a36c1885f965a78b115070259780ad1e128bbef054d7a0a34e9f46a4ed8
+- digest: sha256:c620508d8959b30ad294bf7fc606fc6f3069a0d9d95562343851c6dcc6604caf
   name: ghcr.io/teamslot-app/teamslot
   newName: ghcr.io/teamslot-app/teamslot
-  newTag: 6d3304afdf69dd59cb4f4387fc6a05d7c6650930
-- digest: sha256:1e10fc4987970119f0a69d9751ff5c04cb93b7edba58cf9f9ff8ce535ed173c9
+  newTag: e26f360252355d26e3ddd2b527d295afb41064a3
+- digest: sha256:ea4222af5b5326cd5d2ee31526c7e0b559ee3737e5bf22b51691e38e466c2c95
   name: ghcr.io/teamslot-app/venue-service
   newName: ghcr.io/teamslot-app/venue-service
-  newTag: 23ed8bbd1bd7a806cd02b8e98149d2c3fac62c62
-- digest: sha256:0cba235ebca44d7b3206f81d5ff8fb77a55d44340e8c91880ef708f0d657257d
+  newTag: d8663f4bfc8de9ee753d97df82ef228dc3984a2b
+- digest: sha256:ef47dd0db85fbbe15f1d03c21c3c96a73cc864a4c51ddeb47781c7523558b263
   name: ghcr.io/teamslot-app/web
   newName: ghcr.io/teamslot-app/web
-  newTag: 043ac7ffb1674e88a0cf71942a339358a852de16
+  newTag: e9e1dc54fb6e49a5b709b16fe3819d98c8e7c327
 # SCRUM-99 : copie les tags d'image déployés dans le Job smoke-test (affichés dans ses logs)
 replacements:
 - path: smoke-test-versions.yaml

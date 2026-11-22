@@ -72,6 +72,11 @@ attendu 200 "connexion de l'ami"
 ami=$(champ "$corps" accessToken)
 [ -n "$orga" ] && [ -n "$ami" ] && [ -n "$ami_id" ] || { echoue "jetons ou id de l'ami absents : arrêt"; fin; }
 
+echo "== 1b. Liste des terrains (SCRUM-138) =="
+appel GET "/api/v1/venues?size=50" "$orga"
+attendu 200 "liste des terrains publiés"
+if printf '%s' "$corps" | grep -q "\"id\":\"$TERRAIN\""; then reussi "le terrain de démo apparaît dans la liste"; else echoue "terrain de démo absent de GET /api/v1/venues"; fi
+
 echo "== 2. Créneau libre (terrain de démo, jours J+1 à J+7) =="
 creneau=""
 j=1
