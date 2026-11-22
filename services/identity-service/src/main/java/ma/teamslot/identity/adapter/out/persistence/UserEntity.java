@@ -102,6 +102,11 @@ public class UserEntity {
     public void marquerEmailVerifie() {
         this.emailVerified = true;
     }
+
+    /** SCRUM-95 : seul le surnom se modifie depuis le profil ; ProfilService le nettoie et le valide avant. */
+    public void changerSurnom(String surnom) {
+        this.displayName = surnom;
+    }
     public Instant getManagerRequestedAt() { return managerRequestedAt; }
 
 }
