@@ -35,7 +35,18 @@ Sans le secret `notification-smtp`, l'envoi est **désactivé** : le service dé
 
    `--dry-run=client` : rien n'est envoyé au cluster, le Secret en clair n'existe que dans le tuyau vers `kubeseal`.
 4. Vérifier qu'il n'y a rien en clair : `grep -cE "brevo|@|BEGIN" deploy/k8s/overlays/staging/sealed-secrets/notification-smtp.yaml` doit afficher **0**.
-5. Ajouter `- sealed-secrets/notification-smtp.yaml` dans `deploy/k8s/overlays/staging/kustomization.yaml`, puis PR, relecture (Amira) et fusion : Argo CD crée le secret, et notification-service redémarre avec l'envoi activé.
+5. Ajouter `- sealed-secrets/notification-smtp.yaml` dans `deploy/k8s/overlays/staging/kustomization.yaml`, et changer la date de l'annotation `teamslot.ma/notification-smtp` dans `deploy/k8s/base/notification-service.yaml`. Puis PR, relecture (Amira) et fusion : Argo CD crée le secret, et le changement d'annotation redémarre notification-service, qui lit alors les nouvelles variables. Sans ce changement, le pod garderait les anciennes valeurs jusqu'à son prochain redémarrage.
+
+## État au 22/11 (SCRUM-134)
+
+- Compte Brevo de l'équipe sur l'**offre gratuite** (aucune carte bancaire), double authentification activée.
+- Expéditeur vérifié : une **adresse Gmail** de l'équipe, provisoire. Clé SMTP `teamslot-staging`, la seule clé active.
+- Secret scellé : `deploy/k8s/overlays/staging/sealed-secrets/notification-smtp.yaml`.
+
+**Risques acceptés pour le staging** (à revoir avant la production) :
+
+- **Expéditeur sur un domaine gratuit** (`gmail.com`) : il ne peut pas être authentifié (DKIM, DMARC) pour Brevo. Les e-mails peuvent donc arriver en **spam**, en particulier avec les exigences de Google, Yahoo et Microsoft pour les expéditeurs. En production, il faudra un domaine à l'équipe, authentifié dans Brevo.
+- **Clé SMTP sans restriction d'adresse IP** : Brevo permet de n'accepter la clé que depuis des IP autorisées, mais l'adresse publique du PC qui héberge le staging change. Avec un serveur à IP fixe, il faudra l'activer.
 
 ## Vérifier en staging
 
