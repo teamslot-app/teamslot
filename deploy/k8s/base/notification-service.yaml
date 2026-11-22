@@ -45,6 +45,39 @@ spec:
               value: "kafka:9092"
             - name: JWT_JWK_SET_URI
               value: "http://identity-service/.well-known/jwks.json"
+            # SCRUM-134 : relais SMTP (Brevo en staging). Tout vient du secret notification-smtp, facultatif :
+            # sans ce secret, SMTP_HOST est vide et l'envoi d'e-mails reste désactivé (aucune erreur au démarrage).
+            # Création du secret : docs/email-staging.md. Jamais de valeur en clair dans le dépôt.
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: notification-smtp
+                  key: SMTP_HOST
+                  optional: true
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: notification-smtp
+                  key: SMTP_PORT
+                  optional: true
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: notification-smtp
+                  key: SMTP_USER
+                  optional: true
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: notification-smtp
+                  key: SMTP_PASSWORD
+                  optional: true
+            - name: EMAIL_EXPEDITEUR
+              valueFrom:
+                secretKeyRef:
+                  name: notification-smtp
+                  key: EMAIL_EXPEDITEUR
+                  optional: true
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
