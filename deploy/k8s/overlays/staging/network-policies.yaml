@@ -310,7 +310,9 @@ spec:
 
 ---
 # notification-service (SCRUM-128, SCRUM-81) : appelé par la passerelle seulement (Mes notifications) ;
-# parle à PostgreSQL, Kafka et au JWKS d'identity ; aucune sortie vers Internet
+# parle à PostgreSQL, Kafka et au JWKS d'identity.
+# SCRUM-134 : seule sortie vers Internet, le relais SMTP (Brevo, port 587 avec STARTTLS). Les adresses de Brevo
+# changent : on autorise le port 587 vers Internet, jamais vers les réseaux privés (cluster, PC, tailnet Tailscale).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: {name: notification-service}
@@ -327,6 +329,11 @@ spec:
     ports: [{port: 9092}]
   - to: [{podSelector: {matchLabels: {app: identity-service}}}]
     ports: [{port: 8083}]
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8]
+    ports: [{port: 587, protocol: TCP}]
 ---
 # SCRUM-148 : plateforme joueur (sans Ingress, testée par port-forward) -> passerelle pour /api/
 apiVersion: networking.k8s.io/v1
