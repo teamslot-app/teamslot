@@ -90,6 +90,27 @@ public final class AuthErrors {
         }
     }
 
+    /** SCRUM-82 : texte de recherche refusé (400) : 3 à 40 caractères. Le message ne contient jamais ce texte. */
+    public static final class InvalidSearch extends RuntimeException {
+        public InvalidSearch(String message) {
+            super(message);
+        }
+    }
+
+    /** SCRUM-82 : trop de recherches de joueurs pour ce compte (429) ; secondes à attendre (en-tête Retry-After). */
+    public static final class TooManySearches extends RuntimeException {
+        private final long retryAfterSeconds;
+
+        public TooManySearches(long retryAfterSeconds) {
+            super("too many searches");
+            this.retryAfterSeconds = retryAfterSeconds;
+        }
+
+        public long retryAfterSeconds() {
+            return retryAfterSeconds;
+        }
+    }
+
     /** 5 essais déjà faits pour ce code (429) : il faut en demander un nouveau. */
     public static final class TooManyAttempts extends RuntimeException {
         public TooManyAttempts() {

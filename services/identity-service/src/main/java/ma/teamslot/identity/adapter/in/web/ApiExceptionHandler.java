@@ -3,8 +3,10 @@ package ma.teamslot.identity.adapter.in.web;
 import java.net.URI;
 
 import ma.teamslot.identity.application.AuthErrors;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -89,6 +91,20 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(AuthErrors.InvalidProfile.class)
     ProblemDetail invalidProfile(AuthErrors.InvalidProfile e) {
         return problem(HttpStatus.BAD_REQUEST, "invalid-profile", "Profil invalide", e.getMessage());
+    }
+
+    @ExceptionHandler(AuthErrors.InvalidSearch.class)
+    ProblemDetail invalidSearch(AuthErrors.InvalidSearch e) {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-search", "Recherche invalide", e.getMessage());
+    }
+
+    @ExceptionHandler(AuthErrors.TooManySearches.class)
+    ResponseEntity<ProblemDetail> tooManySearches(AuthErrors.TooManySearches e) {
+        long attente = e.retryAfterSeconds();
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(attente))
+                .body(problem(HttpStatus.TOO_MANY_REQUESTS, "too-many-searches", "Trop de recherches",
+                        "Trop de recherches en peu de temps. Réessaie dans " + attente + " secondes."));
     }
 
     private static ProblemDetail problem(HttpStatus status, String type, String title, String detail) {
