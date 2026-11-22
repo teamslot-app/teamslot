@@ -1,11 +1,14 @@
 package ma.teamslot.identity.adapter.in.web;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import ma.teamslot.identity.adapter.out.persistence.UserEntity;
 import ma.teamslot.identity.application.AuthErrors;
 import ma.teamslot.identity.application.ProfilService;
+import ma.teamslot.identity.application.RechercheJoueursService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,9 +17,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** SCRUM-95 — contrat docs/api/identity.yaml : getMe et updateMe. Jeton exigé (SecuriteConfig). */
+/** SCRUM-95 et SCRUM-82 — contrat docs/api/identity.yaml : getMe, updateMe, searchUsers. Jeton exigé (SecuriteConfig). */
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
@@ -25,9 +29,31 @@ public class UserController {
     private static final Set<String> MODIFIABLES = Set.of("displayName");
 
     private final ProfilService profil;
+    private final RechercheJoueursService recherche;
 
-    public UserController(ProfilService profil) {
+    public UserController(ProfilService profil, RechercheJoueursService recherche) {
         this.profil = profil;
+        this.recherche = recherche;
+    }
+
+    /**
+     * SCRUM-82 : chercher un joueur par le début de son surnom, pour l'inviter. Réponse minimale (UserSummary) :
+     * identifiant et surnom seulement, jamais le téléphone ni l'e-mail. Limitée à 30 recherches par minute et par compte.
+     */
+    @GetMapping
+    public ResponseEntity<List<UserSummary>> chercher(@RequestParam(name = "displayName", required = false) String displayName,
+                                                      @AuthenticationPrincipal Jwt jeton) {
+        List<UserSummary> trouves = recherche.chercher(appelant(jeton), displayName).stream()
+                .map(UserSummary::from)
+                .toList();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(trouves);
+    }
+
+    /** Schéma UserSummary du contrat : deux champs, rien d'autre ne sort. */
+    public record UserSummary(UUID id, String displayName) {
+        static UserSummary from(UserEntity user) {
+            return new UserSummary(user.getId(), user.getDisplayName());
+        }
     }
 
     @GetMapping("/me")
