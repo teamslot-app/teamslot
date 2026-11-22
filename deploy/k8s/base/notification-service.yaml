@@ -16,6 +16,11 @@ spec:
     metadata:
       labels:
         app: notification-service
+      annotations:
+        # Un Secret lu en variables d'environnement n'est relu qu'au démarrage du pod. Changer cette valeur
+        # (par PR) redémarre notification-service par GitOps, sans action manuelle dans le cluster.
+        # A modifier à chaque création ou rotation du secret notification-smtp (docs/email-staging.md).
+        teamslot.ma/notification-smtp: "2026-11-22"
     spec:
       securityContext:
         runAsNonRoot: true
