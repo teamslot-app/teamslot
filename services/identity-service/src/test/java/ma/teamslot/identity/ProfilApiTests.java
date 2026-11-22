@@ -77,10 +77,11 @@ class ProfilApiTests {
 
         assertThat(reponse.statusCode()).isEqualTo(200);
         Map<String, Object> profil = json(reponse);
-        assertThat(profil).containsEntry("id", compte.id());
-        assertThat(profil).containsEntry("phone", compte.phone());
-        assertThat(profil).containsEntry("displayName", "Yassir");
-        assertThat(profil).containsEntry("platformRole", "PLAYER");
+        assertThat(profil)
+                .containsEntry("id", compte.id())
+                .containsEntry("phone", compte.phone())
+                .containsEntry("displayName", "Yassir")
+                .containsEntry("platformRole", "PLAYER");
         assertThat(reponse.body()).doesNotContain(PASSWORD).doesNotContainIgnoringCase("password").doesNotContain("$2");
         assertThat(reponse.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
     }
@@ -129,10 +130,11 @@ class ProfilApiTests {
         }
 
         Map<String, Object> profil = json(appel("GET", "/api/v1/users/me", compte.jeton(), null));
-        assertThat(profil).containsEntry("displayName", "Yassir");
-        assertThat(profil).containsEntry("platformRole", "PLAYER");
-        assertThat(profil).containsEntry("managerStatus", "NONE");
-        assertThat(profil).containsEntry("phone", compte.phone());
+        assertThat(profil)
+                .containsEntry("displayName", "Yassir")
+                .containsEntry("platformRole", "PLAYER")
+                .containsEntry("managerStatus", "NONE")
+                .containsEntry("phone", compte.phone());
     }
 
     @Test
