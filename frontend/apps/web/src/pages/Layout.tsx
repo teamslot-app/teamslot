@@ -8,7 +8,7 @@ export default function Layout() {
     <>
       <header>
         <Link to="/">TeamSlot</Link> <Link to="/mes-matchs">Mes matchs</Link>{' '}
-        <Link to="/matchs-ouverts">Matchs ouverts</Link>
+        <Link to="/matchs-ouverts">Matchs ouverts</Link> <Link to="/profil">Mon profil</Link>
         <button type="button" onClick={seDeconnecter}>
           Se déconnecter
         </button>
