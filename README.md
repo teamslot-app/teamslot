@@ -68,6 +68,7 @@ Valables pour tous les services. En cas de doute, `services/service-template` fa
 | team-service | 8084 |
 | payment-service | 8085 |
 | notification-service | 8086 |
+| Mailpit (e-mails reçus en local, docker-compose) | 8025 |
 | front (Vite / nginx dans compose) | 5173 / 3000 |
 
 `service-template` écoute aussi sur 8081 mais ne tourne qu'en conteneur (modèle et démo). Dans Docker et Kubernetes, chaque conteneur a son propre réseau : les doublons ne comptent que pour les lancements depuis l'IDE.

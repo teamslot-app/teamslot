@@ -3,6 +3,7 @@ package ma.teamslot.notification.adapter.out.email;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import ma.teamslot.notification.application.EnvoiEmail;
 import ma.teamslot.notification.application.EnvoiEmailImpossibleException;
 import ma.teamslot.notification.domain.EmailDeVerification;
@@ -60,7 +61,8 @@ class SmtpEnvoiEmail implements EnvoiEmail {
             aide.setFrom(expediteur);
             aide.setTo(email.destinataire());
             aide.setSubject(EmailDeVerification.SUJET);
-            aide.setText(email.texte(), email.html());
+            Instant maintenant = Instant.now();
+            aide.setText(email.texte(maintenant), email.html(maintenant));
             smtp.send(message);
         } catch (MailException | MessagingException e) {
             // Seulement le type de l'erreur : son message peut contenir l'adresse du destinataire
