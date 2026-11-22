@@ -7,6 +7,7 @@ services:
       TEMPLATE_DB_PASSWORD: ${DB_PASSWORD:?à définir dans deploy/.env}
       VENUE_DB_PASSWORD: ${VENUE_DB_PASSWORD:?à définir dans deploy/.env}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?à définir dans deploy/.env}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?à définir dans deploy/.env}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -82,6 +83,7 @@ services:
       VENUE_URL: http://venue-service:8081
       MATCH_URL: http://match-service:8082
       PAYMENT_URL: http://payment-service:8085
+      NOTIFICATION_URL: http://notification-service:8086
       JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
     ports:
       - "8080:8080"
@@ -91,6 +93,7 @@ services:
       - venue-service
       - match-service
       - payment-service
+      - notification-service
 
   identity-service:
     build:
@@ -158,6 +161,36 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+
+  # SCRUM-128, SCRUM-81, SCRUM-134 : notifications dans l'application et e-mail de vérification (vers Mailpit)
+  notification-service:
+    build:
+      context: ..
+      dockerfile: services/notification-service/Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/notification
+      DB_USER: notification_user
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?à définir dans deploy/.env}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      JWT_JWK_SET_URI: http://identity-service:8083/.well-known/jwks.json
+      # Mailpit : faux serveur SMTP local, aucun e-mail ne sort vers Internet (ni authentification, ni TLS)
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_AUTH: "false"
+      SMTP_STARTTLS: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  # SCRUM-134 : boîte e-mail de test. Les e-mails envoyés en local se lisent sur http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.33.1 # SCRUM-84 : à épingler par empreinte sha256
+    ports:
+      - "127.0.0.1:8025:8025"
 
   web:
     build:
