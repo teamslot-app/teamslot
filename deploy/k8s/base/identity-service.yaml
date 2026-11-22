@@ -64,20 +64,31 @@ spec:
             limits:
               cpu: "1"
               memory: 768Mi
+          # Sondes (remarque d'Amira, 22/11 : échecs de sondes et redémarrage à 19:01, gateway en 500).
+          # Même modèle que notification-service (#231) : sans timeoutSeconds, Kubernetes n'attend qu'1 s,
+          # trop court pendant le démarrage ou une pause du ramasse-miettes. startupProbe couvre le démarrage
+          # (jusqu'à 2 min) ; tant qu'elle n'a pas réussi, readiness et liveness ne sont pas appliquées.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8083
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
               port: 8083
-            initialDelaySeconds: 40
             periodSeconds: 10
+            timeoutSeconds: 3
             failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8083
-            initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 6
+            timeoutSeconds: 3
+            failureThreshold: 4
       volumes:
         - name: tmp
           emptyDir: {}
