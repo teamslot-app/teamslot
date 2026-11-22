@@ -7,6 +7,7 @@ import Layout from './pages/Layout'
 import MatchsOuverts from './pages/MatchsOuverts'
 import MesMatchs from './pages/MesMatchs'
 import PageMatch from './pages/PageMatch'
+import Profil from './pages/Profil'
 import Reservation from './pages/Reservation'
 import Terrains from './pages/Terrains'
 
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/matchs/:matchId" element={<PageMatch />} />
         <Route path="/matchs-ouverts" element={<MatchsOuverts />} />
         <Route path="/mes-matchs" element={<MesMatchs />} />
+        <Route path="/profil" element={<Profil />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
