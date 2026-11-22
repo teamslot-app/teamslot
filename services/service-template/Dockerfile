@@ -19,7 +19,7 @@ COPY services/service-template/src services/service-template/src
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl services/service-template -am package -DskipTests
 
-FROM eclipse-temurin:21-jre-alpine@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474
+FROM eclipse-temurin:21-jre-alpine@sha256:5d7689f47d670aca766b9503a70bccc2d73b4eb9221ae8f714ae958313c4ce70
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/service-template/target/*.jar app.jar
