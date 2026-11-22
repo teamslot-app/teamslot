@@ -1,8 +1,7 @@
 package ma.teamslot.notification.domain;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -16,8 +15,6 @@ public record EmailDeVerification(UUID userId, String destinataire, String nomAf
 
     public static final String SUJET = "Ton code TeamSlot";
     private static final Pattern FORMAT_CODE = Pattern.compile("\\d{6}");
-    private static final ZoneId MAROC = ZoneId.of("Africa/Casablanca");
-    private static final DateTimeFormatter HEURE = DateTimeFormatter.ofPattern("HH:mm");
 
     public EmailDeVerification {
         Objects.requireNonNull(userId, "userId");
@@ -35,35 +32,42 @@ public record EmailDeVerification(UUID userId, String destinataire, String nomAf
         return !expireA.isAfter(instant);
     }
 
-    /** Heure d'expiration, à l'heure du Maroc, ex. « 14:20 ». */
-    public String heureLimite() {
-        return HEURE.format(expireA.atZone(MAROC));
+    /**
+     * Durée de validité restante, ex. « 15 minutes ». On n'écrit volontairement PAS une heure (« jusqu'à 14:20 ») :
+     * le fuseau Africa/Casablanca a changé le 20/09/2026 (UTC+0, tzdata 2026c) et une JVM aux données de fuseau
+     * plus anciennes afficherait une heure fausse d'une heure (constaté en local le 15/11). Une durée ne dépend
+     * d'aucun fuseau.
+     */
+    public String dureeRestante(Instant maintenant) {
+        long secondes = Math.max(0, Duration.between(maintenant, expireA).toSeconds());
+        long minutes = Math.max(1, (secondes + 59) / 60);
+        return minutes == 1 ? "1 minute" : minutes + " minutes";
     }
 
-    public String texte() {
+    public String texte(Instant maintenant) {
         return """
                 Bonjour %s,
 
                 Ton code de vérification TeamSlot est : %s
 
-                Il est valable jusqu'à %s (heure du Maroc). Saisis-le dans l'application pour activer ton compte.
+                Il est valable %s. Saisis-le dans l'application pour activer ton compte.
 
                 Si tu n'as pas créé de compte TeamSlot, ignore ce message : personne ne pourra utiliser ton adresse sans ce code.
-                """.formatted(nomAffiche, code, heureLimite());
+                """.formatted(nomAffiche, code, dureeRestante(maintenant));
     }
 
     /** Version HTML : le nom affiché vient de l'utilisateur, il est échappé (pas d'injection de HTML). */
-    public String html() {
+    public String html(Instant maintenant) {
         return """
                 <!DOCTYPE html>
                 <html lang="fr"><body style="font-family: Arial, sans-serif; color: #1f2933">
                 <p>Bonjour %s,</p>
                 <p>Ton code de vérification TeamSlot est :</p>
                 <p style="font-size: 32px; font-weight: bold; letter-spacing: 6px">%s</p>
-                <p>Il est valable jusqu'à <strong>%s</strong> (heure du Maroc). Saisis-le dans l'application pour activer ton compte.</p>
+                <p>Il est valable <strong>%s</strong>. Saisis-le dans l'application pour activer ton compte.</p>
                 <p style="color: #616e7c">Si tu n'as pas créé de compte TeamSlot, ignore ce message : personne ne pourra utiliser ton adresse sans ce code.</p>
                 </body></html>
-                """.formatted(echapper(nomAffiche), code, heureLimite());
+                """.formatted(echapper(nomAffiche), code, dureeRestante(maintenant));
     }
 
     static String echapper(String texte) {
