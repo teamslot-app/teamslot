@@ -28,7 +28,9 @@ class EmailDeVerificationTests {
 
     @Test
     void un_code_qui_n_a_pas_six_chiffres_est_refuse() {
-        assertThatThrownBy(() -> new EmailDeVerification(UUID.randomUUID(), "a@example.com", "A", "12ab56", ENVOI))
+        // Sonar S5778 : un seul appel qui peut lever une exception dans le lambda (l'identifiant est créé avant)
+        UUID compte = UUID.randomUUID();
+        assertThatThrownBy(() -> new EmailDeVerification(compte, "a@example.com", "A", "12ab56", ENVOI))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
