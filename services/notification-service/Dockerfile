@@ -20,9 +20,6 @@ RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl services/notification-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine@sha256:5d7689f47d670aca766b9503a70bccc2d73b4eb9221ae8f714ae958313c4ce70
-# CVE-2026-109908 (libfontenc, HIGH) : corrigé en 1.1.10-r0, absent de l image de base épinglée. Provisoire,
-# comme venue-service (#248) : à retirer avec la prochaine empreinte de l image de base.
-RUN apk upgrade --no-cache libfontenc
 RUN addgroup -S -g 101 app && adduser -S -u 100 -G app app
 WORKDIR /app
 COPY --from=build /app/services/notification-service/target/*.jar app.jar
