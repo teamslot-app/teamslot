@@ -21,10 +21,10 @@ resources:
 - sealed-secrets/redis-auth.yaml
 - sealed-secrets/staging-tls.yaml
 images:
-- digest: sha256:5b4339d64d89eb5bda886a517a6a83a493e0cc490fbea4d28f7e7f73aae9a9f6
+- digest: sha256:1cf4c1a963552a8e9c234037d3058e36931d2b778413bcea0386a16ec921cf42
   name: ghcr.io/teamslot-app/gateway
   newName: ghcr.io/teamslot-app/gateway
-  newTag: 4897322927cf7ef5777630583f8eb016a75b0461
+  newTag: 1b079c3c13a69c23bfa139609be4593f45cc5d4b
 - digest: sha256:d7da7acdf892d2217b61c7d97dfa82fc9b2388513356f47014be86c9e8fe2646
   name: ghcr.io/teamslot-app/identity-service
   newName: ghcr.io/teamslot-app/identity-service
