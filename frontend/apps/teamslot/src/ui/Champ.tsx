@@ -9,7 +9,7 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'id' | 'className'> & {
 }
 
 export const CLASSE_SAISIE =
-  'min-h-12 rounded-[3px] border bg-maillot/70 px-4 text-base text-creme [color-scheme:dark] placeholder:text-sauge/60 focus:border-creme focus:outline-none'
+  'min-h-12 rounded-[3px] border bg-nuit/70 px-4 text-base text-papier [color-scheme:dark] placeholder:text-sauge/60 focus:border-papier focus:outline-none'
 
 /**
  * Un champ de formulaire : libellé visible au-dessus (jamais seulement un placeholder), aide et erreur reliées
@@ -24,7 +24,7 @@ export default function Champ({ libelle, aide, erreur, type = 'text', ...reste }
   const decrit = [aide ? idAide : null, erreur ? idErreur : null].filter(Boolean).join(' ') || undefined
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-semibold text-creme">
+      <label htmlFor={id} className="text-sm font-semibold text-papier">
         {libelle}
       </label>
       <div className="relative">
@@ -42,7 +42,7 @@ export default function Champ({ libelle, aide, erreur, type = 'text', ...reste }
             onClick={() => setVisible((v) => !v)}
             aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
             aria-pressed={visible}
-            className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-sauge hover:text-creme focus-visible:text-creme"
+            className="absolute inset-y-0 right-0 flex min-w-12 items-center justify-center text-sauge hover:text-papier focus-visible:text-papier"
           >
             <Oeil barre={visible} />
           </button>

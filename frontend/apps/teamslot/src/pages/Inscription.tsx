@@ -93,13 +93,13 @@ export default function Inscription() {
       bas={
         <>
           Déjà un compte ?{' '}
-          <Link to="/connexion" className="lien-brassard">
+          <Link to="/connexion" className="lien-secondaire">
             Se connecter
           </Link>
           {URL_PLATEFORME_GERANT && (
             <span className="mt-3 block">
               Tu gères un terrain ?{' '}
-              <a href={URL_PLATEFORME_GERANT} className="lien-brassard">
+              <a href={URL_PLATEFORME_GERANT} className="lien-secondaire">
                 Inscris-le sur TeamSlot Gérant
               </a>
             </span>
@@ -167,7 +167,7 @@ export default function Inscription() {
           onChange={(e) => setConfirmation(e.target.value)}
         />
         {erreur && <Alerte>{erreur}</Alerte>}
-        <button type="submit" disabled={enCours} className="brassard mt-2 self-start disabled:opacity-60">
+        <button type="submit" disabled={enCours} className="bouton-principal mt-2 self-start disabled:opacity-60">
           {enCours ? 'Création…' : 'Créer mon compte'}
         </button>
       </form>

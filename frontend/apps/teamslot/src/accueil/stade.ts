@@ -30,7 +30,7 @@ export function textureMarquage(stade: Stade, largeurCage: number): CanvasTextur
     const w = canvas.width
     const h = canvas.height
     // bandes de tonte : l'herbe couchée dans l'autre sens paraît plus sombre
-    ctx.fillStyle = jeton('maillot').getStyle()
+    ctx.fillStyle = jeton('tonte-sombre').getStyle()
     ctx.globalAlpha = 0.16
     const bande = 1.6 * k
     for (let y = 0, i = 0; y < h; y += bande, i++) if (i % 2) ctx.fillRect(0, y, w, bande)

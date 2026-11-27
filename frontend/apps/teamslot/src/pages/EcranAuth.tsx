@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Logo from '../ui/Logo'
 
 /**
- * Cadre des écrans Connexion et Inscription : le formulaire à gauche sur le vert du maillot, et à droite
+ * Cadre des écrans Connexion et Inscription : le formulaire à gauche sur le vert nuit, et à droite
  * (sur ordinateur) la photo du terrain de l'accueil. Image légère (webp), pas de 3D : on vient pour se connecter.
  */
 export default function EcranAuth({
@@ -22,12 +22,12 @@ export default function EcranAuth({
       <div className="flex flex-col px-6 py-6 sm:px-12">
         <Logo />
         <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-creme">{titre}</h1>
+          <h1 className="text-4xl leading-tight font-extrabold tracking-tight text-papier">{titre}</h1>
           <p className="mt-2 text-sauge">{sousTitre}</p>
           <div className="mt-8">{children}</div>
           <p className="mt-8 text-sauge">{bas}</p>
         </main>
-        <Link to="/" className="lien-brassard self-start text-sm">
+        <Link to="/" className="lien-secondaire self-start text-sm">
           Retour à l'accueil
         </Link>
       </div>
@@ -37,7 +37,7 @@ export default function EcranAuth({
           alt=""
           className="absolute inset-0 size-full object-cover object-[70%_50%]"
         />
-        <div className="absolute inset-0 bg-linear-to-r from-maillot to-transparent to-35%" />
+        <div className="absolute inset-0 bg-linear-to-r from-nuit to-transparent to-35%" />
       </div>
     </div>
   )

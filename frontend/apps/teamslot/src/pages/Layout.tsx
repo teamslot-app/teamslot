@@ -3,7 +3,7 @@ import { useAuth } from '../auth/useAuth'
 import Logo from '../ui/Logo'
 
 const lien = ({ isActive }: { isActive: boolean }) =>
-  `inline-flex min-h-11 items-center font-semibold ${isActive ? 'text-creme underline decoration-rouge-vif decoration-3 underline-offset-8' : 'text-sauge hover:text-creme'}`
+  `inline-flex min-h-11 items-center font-semibold ${isActive ? 'text-papier underline decoration-citron decoration-3 underline-offset-8' : 'text-sauge hover:text-papier'}`
 
 /** Cadre des pages réservées aux utilisateurs connectés. */
 export default function Layout() {
@@ -23,7 +23,7 @@ export default function Layout() {
             <button
               type="button"
               onClick={seDeconnecter}
-              className="inline-flex min-h-11 items-center font-semibold text-sauge hover:text-creme"
+              className="inline-flex min-h-11 items-center font-semibold text-sauge hover:text-papier"
             >
               Se déconnecter
             </button>

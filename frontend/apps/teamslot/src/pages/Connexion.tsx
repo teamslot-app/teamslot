@@ -46,7 +46,7 @@ export default function Connexion() {
       bas={
         <>
           Pas encore de compte ?{' '}
-          <Link to="/inscription" className="lien-brassard">
+          <Link to="/inscription" className="lien-secondaire">
             Créer un compte
           </Link>
         </>
@@ -75,7 +75,7 @@ export default function Connexion() {
         />
         {info && !erreur && <Info>{info}</Info>}
         {erreur && <Alerte>{erreur}</Alerte>}
-        <button type="submit" disabled={enCours} className="brassard mt-2 self-start disabled:opacity-60">
+        <button type="submit" disabled={enCours} className="bouton-principal mt-2 self-start disabled:opacity-60">
           {enCours ? 'Connexion…' : 'Se connecter'}
         </button>
       </form>
