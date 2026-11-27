@@ -21,7 +21,7 @@ export default function ChampTelephone({ pays, onPays, numero, onNumero, erreur 
   const bordure = erreur ? 'border-alerte' : 'border-sauge/35 hover:border-sauge/60'
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={`${id}-numero`} className="text-sm font-semibold text-creme">
+      <label htmlFor={`${id}-numero`} className="text-sm font-semibold text-papier">
         Téléphone
       </label>
       <div className="flex gap-2">

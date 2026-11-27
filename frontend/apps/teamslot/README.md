@@ -1,7 +1,7 @@
 # Nouveau front TeamSlot (`apps/teamslot`)
 
-Front repris de zéro, thème **« Lions de l'Atlas »** : les couleurs du Maroc, vert profond et rouge du maillot, sans
-blanc dans l'interface. Sur l'accueil, un terrain de quartier en 3D éclairé de nuit (projecteurs, ombres, grillage), une cage
+Front repris de zéro, thème **« Terrain de nuit »** (maquette Figma) : fond vert nuit, action en citron vert,
+titres couleur papier. Sur l'accueil, un terrain de quartier en 3D éclairé de nuit (projecteurs, ombres, grillage), une cage
 et un vrai ballon qu'on attrape et qu'on tire
 (panneaux aux noms des villes du Maroc) : un but affiche « BUT ! » et fait monter le score. Il est construit **à côté** de `apps/web`, qui reste
 le front déployé en staging tant que celui-ci n'a pas toutes les pages. Ensuite, on bascule l'image `web`
@@ -9,8 +9,8 @@ sur ce dossier et on supprime `apps/web`.
 
 Stack inchangée : React + TypeScript + Vite, React Router, client d'API généré `@teamslot/shared`
 (alias, comme dans `apps/web`). En plus : **Tailwind CSS 4** (jetons du thème dans `src/index.css`), les
-police **Schibsted Grotesk** (une seule famille, moderne et sobre), auto-hébergées
-(`@fontsource/…`), et
+polices **Manrope** (titres) et **DM Sans** (texte), auto-hébergées (`@fontsource-variable/…`, licence OFL ;
+les mots en italique passent en Georgia, police système), et
 **three.js + React Three Fiber** pour le ballon (chargés seulement sur l'accueil) : rien n'est chargé depuis un autre site, ce
 qu'exige la CSP de production (`default-src 'self'`).
 
@@ -49,14 +49,14 @@ restrictive ne doit y entrer. Une nouvelle image : vérifier sa licence **avant*
 
 ## Boutons (`src/index.css`)
 
-- `.brassard` : action principale, brassard de capitaine rouge en biais avec le « C », qui se soulève au
-  survol et s'enfonce à l'appui ; léger effet aimant sur ordinateur (`useAimant`, inspiré des Magnetic
+- `.bouton-principal` : action principale de la maquette Figma, pastille citron avec une flèche, qui se soulève
+  au survol et s'enfonce à l'appui ; léger effet aimant sur ordinateur (`useAimant`, inspiré des Magnetic
   Buttons de Codrops).
-- `.lien-brassard` : action secondaire, un trait rouge se trace sous le texte au survol.
+- `.lien-secondaire` : action secondaire, un trait citron se trace sous le texte au survol.
 
 ## Règles (vérifiées par `src/gardeFou.test.ts`)
 
-- Couleurs : uniquement les jetons du thème (`bg-nuit`, `text-craie`, `bg-gazon`…), jamais de `#hex`.
+- Couleurs : uniquement les jetons du thème (`bg-nuit`, `text-papier`, `bg-citron`…), jamais de `#hex`.
 - Pas de `style={…}`, pas de `dangerouslySetInnerHTML`, pas d'URL externe.
 - Aucun accès à `localStorage`, `sessionStorage` ou aux cookies : les jetons restent en mémoire.
 - Contraste AA (4,5:1) : les valeurs mesurées sont notées à côté des jetons.

@@ -79,7 +79,7 @@ export default function VerificationEmail() {
           : 'Dernière étape avant ton premier match.'
       }
       bas={
-        <Link to="/connexion" className="lien-brassard">
+        <Link to="/connexion" className="lien-secondaire">
           Retour à la connexion
         </Link>
       }
@@ -110,14 +110,14 @@ export default function VerificationEmail() {
         />
         {erreur && <Alerte>{erreur}</Alerte>}
         {info && <Info>{info}</Info>}
-        <button type="submit" disabled={enCours} className="brassard mt-2 self-start disabled:opacity-60">
+        <button type="submit" disabled={enCours} className="bouton-principal mt-2 self-start disabled:opacity-60">
           {enCours ? 'Vérification…' : 'Vérifier'}
         </button>
         <button
           type="button"
           onClick={renvoyer}
           disabled={attente > 0}
-          className="self-start text-sm font-semibold text-sauge underline-offset-4 hover:text-creme hover:underline disabled:no-underline disabled:opacity-60"
+          className="self-start text-sm font-semibold text-sauge underline-offset-4 hover:text-papier hover:underline disabled:no-underline disabled:opacity-60"
         >
           {attente > 0 ? `Renvoyer le code (dans ${attente} s)` : 'Renvoyer le code'}
         </button>
